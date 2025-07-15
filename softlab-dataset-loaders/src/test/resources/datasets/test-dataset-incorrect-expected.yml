@@ -1,0 +1,9 @@
+test.test_table:
+  - int_column_pk: 1
+    text_column: "Alice"
+    bool_column: false
+    long_column: -1
+  - int_column_pk: 2
+    text_column: "Bob"
+    bool_column: false
+    long_column: -1

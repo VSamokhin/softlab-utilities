@@ -1,0 +1,14 @@
+plugins {
+    id 'groovy-gradle-plugin'
+}
+
+repositories {
+    gradlePluginPortal()
+}
+
+// To make some of the plugins available from the convention plugins
+// I have to reference them as dependencies
+dependencies {
+    implementation 'org.jetbrains.kotlin:kotlin-gradle-plugin:_'
+    implementation 'io.gitlab.arturbosch.detekt:detekt-gradle-plugin:_'
+}

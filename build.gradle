@@ -1,0 +1,9 @@
+plugins {
+    id 'org.shipkit.shipkit-auto-version'
+}
+
+group = 'org.softlab'
+
+tasks.register('projectVersion') {
+        println project.version
+}

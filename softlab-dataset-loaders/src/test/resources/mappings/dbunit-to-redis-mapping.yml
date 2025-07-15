@@ -1,0 +1,9 @@
+tables:
+  - table: test.test_table
+    sets:
+      - key:
+        member: ${int_column_pk}
+    hashes:
+      - key: test.test_table:${int_column_pk}
+        field:
+        value:

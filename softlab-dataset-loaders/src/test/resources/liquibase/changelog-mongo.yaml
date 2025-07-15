@@ -1,0 +1,54 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: Viktor Samokhin
+      changes:
+        - createCollection:
+            collectionName: test.test_table
+            options: |
+              {
+                validator:  {
+                  $jsonSchema:  {
+                    bsonType: "object",
+                    required: [ "int_column_pk", "text_column" ],
+                    properties: {
+                      int_column_pk:  {
+                        bsonType: "int",
+                        description: "must be an integer and is required"
+                      },  
+                      double_column:  {
+                        bsonType: [ "double", "null" ],
+                        description: "can be a double or null"
+                      }
+                      text_column:  {
+                        bsonType: "string",
+                        description: "must be a string and is required"
+                      }
+                      bin_column:  {
+                        bsonType: [ "binData", "null" ],
+                        description: "can be binary or null"
+                      }
+                      bool_column: {
+                        bsonType: [ "bool", "null" ],
+                        description: "can be boolean or null"
+                      }
+                      timestamp_column: {
+                        bsonType: [ "date", "null" ],
+                        description: "can be a date or null"
+                      }
+                      long_column: {
+                        bsonType: [ "long", "null" ],
+                        description: "can be a long or null"
+                      }
+                    }
+                  }
+                }
+              }
+  - changeSet:
+      id: 2
+      author: Viktor Samokhin
+      changes:
+        - createIndex:
+            collectionName: test.test_table
+            keys: '{ int_column_pk: 1 }'
+            options: '{ name: "int_column_pk_index", unique: true }'

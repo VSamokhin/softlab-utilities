@@ -1,0 +1,60 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm'
+    id 'io.gitlab.arturbosch.detekt'
+    id 'jacoco'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
+    implementation 'io.github.oshai:kotlin-logging-jvm:_'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:_'
+    testImplementation 'org.junit.jupiter:junit-jupiter-params'
+    testImplementation 'org.hamcrest:hamcrest:_'
+}
+
+test {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport, jacocoTestCoverageVerification
+}
+
+kotlin {
+    jvmToolchain(21)
+}
+
+detekt {
+    config.setFrom('../etc/detekt/detekt-config.yml')
+    buildUponDefaultConfig = true
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+ext.jacocoVerification = { task, minInstructionCoverage, maxMissedClasses ->
+    configure(task) {
+        violationRules {
+            rule {
+                limit {
+                    counter = 'INSTRUCTION'
+                    value = 'COVEREDRATIO'
+                    minimum = minInstructionCoverage
+                }
+                limit {
+                    counter = 'CLASS'
+                    value = 'MISSEDCOUNT'
+                    maximum = maxMissedClasses
+                }
+            }
+        }
+    }
+}

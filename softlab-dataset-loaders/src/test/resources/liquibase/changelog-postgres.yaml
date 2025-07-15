@@ -1,0 +1,47 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: Viktor Samokhin
+      sql:
+        - "CREATE SCHEMA IF NOT EXISTS test;"
+      changes:
+        - createTable:
+            tableName: test_table
+            schemaName: test
+            columns:
+              - column:
+                  name: int_column_pk
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: double_column
+                  type: double precision
+                  constraints:
+                    nullable: true
+              - column:
+                  name: text_column
+                  type: text
+                  constraints:
+                    nullable: false
+              - column:
+                  name: bin_column
+                  type: bytea
+                  constraints:
+                    nullable: true
+              - column:
+                  name: bool_column
+                  type: boolean
+                  constraints:
+                    nullable: true
+              - column:
+                  name: timestamp_column
+                  type: timestamp
+                  constraints:
+                    nullable: true
+              - column:
+                  name: long_column
+                  type: bigint
+                  constraints:
+                    nullable: true

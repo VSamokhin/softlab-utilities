@@ -1,0 +1,11 @@
+test.test_table:
+  - int_column_pk: 1
+    double_column: 123.456789
+    text_column: "Alice"
+    bin_column: YSBzbWFsbCBicm93biBmb3gganVtcHMgb3ZlciB0aGUgbGF6eSBkb2c=
+    bool_column: true
+    timestamp_column: 2023-10-01T12:00:00Z
+    long_column: 1234567890123456789
+  - int_column_pk: 2
+    text_column: "Bob"
+    bool_column: true
