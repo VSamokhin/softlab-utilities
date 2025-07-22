@@ -103,7 +103,7 @@ class MongoYamlDatasetLoaderTest {
         val exception = assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-collection-does-not-exist.yml")
         }
-        assertThat(exception.message, containsString("test.non_existent_collection"))
+        assertThat(exception.message, containsString("test.nonexistent_collection"))
     }
 
     @Test
@@ -112,7 +112,7 @@ class MongoYamlDatasetLoaderTest {
         val exception = assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-field-does-not-exist.yml")
         }
-        assertThat(exception.message, containsString("non_existent_column"))
+        assertThat(exception.message, containsString("nonexistent_column"))
     }
 
     @Test
@@ -140,12 +140,12 @@ class MongoYamlDatasetLoaderTest {
     fun `load() should throw exception for collection with not supported type`() {
         val cut = MongoYamlDatasetLoader(mongoDb)
         val exception = assertThrows<IllegalStateException> {
-            cut.load("datasets/test-dataset-mongo-collection-with-not-supported-type.yml")
+            cut.load("datasets/test-dataset-mongo-collection-with-unsupported-type.yml")
         }
         assertThat(
             exception.message, allOf(
                 containsString("decimal"),
-                containsString("not_supported_type_column"))
+                containsString("unsupported_type_column"))
         )
     }
 }

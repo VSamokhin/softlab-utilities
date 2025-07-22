@@ -1,2 +1,2 @@
-test.non_existent_collection:
+test.nonexistent_collection:
   - some_column: 12345

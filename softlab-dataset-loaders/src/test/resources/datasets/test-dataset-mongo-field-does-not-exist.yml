@@ -1,2 +1,2 @@
 test.test_table:
-  - non_existent_column: 12345
+  - nonexistent_column: 12345

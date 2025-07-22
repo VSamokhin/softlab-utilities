@@ -83,15 +83,15 @@ databaseChangeLog:
                 }
               }
         - createCollection:
-            collectionName: test.collection_with_not_supported_type
+            collectionName: test.collection_with_unsupported_type
             options: |
               {
                 validator: {
                   $jsonSchema: {
                     bsonType: "object",
-                    required: [ "not_supported_type_column" ],
+                    required: [ "unsupported_type_column" ],
                     properties: {
-                      not_supported_type_column: {
+                      unsupported_type_column: {
                         bsonType: "decimal"
                       }
                     }
