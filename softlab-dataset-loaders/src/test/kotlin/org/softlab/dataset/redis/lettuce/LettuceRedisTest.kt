@@ -43,34 +43,62 @@ class LettuceRedisTest {
     }
 
     @Test
-    fun `hashSet() and deleteAllKeys should work correctly`() {
+    fun `hashSet() should set fields and values to the hash`() {
         val cut = LettuceRedis(redisConnection)
 
         val key = "testKey"
-        val entries = mapOf("field1" to "value1", "field2" to "value2")
-        cut.hashSet(key, entries)
+        val expectedEntries = mapOf("field1" to "value1", "field2" to "value2")
+
+        cut.hashSet(key, expectedEntries)
 
         val actual = redisConnection.sync().hgetall(key)
-        assertEquals(entries.size, actual.size)
-        assertThat(actual.keys, containsInAnyOrder(*entries.keys.toTypedArray()))
-        assertThat(actual.values, containsInAnyOrder(*entries.values.toTypedArray()))
+        assertEquals(expectedEntries.size, actual.size)
+        assertThat(
+            actual.keys,
+            containsInAnyOrder(*expectedEntries.keys.toTypedArray())
+        )
+        assertThat(
+            actual.values,
+            containsInAnyOrder(*expectedEntries.values.toTypedArray())
+        )
     }
 
     @Test
-    fun `deleteAllKeys() should work correctly`() {
+    fun `flushDb() should clean up all the data`() {
         val cut = LettuceRedis(redisConnection)
 
         val commands = redisConnection.sync()
 
-        val key = "testKey"
-        val entries = mapOf("field1" to "value1", "field2" to "value2")
-        commands.hset(key, entries)
-
-        assertTrue(commands.hgetall(key).isNotEmpty())
+        val hashKey = "hashKey"
+        commands.hset(hashKey, mapOf("field1" to "value1", "field2" to "value2"))
+        assertTrue(commands.hgetall(hashKey).isNotEmpty())
+        val setKey = "setKey"
+        commands.sadd(setKey, "member1", "member2", "member3")
+        assertTrue(commands.smembers(setKey).isNotEmpty())
 
         cut.flushDb()
 
-        assertTrue(commands.hgetall(key).isEmpty())
+        assertTrue(commands.hgetall(hashKey).isEmpty())
+        assertTrue(commands.smembers(setKey).isEmpty())
+    }
+
+    @Test
+    fun `setAdd() should add all members to the set correctly`() {
+        val cut = LettuceRedis(redisConnection)
+
+        val key = "testSetKey"
+        val expectedMembers = setOf("member1", "member2", "member3")
+
+        cut.setAdd(key, expectedMembers)
+
+        val actualMembers = redisConnection.sync().smembers(key)
+        assertEquals(
+            expectedMembers.size,
+            actualMembers.size
+        )
+        assertThat(
+            actualMembers,
+            containsInAnyOrder(*expectedMembers.toTypedArray())
+        )
     }
 }
-

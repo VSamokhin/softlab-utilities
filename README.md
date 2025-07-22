@@ -31,7 +31,7 @@ Because this operation is not as trivial as others, and it needs an additional Y
 
 1. The source data is saved to Redis hash and set as strings, for binary arrays or BLOBs it is thus converted into Base64 strings.
 2. The main issue the aforementioned mapping aims to solve is how to transform a table where every row shares the same set of fields
-to Redis hashes and/or sets where every field in the hash must be unique, namely must have a unique name.
+to Redis hashes and/or sets where every key of any structure and every field in the same hash must be unique, namely must have a unique name.
 3. Every source dataset table is processed row-by-row, accordingly the `hashws` and `sets` section of the mapping defines 
 what comes to Redis in the context of a single source row.
 
