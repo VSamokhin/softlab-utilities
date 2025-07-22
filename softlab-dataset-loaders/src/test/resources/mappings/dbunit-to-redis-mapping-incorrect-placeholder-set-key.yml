@@ -1,0 +1,5 @@
+tables:
+  - table: test.test_table
+    sets:
+      - key: ${whatever_set_key}
+        member: ${text_column}

@@ -1,0 +1,5 @@
+tables:
+  - table: test.test_table
+    sets:
+      - key:
+        member: ${text_column}_member_not_allowed

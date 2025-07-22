@@ -1,0 +1,6 @@
+tables:
+  - table: test.test_table
+    hashes:
+      - key: test.test_table:${int_column_pk}
+        field:
+        value: ${text_column}_value_not_allowed

@@ -1,0 +1,5 @@
+# This dataset references a table not present in the mapping file
+nonexistent_table:
+  - id: 1
+    value: "should fail"
+

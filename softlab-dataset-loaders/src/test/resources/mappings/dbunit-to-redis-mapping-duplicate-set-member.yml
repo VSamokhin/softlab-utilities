@@ -1,0 +1,5 @@
+tables:
+  - table: test.test_table
+    sets:
+      - key: bool_column
+        member: ${bool_column}

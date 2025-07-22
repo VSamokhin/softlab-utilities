@@ -29,5 +29,5 @@ dependencies {
 }
 
 jacocoTestCoverageVerification {
-    jacocoVerification(it, 0.89, 1)
+    jacocoVerification(it, 0.95, 1)
 }

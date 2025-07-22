@@ -1,0 +1,6 @@
+tables:
+  - table: test.test_table
+    hashes:
+      - key: test.test_table:${int_column_pk}
+        field: duplicate_field
+        value:

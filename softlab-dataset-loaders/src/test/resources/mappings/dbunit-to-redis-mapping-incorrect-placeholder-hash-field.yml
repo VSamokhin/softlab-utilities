@@ -1,0 +1,6 @@
+tables:
+  - table: test.test_table
+    hashes:
+      - key:
+        field: ${whatever_hash_field}
+        value: ${text_column}

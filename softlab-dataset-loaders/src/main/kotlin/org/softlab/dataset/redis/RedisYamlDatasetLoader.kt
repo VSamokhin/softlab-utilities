@@ -53,15 +53,15 @@ class RedisYamlDatasetLoader(
             val matchedTable = mappings.tables.firstOrNull() { it.table == table.key }
             if (matchedTable != null) {
                 mapTable(table.value, matchedTable, cleanBefore)
-            } else {
-                error("Could not find corresponding mapping for table: ${table.key}")
-            }
+            } else error(
+                "Could not find corresponding mapping for table: ${table.key}"
+            )
         }
     }
 
     private fun mapTable(rows: List<Map<String, Any>>, mappings: Table, cleanBefore: Boolean) {
         // Not the most efficient way memory-wise, but this approach helps to avoid silently overwriting existing values
-        // when a non-unique combination of key/field or key appears
+        // when a non-unique combination of key-field in hash or member in set appears
         val hashes = linkedMapOf<String, LinkedHashMap<String, String>>()
         val sets = linkedMapOf<String, LinkedHashSet<String>>()
         // For every source record
@@ -84,6 +84,15 @@ class RedisYamlDatasetLoader(
         }
     }
 
+    private fun prepareValue(value: String): List<String> {
+        val matcher = VALUE_PLACEHOLDER.matcher(value)
+        if (matcher.matches()) {
+            return listOf(matcher.group(1))
+        } else error(
+            "Value must either be empty or contain a single column placeholder, but was: $value"
+        )
+    }
+
     private fun seedHash(
         row: Map<String, Any>,
         hash: Hash,
@@ -91,17 +100,18 @@ class RedisYamlDatasetLoader(
         results: LinkedHashMap<String, LinkedHashMap<String, String>>
     ) {
         val key = hash.key?.let { evalAll(it, row) } ?: table
-        val columns = hash.value?.let { listOf(evalOne(it)) } ?: row.keys.toList() // All columns
-        // Iterate through all columns
+        val field = hash.field?.let { evalAll(it, row) }
+        val columns = hash.value?.let { prepareValue(it) } ?: row.keys.toList() // Or all columns
+        // Iterate through columns
         columns.forEach { column ->
-            val field = hash.field?.let { evalAll(it, row) } ?: column
+            val fieldName = field ?: column
             val value: Any? = row[column]
             if (value != null) {
                 val previousValue =
                     results.computeIfAbsent(key) { _ -> linkedMapOf() }
-                        .put(field, asString(value))
+                        .put(fieldName, asString(value))
                 check(previousValue == null) {
-                    "Duplicate key/field found, please assure the mapping is correct: $key/$field"
+                    "Duplicate field found in hash, please assure the mapping is correct: $key/$fieldName"
                 }
             }
         }
@@ -114,7 +124,7 @@ class RedisYamlDatasetLoader(
         results: LinkedHashMap<String, LinkedHashSet<String>>
     ) {
         val key = set.key?.let { evalAll(it, row) } ?: table
-        val columns = set.member?.let { listOf(evalOne(it)) } ?: row.keys.toList() // All columns
+        val columns = set.member?.let { prepareValue(it) } ?: row.keys.toList() // All columns
         // Iterate through all columns
         columns.forEach { column ->
             val member: Any? = row[column]
@@ -124,22 +134,10 @@ class RedisYamlDatasetLoader(
                     results.computeIfAbsent(key) { _ -> linkedSetOf() }
                         .add(strMember)
                 check(added) {
-                    "Duplicate key/member found, please assure the mapping is correct: $key/$strMember"
+                    "Duplicate member found in set, please assure the mapping is correct: $key/$strMember"
                 }
             }
         }
-    }
-
-    private fun evalOne(template: String): String {
-        val matcher = VALUE_PLACEHOLDER.matcher(template)
-        var result = template
-        if (matcher.find()) {
-            result = matcher.group(1)
-        }
-        check(!matcher.find()) {
-            "Only one placeholder is expected, but: $template"
-        }
-        return result
     }
 
     private fun evalAll(template: String, values: Map<String, Any>): String {

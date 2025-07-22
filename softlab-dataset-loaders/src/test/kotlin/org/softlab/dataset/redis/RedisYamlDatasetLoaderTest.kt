@@ -3,11 +3,15 @@ package org.softlab.dataset.redis
 import com.redis.testcontainers.RedisContainer
 import io.lettuce.core.RedisClient
 import io.lettuce.core.api.StatefulRedisConnection
+import org.hamcrest.CoreMatchers.allOf
+import org.hamcrest.CoreMatchers.containsString
+import org.hamcrest.MatcherAssert.assertThat
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertIterableEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.redis.lettuce.LettuceRedis
 import org.testcontainers.utility.DockerImageName
 import java.lang.Thread.sleep
@@ -73,5 +77,120 @@ class RedisYamlDatasetLoaderTest {
         assertEquals("Bob", row2["text_column"])
         assertEquals("true", row2["bool_column"])
     }
-}
 
+    @Test
+    fun `load() should throw exception for table not in mapping`() {
+        val cut = RedisYamlDatasetLoader(
+            LettuceRedis(redisConnection),
+            "mappings/dbunit-to-redis-mapping.yml"
+        )
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset-redis-table-not-in-mapping.yml")
+        }
+        assertThat(exception.message, containsString("nonexistent_table"))
+    }
+
+    @Test
+    fun `load() should throw exception on duplicate field in hash`() {
+        val cut = RedisYamlDatasetLoader(
+            LettuceRedis(redisConnection),
+            "mappings/dbunit-to-redis-mapping-duplicate-hash-field.yml"
+        )
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset.yml")
+        }
+        assertThat(
+            exception.message, allOf(
+                containsString("field"),
+                containsString("hash"),
+                containsString("test.test_table:1/duplicate_field"))
+        )
+    }
+
+    @Test
+    fun `load() should throw exception on duplicate member in set`() {
+        val cut = RedisYamlDatasetLoader(
+            LettuceRedis(redisConnection),
+            "mappings/dbunit-to-redis-mapping-duplicate-set-member.yml"
+        )
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset.yml")
+        }
+        assertThat(
+            exception.message, allOf(
+                containsString("member"),
+                containsString("set"),
+                containsString("bool_column/true"))
+        )
+    }
+
+    @Test
+    fun `load() should throw exception on wrong value content`() {
+        val cut = RedisYamlDatasetLoader(
+            LettuceRedis(redisConnection),
+            "mappings/dbunit-to-redis-mapping-wrong-value.yml"
+        )
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset.yml")
+        }
+        assertThat(
+            exception.message, containsString($$"${text_column}_value_not_allowed")
+        )
+    }
+
+    @Test
+    fun `load() should throw exception on wrong member content`() {
+        val cut = RedisYamlDatasetLoader(
+            LettuceRedis(redisConnection),
+            "mappings/dbunit-to-redis-mapping-wrong-member.yml"
+        )
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset.yml")
+        }
+        assertThat(
+            exception.message, containsString($$"${text_column}_member_not_allowed")
+        )
+    }
+
+    @Test
+    fun `load() should throw exception on incorrect placeholder in hash key`() {
+        val cut = RedisYamlDatasetLoader(
+            LettuceRedis(redisConnection),
+            "mappings/dbunit-to-redis-mapping-incorrect-placeholder-hash-key.yml"
+        )
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset.yml")
+        }
+        assertThat(
+            exception.message, containsString("whatever_hash_key")
+        )
+    }
+
+    @Test
+    fun `load() should throw exception on incorrect placeholder in hash field`() {
+        val cut = RedisYamlDatasetLoader(
+            LettuceRedis(redisConnection),
+            "mappings/dbunit-to-redis-mapping-incorrect-placeholder-hash-field.yml"
+        )
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset.yml")
+        }
+        assertThat(
+            exception.message, containsString("whatever_hash_field")
+        )
+    }
+
+    @Test
+    fun `load() should throw exception on incorrect placeholder in set key`() {
+        val cut = RedisYamlDatasetLoader(
+            LettuceRedis(redisConnection),
+            "mappings/dbunit-to-redis-mapping-incorrect-placeholder-set-key.yml"
+        )
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset.yml")
+        }
+        assertThat(
+            exception.message, containsString("whatever_set_key")
+        )
+    }
+}
