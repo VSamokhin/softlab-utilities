@@ -57,10 +57,11 @@ class MongoYamlDatasetLoader(
         val collectionDefinitions = mongoDb.mapCollections()
         dataset.entries.forEach { table ->
             val collectionName = table.key
+            logger.info { "Loading dataset for collection: $collectionName" }
             val collection = mongoDb.getCollection(collectionName)
             if (cleanBefore) collection.deleteAll()
             val collectionDefinition = checkNotNull(collectionDefinitions[collectionName]) {
-                "Collection does not exist: $collectionName"
+                "Collection does not exist in the database: $collectionName"
             }
             val fieldTypes = listFieldTypes(collectionDefinition)
             table.value.asSequence()
@@ -85,7 +86,7 @@ class MongoYamlDatasetLoader(
             ?.get("properties", Document::class.java)
             ?.entries
             ?.associate { it.key to ((it.value as Document).get("bsonType"))!! }
-            ?: error("Could not list types for collection: $collectionInfo")
+            ?: error("Could not retrieve validator options for collection: $collectionInfo")
 
     private fun asBsonDocument(fields: Map<String, Any>, fieldTypes: Map<String, Any>): BsonDocument =
         fields.entries.map { field ->
@@ -95,6 +96,9 @@ class MongoYamlDatasetLoader(
             BsonElement(field.key, value)
         }.let { BsonDocument(it) }
 
+    /**
+     * See [BSON Types](https://www.mongodb.com/docs/manual/reference/bson-types/)
+     */
     @Suppress("MagicNumber")
     private fun convertValue(field: Map.Entry<String, Any>, fieldType: Any): BsonValue =
         when (fieldType) {

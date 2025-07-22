@@ -1,0 +1,2 @@
+test.collection_with_not_supported_type:
+  - not_supported_type_column: 1.23

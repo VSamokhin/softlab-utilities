@@ -9,10 +9,14 @@ import liquibase.ext.mongodb.database.MongoLiquibaseDatabase
 import liquibase.resource.ClassLoaderResourceAccessor
 import org.bson.Document
 import org.bson.types.Binary
+import org.hamcrest.CoreMatchers.allOf
+import org.hamcrest.CoreMatchers.containsString
+import org.hamcrest.MatcherAssert.assertThat
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.mongo.coroutine.CoroutineMongoDatabase
 import org.testcontainers.containers.MongoDBContainer
 import java.time.ZonedDateTime
@@ -91,5 +95,57 @@ class MongoYamlDatasetLoaderTest {
         assertEquals(4, bob.size) // 3 fields + _id
         assertEquals(2, bob["int_column_pk"])
         assertEquals(true, bob["bool_column"])
+    }
+
+    @Test
+    fun `load() should throw exception for non existent collection`() {
+        val cut = MongoYamlDatasetLoader(mongoDb)
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset-mongo-collection-does-not-exist.yml")
+        }
+        assertThat(exception.message, containsString("test.non_existent_collection"))
+    }
+
+    @Test
+    fun `load() should throw exception for non existent field`() {
+        val cut = MongoYamlDatasetLoader(mongoDb)
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset-mongo-field-does-not-exist.yml")
+        }
+        assertThat(exception.message, containsString("non_existent_column"))
+    }
+
+    @Test
+    fun `load() should throw exception for collection without validator`() {
+        val cut = MongoYamlDatasetLoader(mongoDb)
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset-mongo-collection-without-validator.yml")
+        }
+        assertThat(
+            exception.message, allOf(
+            containsString("validator"),
+            containsString("test.collection_without_validator"))
+        )
+    }
+
+    @Test
+    fun `load() should throw exception for collection with incorrect type`() {
+        val cut = MongoYamlDatasetLoader(mongoDb)
+        assertThrows<IllegalArgumentException> {
+            cut.load("datasets/test-dataset-mongo-collection-with-incorrect-type.yml")
+        }
+    }
+
+    @Test
+    fun `load() should throw exception for collection with not supported type`() {
+        val cut = MongoYamlDatasetLoader(mongoDb)
+        val exception = assertThrows<IllegalStateException> {
+            cut.load("datasets/test-dataset-mongo-collection-with-not-supported-type.yml")
+        }
+        assertThat(
+            exception.message, allOf(
+                containsString("decimal"),
+                containsString("not_supported_type_column"))
+        )
     }
 }

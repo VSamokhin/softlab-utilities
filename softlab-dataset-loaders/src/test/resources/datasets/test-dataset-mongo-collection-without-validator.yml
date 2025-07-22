@@ -1,0 +1,2 @@
+test.collection_without_validator:
+  - some_column: "value"

@@ -1,0 +1,2 @@
+test.collection_with_incorrect_type:
+  - incorrect_type_column: 12345
