@@ -30,6 +30,9 @@ import java.io.File
 typealias YamlTablesRows = Map<String, List<Map<String, Any>>>
 
 abstract class YamlDatasetLoading : DatasetLoader {
+    companion object {
+        protected val YAML_MAPPER: ObjectMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
+    }
     protected abstract val logger: KLogger
 
     protected abstract fun loadImpl(dataset: YamlTablesRows, cleanBefore: Boolean)
@@ -47,8 +50,5 @@ abstract class YamlDatasetLoading : DatasetLoader {
         return File(fileUrl.toURI()).readText()
     }
 
-    protected inline fun <reified T> String.yamlAsObject(): T {
-        val yamlMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
-        return yamlMapper.readValue<T>(this)
-    }
+    protected inline fun <reified T> String.yamlAsObject(): T = YAML_MAPPER.readValue<T>(this)
 }

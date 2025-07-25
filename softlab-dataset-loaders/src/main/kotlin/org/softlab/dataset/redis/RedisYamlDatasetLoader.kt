@@ -31,13 +31,13 @@ class RedisYamlDatasetLoader(
     private val mappingsFile: String
 ) : YamlDatasetLoading() {
 
-    data class Mappings(val tables: List<Table>)
+    private data class Mappings(val tables: List<Table>)
 
-    data class Table(val table: String, val hashes: List<Hash>?, val sets: List<Set>?)
+    private data class Table(val table: String, val hashes: List<Hash>?, val sets: List<Set>?)
 
-    data class Hash(val key: String?, val field: String?, val value: String?)
+    private data class Hash(val key: String?, val field: String?, val value: String?)
 
-    data class Set(val key: String?, val member: String?)
+    private data class Set(val key: String?, val member: String?)
 
     companion object {
         private val VALUE_PLACEHOLDER: Pattern = "\\$\\{([A-Za-z0-9@_-]+)\\}".toPattern()
