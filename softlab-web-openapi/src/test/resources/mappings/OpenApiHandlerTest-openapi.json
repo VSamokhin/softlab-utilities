@@ -1,0 +1,128 @@
+{
+  "request": {
+    "urlPath": "/openapi.json",
+    "method": "GET"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "transformers": ["response-template"],
+    "jsonBody": {
+      "servers": [
+        {
+          "url": "{{request.baseUrl}}"
+        }
+      ],
+      "paths": {
+        "/test-get-query": {
+          "get": {
+            "operationId": "testGetQuery",
+            "parameters": [
+              {
+                "name": "queryParam1",
+                "required": true,
+                "in": "query",
+                "schema": {
+                  "type": "text"
+                }
+              }
+            ]
+          }
+        },
+        "/test-get-path/{pathParam1}": {
+          "get": {
+            "operationId": "testGetPath",
+            "parameters": [
+              {
+                "name": "pathParam1",
+                "in": "path",
+                "schema": {
+                  "type": "text"
+                }
+              }
+            ]
+          }
+        },
+        "/test-post-body": {
+          "post": {
+            "operationId": "testPostBody",
+            "requestBody": {
+              "required": true,
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "string"
+                  }
+                },
+                "text": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/test-get-header": {
+          "get": {
+            "operationId": "testGetHeader",
+            "parameters":  [
+              {
+                "name": "header1",
+                "required": true,
+                "in": "header",
+                "schema": {
+                  "type": "text"
+                }
+              }
+            ]
+          }
+        },
+        "/abc/test-get-query-optional": {
+          "get": {
+            "operationId": "testGetQueryOptional",
+            "parameters": [
+              {
+                "name": "queryParam1",
+                "in": "query",
+                "schema": {
+                  "type": "text"
+                }
+              }
+            ]
+          }
+        },
+        "/abc/test-post-body-optional": {
+          "post": {
+            "operationId": "testPostBodyOptional",
+            "requestBody": {
+              "content": {
+                "text/plain": {
+                  "schema": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/abc/test-get-header-optional": {
+          "get": {
+            "operationId": "testGetHeaderOptional",
+            "parameters":  [
+              {
+                "name": "header1",
+                "in": "header",
+                "schema": {
+                  "type": "text"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

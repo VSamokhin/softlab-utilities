@@ -1,4 +1,0 @@
-complexity:
-  NestedBlockDepth:
-    active: true
-    threshold: 6

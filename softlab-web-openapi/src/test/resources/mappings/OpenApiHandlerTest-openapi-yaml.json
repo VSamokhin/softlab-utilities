@@ -1,0 +1,14 @@
+{
+    "request": {
+        "method": "GET",
+        "urlPattern": "/openapi.yaml|/openapi.yml"
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Content-Type": "application/yaml"
+        },
+        "bodyFileName": "OpenApiHandlerTest-openapi.yaml"
+    }
+}
+

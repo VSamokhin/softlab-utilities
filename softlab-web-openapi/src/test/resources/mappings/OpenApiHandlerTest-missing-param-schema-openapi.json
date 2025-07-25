@@ -1,0 +1,33 @@
+{
+    "request": {
+        "method": "GET",
+        "urlPath": "/missing-param-schema-openapi.json"
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "paths": {
+                "/test": {
+                    "get": {
+                        "operationId": "getTest",
+                        "parameters": [
+                            {
+                                "name": "param1",
+                                "in": "query"
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "Success"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

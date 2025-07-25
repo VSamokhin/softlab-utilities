@@ -14,7 +14,7 @@ In addition, I use this project as a template for my Gradle-based (Kotlin) proje
 
 # Projects
 
-## Database Seeding with `softlab-dataset-loaders`
+## _softlab-dataset-loaders_ – Database Seeding
 
 The project contains a set of utilities to mimic what DBUnit/DBRider already do, but with No-SQL databases. 
 It may especially be handy to use them in tests for an application which supports multiple database backends, so you can share the same datasets across all of them.
@@ -32,7 +32,7 @@ Because this operation is not as trivial as others, and it needs an additional Y
 1. The source data is saved to Redis hash and set as strings, for binary arrays or BLOBs it is thus converted into Base64 strings.
 2. The main issue the aforementioned mapping aims to solve is how to transform a table where every row shares the same set of fields
 to Redis hashes and/or sets where every key of any structure and every field in the same hash must be unique, namely must have a unique name.
-3. Every source dataset table is processed row-by-row, accordingly the `hashws` and `sets` section of the mapping defines 
+3. Every source dataset table is processed row-by-row, accordingly the `hashes` and `sets` section of the mapping defines 
 what comes to Redis in the context of a single source row.
 
 For a simple table like depicted below there are several different mapping approaches possible, taking into account the following mapping basics:
@@ -83,6 +83,8 @@ tables:
         field:
         value:
 ```
+
+## _softlab-web-openapi_ – Calling RESTful Endpoints Using OpenApi 3.0 Definition
 
 # Build
 

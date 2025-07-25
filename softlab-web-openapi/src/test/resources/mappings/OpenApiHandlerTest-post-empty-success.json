@@ -1,0 +1,20 @@
+{
+  "request": {
+    "urlPath": "/abc/test-post-body-optional",
+    "headers": {
+      "Content-Type": {
+        "equalTo": "text/plain"
+      }
+    },
+    "method": "POST"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "testPostBodyOptional": "success"
+    }
+  }
+}

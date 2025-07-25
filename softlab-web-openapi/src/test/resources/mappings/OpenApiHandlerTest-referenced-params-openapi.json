@@ -1,0 +1,43 @@
+{
+    "request": {
+        "method": "GET",
+        "urlPath": "/referenced-params-openapi.json"
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "paths": {
+                "/test": {
+                    "get": {
+                        "operationId": "getTest",
+                        "parameters": [
+                            {
+                                "$ref": "#/components/parameters/TestParam"
+                            }
+                        ],
+                        "responses": {
+                            "200": {
+                                "description": "Success"
+                            }
+                        }
+                    }
+                }
+            },
+            "components": {
+                "parameters": {
+                    "TestParam": {
+                        "name": "param1",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+

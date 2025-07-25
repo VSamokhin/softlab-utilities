@@ -1,0 +1,22 @@
+plugins {
+    id 'java-library'
+    id 'basic-kotlin-setup'
+}
+
+dependencies {
+    implementation 'org.http4k:http4k-core:_'
+    implementation 'org.http4k:http4k-format-jackson:_'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:_'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:_'
+
+    testImplementation 'com.marcinziolo:kotlin-wiremock:_'
+    testImplementation 'com.jayway.jsonpath:json-path-assert:_'
+    testImplementation 'org.http4k:http4k-client-apache:_'
+    testImplementation('io.mockk:mockk:_') {
+        exclude group: 'org.junit.jupiter', module: '*'
+    }
+}
+
+jacocoTestCoverageVerification {
+    jacocoVerification(it, 0.95, 0)
+}

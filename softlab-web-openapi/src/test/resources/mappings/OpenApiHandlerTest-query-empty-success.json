@@ -1,0 +1,15 @@
+{
+  "request": {
+    "urlPathPattern": "/abc/test-get-query-optional",
+    "method": "GET"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "testGetQueryOptional": "success"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "request": {
+    "urlPath": "/empty-openapi.json",
+    "method": "GET"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "transformers": ["response-template"],
+    "jsonBody": {
+      "servers": [
+        {
+          "url": "{{request.baseUrl}}"
+        }
+      ]
+    }
+  }
+}

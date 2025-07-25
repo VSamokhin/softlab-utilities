@@ -1,0 +1,20 @@
+{
+  "request": {
+    "urlPathPattern": "/test-get-query",
+    "queryParameters": {
+      "queryParam1": {
+        "equalTo": "value1"
+      }
+    },
+    "method": "GET"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "testGetQuery": "success"
+    }
+  }
+}

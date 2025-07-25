@@ -1,0 +1,29 @@
+{
+    "request": {
+        "method": "GET",
+        "urlPath": "/missing-body-content-openapi.json"
+    },
+    "response": {
+        "status": 200,
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "jsonBody": {
+            "paths": {
+                "/test": {
+                    "post": {
+                        "operationId": "postTest",
+                        "requestBody": {
+                            "required": true
+                        },
+                        "responses": {
+                            "200": {
+                                "description": "Success"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

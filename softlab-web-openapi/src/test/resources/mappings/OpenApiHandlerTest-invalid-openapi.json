@@ -1,0 +1,52 @@
+{
+  "request": {
+    "urlPath": "/invalid-openapi.json",
+    "method": "GET"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "transformers": ["response-template"],
+    "jsonBody": {
+      "servers": [
+        {
+          "url": "{{request.baseUrl}}"
+        }
+      ],
+      "paths": {
+        "/test1": {
+          "get": {
+            "operationId": "getTest",
+            "parameters": [
+              {
+                "name": "param1",
+                "required": true,
+                "in": "query",
+                "schema": {
+                  "type": "text"
+                }
+              }
+            ]
+          }
+        },
+        "/test2": {
+          "get": {
+            "operationId": "getTest",
+            "parameters": [
+              {
+                "name": "param2",
+                "required": true,
+                "in": "query",
+                "schema": {
+                  "type": "text"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

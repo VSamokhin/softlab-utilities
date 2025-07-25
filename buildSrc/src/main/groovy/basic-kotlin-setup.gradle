@@ -12,8 +12,7 @@ dependencies {
     implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
     implementation 'io.github.oshai:kotlin-logging-jvm:_'
 
-    testImplementation 'org.junit.jupiter:junit-jupiter:_'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test'
     testImplementation 'org.hamcrest:hamcrest:_'
 }
 
@@ -42,6 +41,7 @@ jacocoTestReport {
 
 ext.jacocoVerification = { task, minInstructionCoverage, maxMissedClasses ->
     configure(task) {
+        dependsOn test
         violationRules {
             rule {
                 limit {

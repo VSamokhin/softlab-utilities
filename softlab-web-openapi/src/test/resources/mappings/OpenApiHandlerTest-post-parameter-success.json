@@ -1,0 +1,22 @@
+{
+  "request": {
+    "urlPath": "/test-post-body",
+    "bodyPatterns": [
+      {
+        "equalToJson": "{\"param1\": \"value1\"}"
+      }
+    ],
+    "headers": {
+      "Content-Type": {
+        "equalTo": "application/json"
+      }
+    },
+    "method": "POST"
+  },
+  "response": {
+    "status": 200,
+    "jsonBody": {
+      "answer": "success"
+    }
+  }
+}
