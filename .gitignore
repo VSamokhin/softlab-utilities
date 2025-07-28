@@ -1,5 +1,7 @@
 .github/
 .gradle/
 .idea/
+.vscode/
 .kotlin/
 **/build/
+.DS_Store
