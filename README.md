@@ -84,7 +84,13 @@ tables:
         value:
 ```
 
-## _softlab-web-openapi_ – Calling RESTful Endpoints Using OpenApi 3.0 Definition
+## _softlab-web-openapi_ – Requesting RESTful Endpoints Using OpenApi 3 Definition
+
+The OpenAPI handler allows to load an OpenAPI 3 definition from a URL and request its endpoints by their operation ids (or paths if ids are 
+not provided). The expected request parameters are handled via a wrapper interface, allowing type conversion flexibility with different 
+custom implementations. Both JSON and YAML OpenAPI definition formats are supported. The handler does not do any kind of parameter 
+or response validation, it checks the definition only for those fields it needs for the correct work and for that it follows 
+the OpenApi specification. 
 
 # Build
 
