@@ -264,9 +264,9 @@ class OpenApiHandlerTest {
     }
 
     @Test
-    fun `request() should execute a GET request with PATH parameter from YAML definition`() {
+    fun `request() should execute a GET request by path if operationId is missing`() {
         val cut = OpenApiHandler(httpClient, COMPARATOR).loadDefinition("$url/openapi.yml")
-        val response = cut.request("testGetPath", mapOf("pathParam1" to StringValue("value1") ))
+        val response = cut.request("/test-get-path/{pathParam1}", mapOf("pathParam1" to StringValue("value1") ))
         assertEquals(Status.OK, response.status)
         assertThat(
             response.bodyString(),

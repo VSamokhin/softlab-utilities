@@ -1,16 +1,6 @@
 paths:
   /test-get-path/{pathParam1}:
     get:
-      operationId: testGetPath
-      parameters:
-        - name: pathParam1
-          in: path
-          required: true
-          schema:
-            type: string
-  /test-path-invalid/:
-    get:
-      operationId: getTestPathInvalid
       parameters:
         - name: pathParam1
           in: path
