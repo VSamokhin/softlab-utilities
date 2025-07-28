@@ -43,12 +43,12 @@ import org.softlab.web.util.curl
  * for the correct work. The request body value is always converted to bytes, other values – to strings.
  * Proper parameter conversion is a matter of your knowledge of the backend
  * and correct implementation of [ValueWrapper].
- * @param client the HTTP client to use for making requests, initialize it to handle proper authentication, if any,
- * [using the client filters](https://www.http4k.org/howto/secure_and_auth_http)
+ * @param httpHandler a wrapped HTTP client to use for making requests, initialize it to handle proper authentication,
+ * if any, [using the client filters](https://www.http4k.org/howto/secure_and_auth_http)
  * @param contentTypeComparator a comparator to determine the preferable content type for request bodies
  */
 class OpenApiHandler(
-    val client: HttpHandler,
+    val httpHandler: HttpHandler,
     private val contentTypeComparator: Comparator<Parameter> = ParameterDataTypeComparator(emptyMap())
 ) {
 
@@ -80,8 +80,8 @@ class OpenApiHandler(
 
     fun loadDefinition(url: String, format: String = url.substringAfterLast('.')): OpenApiHandler {
         val definition = when (format.lowercase()) {
-            "json" -> fetchJson(url, client)
-            "yaml", "yml" -> fetchYaml(url, client)
+            "json" -> fetchJson(url, httpHandler)
+            "yaml", "yml" -> fetchYaml(url, httpHandler)
             else -> error("Unsupported OpenAPI definition format: $format")
         }
         serverUrl = definition["servers"]?.get(0)?.get("url")?.textValue() ?: let {
@@ -177,7 +177,7 @@ class OpenApiHandler(
 
         if (outputCurlCommand) logger.info { "Curl: ${request.curl()}" }
         logger.debug { "Calling '$operationId' at ${request.uri}" }
-        return client(request)
+        return httpHandler(request)
     }
 
     private fun parsePathItem(pathNode: Map.Entry<String, JsonNode>): Sequence<Endpoint> = sequence {
