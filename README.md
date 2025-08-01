@@ -94,8 +94,16 @@ the OpenApi specification.
 
 # Build
 
-To build the project, run in its root directory:
+To build and test the project, run in its root directory:
 
 ```
-./gradlew clean build
+./gradlew clean build shadowJar
 ```
+
+# Versioning
+
+The `org.shipkit.shipkit-auto-version` Gradle plugin deduces the build version on each build using available git tags (in the format `v1.2.3`)
+and the pattern defined in `version.properties`. To ensure this workflow functions smoothly:
+* After every successful build, assign the main branch a new tag in the format `v1.2.3`, where the version matches the output of 
+the `./gradlew projectVersion` command
+* Manually update the pattern in `version.properties` to set the new major or minor version.

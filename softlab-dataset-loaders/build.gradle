@@ -1,6 +1,7 @@
 plugins {
-    id 'java-library'
     id 'basic-kotlin-setup'
+    id 'java-library'
+    id 'com.gradleup.shadow'
 }
 
 dependencies {
@@ -26,6 +27,10 @@ dependencies {
     testImplementation 'org.mongodb:mongodb-driver-kotlin-coroutine:_'
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core'
     testImplementation 'io.lettuce:lettuce-core:_'
+}
+
+shadowJar {
+    archiveClassifier = ''
 }
 
 jacocoTestCoverageVerification {
