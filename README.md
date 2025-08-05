@@ -102,8 +102,8 @@ To build and test the project, run in its root directory:
 
 # Versioning
 
-The `org.shipkit.shipkit-auto-version` Gradle plugin deduces the build version on each build using available git tags (in the format `v1.2.3`)
+The `org.shipkit.shipkit-auto-version` Gradle plugin deduces the patch version on each build using available git tags (in the format `v1.2.3`)
 and the pattern defined in `version.properties`. To ensure this workflow functions smoothly:
 * After every successful build, assign the main branch a new tag in the format `v1.2.3`, where the version matches the output of 
 the `./gradlew projectVersion` command
-* Manually update the pattern in `version.properties` to set the new major or minor version.
+* Manually update the pattern in `version.properties` to bump the major or minor version after each release.

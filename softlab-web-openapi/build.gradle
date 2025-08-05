@@ -1,7 +1,6 @@
 plugins {
     id 'basic-kotlin-setup'
-    id 'java-library'
-    id 'com.gradleup.shadow'
+    id 'library-setup'
 }
 
 dependencies {
@@ -16,10 +15,6 @@ dependencies {
     testImplementation('io.mockk:mockk:_') {
         exclude group: 'org.junit.jupiter', module: '*'
     }
-}
-
-shadowJar {
-    archiveClassifier = ''
 }
 
 jacocoTestCoverageVerification {
