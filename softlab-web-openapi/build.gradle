@@ -1,6 +1,7 @@
 plugins {
     id 'basic-kotlin-setup'
     id 'library-setup'
+    id 'publish-package'
 }
 
 dependencies {
