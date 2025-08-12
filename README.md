@@ -18,6 +18,7 @@ In addition, I use this project as a template for my Gradle-based (Kotlin) proje
 
 The project contains a set of utilities to mimic what DBUnit/DBRider already do, but with No-SQL databases. 
 It may especially be handy to use them in tests for an application which supports multiple database backends, so you can share the same datasets across all of them.
+
 Basically, these utilities allow to load DBUnit/YAML datasets into MongoDB and Redis (and a JDBC/SQL database as well). 
 * For Mongo the database schema is transferred almost 1:1 where each dataset table becomes a Mongo collection and each table record becomes a Mongo document.
 * For to work with Redis, you have to supply an additional YAML mapping which is used to transfer the dataset to Redis hashes. This approach have certain /obvious/ limitations, but it does its work with at least simple database schemas.
@@ -86,11 +87,13 @@ tables:
 
 ## _softlab-web-openapi_ – Requesting RESTful Endpoints Using OpenApi 3 Definition
 
-The OpenAPI handler allows to load an OpenAPI 3 definition from a URL and request its endpoints by their operation ids (or paths if ids are 
-not provided). The expected request parameters are handled via a wrapper interface, allowing type conversion flexibility with different 
+This project allows to simplify the process of requesting RESTful endpoints by using their OpenAPI 3 definition. It may save time and effort 
+keeping ready-to-use routine code snippets under the hood, while you can concentrate on writing a business logic.
+
+The OpenAPI handler loads an OpenAPI 3 definition from a URL and requests its endpoints by their operation ids (or paths if ids are 
+not provided). The expected request parameters are handled via a value wrapper interface, allowing type conversion flexibility with different 
 custom implementations. Both JSON and YAML OpenAPI definition formats are supported. The handler does not do any kind of parameter 
-or response validation, it checks the definition only for those fields it needs for the correct work and for that it follows 
-the OpenApi specification. 
+or response validation, it checks the OpenApi definition only for those fields it needs for the correct work. 
 
 # Build
 
@@ -100,7 +103,13 @@ To build and test the project, run in its root directory:
 ./gradlew clean build shadowJar
 ```
 
-# Versioning
+# Branching and Versioning
+
+The single source for releases is the `main` branch, which is protected and requires pull requests for changes.
+The following naming convention is used for branches:
+* `feature/<description>` – for new features and enhancements
+* `bugfix/<description>` – for bug fixes
+* `chore/<description>` – for maintenance tasks, such as tuning CI/CD or updating documentation
 
 The `org.shipkit.shipkit-auto-version` Gradle plugin deduces the patch version on each build using available git tags (in the format `v1.2.3`)
 and the pattern defined in `version.properties`. To ensure this workflow functions smoothly:
