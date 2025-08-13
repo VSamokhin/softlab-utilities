@@ -47,7 +47,10 @@ jobs:
       run: ./gradlew clean build shadowJar
 
     - name: Retrieve Project Version
-      run: echo "PROJECT_VERSION=$(./gradlew -q projectVersion)" >> $GITHUB_ENV
+      run: |
+        VERSION=$(./gradlew -q projectVersion)
+        echo Project version is $VERSION
+        echo "PROJECT_VERSION=$VERSION" >> $GITHUB_ENV
 
     - name: Create Git Tag
       id: create_tag
