@@ -9,6 +9,8 @@ name: Kotlin JVM CI with Gradle
 
 on:
   push:
+    tags-ignore:
+      - '**'
     paths-ignore:
       - '.github/*.yml'
       - '.gitignore'
@@ -31,7 +33,7 @@ jobs:
       uses: actions/checkout@v5
       with:
         fetch-tags: true
-        ref: ${{ github.ref }} # Workaround the problem when it doesn't fetch the latest tags
+        fetch-depth: 0
 
     - name: Set up JDK 21
       uses: actions/setup-java@v4
