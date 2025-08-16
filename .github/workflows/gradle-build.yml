@@ -9,13 +9,19 @@ name: Kotlin JVM CI with Gradle
 
 on:
   push:
-    tags-ignore:
+    branches:
       - '**'
+    tags:
+      - '!**'
     paths-ignore:
       - '.github/*.yml'
       - '.gitignore'
       - '**/*.md'
   pull_request:
+    branches:
+      - '**'
+    tags:
+      - '!**'
     paths-ignore:
       - '.github/*.yml'
       - '.gitignore'
