@@ -4,6 +4,8 @@ plugins {
     id 'publish-package'
 }
 
+description = 'DBUnit/DBRider dataset loaders for NO-SQL databases'
+
 dependencies {
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:_'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:_'

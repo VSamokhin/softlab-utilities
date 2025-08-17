@@ -4,6 +4,8 @@ plugins {
     id 'publish-package'
 }
 
+description = 'Handles RESTful-endpoints using their OpenAPI definition'
+
 dependencies {
     implementation 'org.http4k:http4k-core:_'
     implementation 'org.http4k:http4k-format-jackson:_'
