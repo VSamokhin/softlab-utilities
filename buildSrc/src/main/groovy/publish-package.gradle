@@ -21,8 +21,11 @@ publishing {
     publications {
         gpr(MavenPublication) {
             artifactId = project.name.replaceFirst("softlab-", "")
-            description = project.description
             from components.java
+            pom {
+                name = project.name
+                description = project.description
+            }
         }
     }
 }
