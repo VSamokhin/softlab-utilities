@@ -1,0 +1,33 @@
+plugins {
+    id 'basic-kotlin-setup'
+    id 'application'
+    id 'com.gradleup.shadow'
+    id 'publish-package'
+}
+
+description = 'Pluggable database migration tool'
+
+dependencies {
+    implementation 'com.github.ajalt.clikt:clikt:_'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
+    implementation 'org.postgresql:postgresql:_'
+    implementation 'org.mongodb:mongodb-driver-sync:_'
+
+    testImplementation 'com.jayway.jsonpath:json-path-assert:_'
+    testImplementation('io.mockk:mockk:_') {
+        exclude group: 'org.junit.jupiter', module: '*'
+    }
+}
+
+application {
+    mainClass = 'org.softlab.datatransfer.MainKt'
+}
+
+shadowJar {
+    dependsOn 'distTar', 'distZip'
+    archiveClassifier = ''
+}
+
+//jacocoTestCoverageVerification {
+//    jacocoVerification(it, 0.95, 0)
+//}
