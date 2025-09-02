@@ -1,8 +1,12 @@
 <!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
 
-This is a Kotlin Gradle, multi-module project providing different tools and utilities. 
+This is a Kotlin Gradle, multi-module project providing different tools and utilities.
 
-Organize all Kotlin source files under `src/main/kotlin` of every subproject, according to their package declarations. Place test files under `src/test/kotlin`.
+While answering questions in the 'Ask' mode, please don't use the local project context until explicitly asked to do so.
+
+When asked about project structure, dependencies, or configuration, please refer to the following guidelines:
+
+Organize all Kotlin source files under `src/main/kotlin` of every subproject, according to their package declarations. Place unit test files under `src/test/kotlin` and integration test files under `src/integrationTest/kotlin` accordingly.
 
 This project uses Gradle's convention plugins to share configuration across multiple subprojects, these plugins are located in the `buildSrc/src/main/groovy` directory.
 
