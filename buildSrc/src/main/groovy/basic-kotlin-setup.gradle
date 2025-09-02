@@ -8,6 +8,21 @@ repositories {
     mavenCentral()
 }
 
+sourceSets {
+    // Define the name of the new source set as 'integrationTest'
+    integrationTest {
+        // Includes the compiled main code when compiling integration tests.
+        compileClasspath += sourceSets.main.output
+        // Includes the compiled main code when running integration tests.
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom implementation
+    integrationTestRuntimeOnly.extendsFrom runtimeOnly
+}
+
 dependencies {
     implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
     implementation 'io.github.oshai:kotlin-logging-jvm:_'
@@ -16,9 +31,22 @@ dependencies {
     testImplementation 'org.hamcrest:hamcrest:_'
 }
 
+def jacocoExclusions = []
+
 test {
     useJUnitPlatform()
-    finalizedBy jacocoTestReport, jacocoTestCoverageVerification
+    jacoco {
+        excludes = jacocoExclusions
+    }
+}
+
+tasks.register('integrationTest', Test) {
+    useJUnitPlatform()
+    description = 'Runs the integration tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    shouldRunAfter test
 }
 
 kotlin {
@@ -30,8 +58,20 @@ detekt {
     buildUponDefaultConfig = true
 }
 
+def consolidateJaCoCo = { task ->
+    configure(task) {
+        dependsOn test, integrationTest
+        executionData fileTree(project.layout.buildDirectory).include('jacoco/*.exec')
+        afterEvaluate {
+            classDirectories.setFrom files(classDirectories.files.collect {
+                fileTree(dir: it, exclude: jacocoExclusions)
+            })
+        }
+    }
+}
+
 jacocoTestReport {
-    dependsOn test
+    consolidateJaCoCo(it)
     reports {
         xml.required = true
         html.required = true
@@ -40,8 +80,8 @@ jacocoTestReport {
 }
 
 ext.jacocoVerification = { task, minInstructionCoverage, maxMissedClasses ->
+    consolidateJaCoCo(task)
     configure(task) {
-        dependsOn test
         violationRules {
             rule {
                 limit {
@@ -58,3 +98,6 @@ ext.jacocoVerification = { task, minInstructionCoverage, maxMissedClasses ->
         }
     }
 }
+
+// Trigger JaCoCo checks which depends on both test and integrationTest tasks
+check.dependsOn jacocoTestReport, jacocoTestCoverageVerification
