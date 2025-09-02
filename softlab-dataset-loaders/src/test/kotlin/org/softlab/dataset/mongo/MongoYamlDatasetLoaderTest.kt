@@ -27,7 +27,7 @@ class MongoYamlDatasetLoaderTest {
     companion object {
         private const val DATABASE: String = "testdb"
 
-        val mongoContainer: MongoDBContainer = MongoDBContainer("mongo:latest")
+        private val mongoContainer: MongoDBContainer = MongoDBContainer("mongo:latest")
 
         private lateinit var mongoClient: MongoClient
         private lateinit var mongoDb: CoroutineMongoDatabase
