@@ -134,7 +134,7 @@ class RedisYamlDatasetLoaderTest {
             cut.load("datasets/test-dataset.yml")
         }
         assertThat(
-            exception.message, containsString($$"${text_column}_value_not_allowed")
+            exception.message, containsString("\${text_column}_value_not_allowed")
         )
     }
 
@@ -148,7 +148,7 @@ class RedisYamlDatasetLoaderTest {
             cut.load("datasets/test-dataset.yml")
         }
         assertThat(
-            exception.message, containsString($$"${text_column}_member_not_allowed")
+            exception.message, containsString("\${text_column}_member_not_allowed")
         )
     }
 
