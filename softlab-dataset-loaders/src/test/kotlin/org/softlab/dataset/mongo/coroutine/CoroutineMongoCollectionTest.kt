@@ -35,7 +35,6 @@ class CoroutineMongoCollectionTest {
         @JvmStatic
         fun cleanup() {
             mongoClient.close()
-            mongoContainer.stop()
         }
     }
 

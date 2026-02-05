@@ -13,12 +13,17 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.redis.lettuce.LettuceRedis
+import org.testcontainers.junit.jupiter.Container
+import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.utility.DockerImageName
 import java.lang.Thread.sleep
 
 
+@Testcontainers
 class RedisYamlDatasetLoaderTest {
     companion object {
+        @Container
+        @JvmStatic
         private val redisContainer: RedisContainer = RedisContainer(DockerImageName.parse("redis:latest"))
 
         private lateinit var redisClient: RedisClient
@@ -41,7 +46,6 @@ class RedisYamlDatasetLoaderTest {
         fun cleanup() {
             redisConnection.close()
             redisClient.shutdown()
-            redisContainer.stop()
         }
     }
 

@@ -10,12 +10,17 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import org.testcontainers.junit.jupiter.Container
+import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.utility.DockerImageName
 import java.lang.Thread.sleep
 
 
+@Testcontainers
 class LettuceRedisTest {
     companion object {
+        @Container
+        @JvmStatic
         private val redisContainer: RedisContainer = RedisContainer(DockerImageName.parse("redis:latest"))
 
         private lateinit var redisClient: RedisClient
@@ -38,7 +43,6 @@ class LettuceRedisTest {
         fun cleanup() {
             redisConnection.close()
             redisClient.shutdown()
-            redisContainer.stop()
         }
     }
 

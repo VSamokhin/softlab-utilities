@@ -3,16 +3,16 @@ package org.softlab.dataset.jdbc
 import com.github.database.rider.core.exception.DataBaseSeedingException
 import liquibase.Liquibase
 import liquibase.database.DatabaseFactory
-import liquibase.database.core.PostgresDatabase
 import liquibase.resource.ClassLoaderResourceAccessor
 import org.dbunit.assertion.DbComparisonFailure
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.MatcherAssert.assertThat
-import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.junit.jupiter.Container
+import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.utility.DockerImageName
 import java.lang.Thread.sleep
 import java.sql.Connection
@@ -22,8 +22,11 @@ import java.sql.DriverManager
 /**
  * These tests are relying on a PostgreSQL instance, but other JDBC/SQL databases should work as well
  */
+@Testcontainers
 class JdbcDatasetLoaderTest {
     companion object {
+        @JvmStatic
+        @Container
         private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
 
         private fun getConnection(): Connection =
@@ -32,10 +35,9 @@ class JdbcDatasetLoaderTest {
         @BeforeAll
         @JvmStatic
         fun setup() {
-            postgres.start()
             // Workaround for Rancher Desktop on Mac, somehow the container is not ready while the tests start
             val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
-            if (isMac) sleep(3000) // Wait for the container to be fully ready
+            if (isMac) sleep(3000) // Wait for the container to be ready
 
             val database = DatabaseFactory.getInstance()
                 .openDatabase(
@@ -44,19 +46,12 @@ class JdbcDatasetLoaderTest {
                     postgres.password,
                     null,
                     null
-                ) as PostgresDatabase
-            val liquibase = Liquibase(
+                ) // Couldn't properly close this db, it seems like update() call below doesn't finish synchronously
+            Liquibase(
                 "liquibase/changelog-postgres.yaml",
                 ClassLoaderResourceAccessor(),
                 database
-            )
-            liquibase.update()
-        }
-
-        @AfterAll
-        @JvmStatic
-        fun cleanup() {
-            postgres.stop()
+            ).use { liquibase -> liquibase.update() }
         }
     }
 

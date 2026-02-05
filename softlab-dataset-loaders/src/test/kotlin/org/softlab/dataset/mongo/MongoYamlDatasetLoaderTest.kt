@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import liquibase.Liquibase
 import liquibase.database.DatabaseFactory
-import liquibase.ext.mongodb.database.MongoLiquibaseDatabase
 import liquibase.resource.ClassLoaderResourceAccessor
 import org.bson.Document
 import org.bson.types.Binary
@@ -19,14 +18,19 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.mongo.coroutine.CoroutineMongoDatabase
 import org.testcontainers.containers.MongoDBContainer
+import org.testcontainers.junit.jupiter.Container
+import org.testcontainers.junit.jupiter.Testcontainers
 import java.time.ZonedDateTime
 import java.util.Date
 
 
+@Testcontainers
 class MongoYamlDatasetLoaderTest {
     companion object {
         private const val DATABASE: String = "testdb"
 
+        @Container
+        @JvmStatic
         private val mongoContainer: MongoDBContainer = MongoDBContainer("mongo:latest")
 
         private lateinit var mongoClient: MongoClient
@@ -42,27 +46,26 @@ class MongoYamlDatasetLoaderTest {
             val database = runBlocking { mongoClient.getDatabase(DATABASE) }
             mongoDb = CoroutineMongoDatabase(database)
 
-            val liquiDb = DatabaseFactory.getInstance()
+            DatabaseFactory.getInstance()
                 .openDatabase(
                     connectionString,
                     null,
                     null,
                     null,
                     null
-                ) as MongoLiquibaseDatabase
-            val liquibase = Liquibase(
-                "liquibase/changelog-mongo.yaml",
-                ClassLoaderResourceAccessor(),
-                liquiDb
-            )
-            liquibase.update()
+                ).use { liquiDb ->
+                    Liquibase(
+                        "liquibase/changelog-mongo.yaml",
+                        ClassLoaderResourceAccessor(),
+                        liquiDb
+                    ).use { liquibase -> liquibase.update() }
+                }
         }
 
         @AfterAll
         @JvmStatic
         fun cleanup() {
             mongoClient.close()
-            mongoContainer.stop()
         }
     }
 
