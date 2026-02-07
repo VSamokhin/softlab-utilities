@@ -1,0 +1,61 @@
+/**
+ * Copyright (C) 2025-2026, Viktor Samokhin (wowyupiyo@gmail.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.softlab.datataset.test.initiators
+
+import com.mongodb.kotlin.client.coroutine.MongoClient
+import kotlinx.coroutines.runBlocking
+import liquibase.Liquibase
+import liquibase.database.DatabaseFactory
+import liquibase.resource.ClassLoaderResourceAccessor
+import org.softlab.dataset.mongo.MongoYamlDatasetLoader
+import org.softlab.dataset.mongo.coroutine.CoroutineMongoDatabase
+
+
+class MongoInitiator(override val dbUrl: String) : DatabaseInitiator {
+    val mongoClient: MongoClient = MongoClient.create(dbUrl)
+    val mongoDb: CoroutineMongoDatabase
+
+    init {
+        val dbName = dbUrl.substringAfterLast("/")
+        val database = runBlocking { mongoClient.getDatabase(dbName) }
+        mongoDb = CoroutineMongoDatabase(database)
+    }
+
+    override fun initSchema(changelog: String) {
+            DatabaseFactory.getInstance().openDatabase(
+                dbUrl,
+                null,
+                null,
+                null,
+                null
+            ).use { database ->
+                Liquibase(
+                    changelog,
+                    ClassLoaderResourceAccessor(),
+                    database
+                ).use { liquibase -> liquibase.update() }
+            }
+    }
+
+    override fun seedData(dataset: String) {
+        MongoYamlDatasetLoader(mongoDb).load(dataset)
+    }
+
+    override fun close() {
+        mongoClient.close()
+    }
+}

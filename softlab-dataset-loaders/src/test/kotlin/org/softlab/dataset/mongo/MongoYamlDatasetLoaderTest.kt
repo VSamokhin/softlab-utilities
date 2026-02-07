@@ -1,11 +1,7 @@
 package org.softlab.dataset.mongo
 
-import com.mongodb.kotlin.client.coroutine.MongoClient
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import liquibase.Liquibase
-import liquibase.database.DatabaseFactory
-import liquibase.resource.ClassLoaderResourceAccessor
 import org.bson.Document
 import org.bson.types.Binary
 import org.hamcrest.CoreMatchers.allOf
@@ -16,7 +12,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.softlab.dataset.mongo.coroutine.CoroutineMongoDatabase
+import org.softlab.datataset.test.initiators.MongoInitiator
 import org.testcontainers.containers.MongoDBContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
@@ -33,48 +29,28 @@ class MongoYamlDatasetLoaderTest {
         @JvmStatic
         private val mongoContainer: MongoDBContainer = MongoDBContainer("mongo:latest")
 
-        private lateinit var mongoClient: MongoClient
-        private lateinit var mongoDb: CoroutineMongoDatabase
+        private lateinit var mongoInitiator: MongoInitiator
 
         @BeforeAll
         @JvmStatic
         fun setup() {
-            mongoContainer.start()
-
-            val connectionString = "${mongoContainer.connectionString}/$DATABASE"
-            mongoClient = MongoClient.create(connectionString)
-            val database = runBlocking { mongoClient.getDatabase(DATABASE) }
-            mongoDb = CoroutineMongoDatabase(database)
-
-            DatabaseFactory.getInstance()
-                .openDatabase(
-                    connectionString,
-                    null,
-                    null,
-                    null,
-                    null
-                ).use { liquiDb ->
-                    Liquibase(
-                        "liquibase/changelog-mongo.yaml",
-                        ClassLoaderResourceAccessor(),
-                        liquiDb
-                    ).use { liquibase -> liquibase.update() }
-                }
+            mongoInitiator = MongoInitiator("${mongoContainer.connectionString}/${DATABASE}")
+            mongoInitiator.initSchema("liquibase/changelog-mongo.yaml")
         }
 
         @AfterAll
         @JvmStatic
         fun cleanup() {
-            mongoClient.close()
+            mongoContainer.close()
         }
     }
 
     @Test
     fun `load() loads dataset correctly`() {
-        val cut = MongoYamlDatasetLoader(mongoDb)
+        val cut = MongoYamlDatasetLoader(mongoInitiator.mongoDb)
         cut.load("datasets/test-dataset.yml")
 
-        val db = mongoClient.getDatabase(DATABASE)
+        val db = mongoInitiator.mongoClient.getDatabase(DATABASE)
         val testTable = db.getCollection<Document>("test.test_table")
         val docs = runBlocking { testTable.find().toList() }
 
@@ -102,7 +78,7 @@ class MongoYamlDatasetLoaderTest {
 
     @Test
     fun `load() should throw exception for non existent collection`() {
-        val cut = MongoYamlDatasetLoader(mongoDb)
+        val cut = MongoYamlDatasetLoader(mongoInitiator.mongoDb)
         val exception = assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-collection-does-not-exist.yml")
         }
@@ -111,7 +87,7 @@ class MongoYamlDatasetLoaderTest {
 
     @Test
     fun `load() should throw exception for non existent field`() {
-        val cut = MongoYamlDatasetLoader(mongoDb)
+        val cut = MongoYamlDatasetLoader(mongoInitiator.mongoDb)
         val exception = assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-field-does-not-exist.yml")
         }
@@ -120,7 +96,7 @@ class MongoYamlDatasetLoaderTest {
 
     @Test
     fun `load() should throw exception for collection without validator`() {
-        val cut = MongoYamlDatasetLoader(mongoDb)
+        val cut = MongoYamlDatasetLoader(mongoInitiator.mongoDb)
         val exception = assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-collection-without-validator.yml")
         }
@@ -133,7 +109,7 @@ class MongoYamlDatasetLoaderTest {
 
     @Test
     fun `load() should throw exception for collection with incorrect type`() {
-        val cut = MongoYamlDatasetLoader(mongoDb)
+        val cut = MongoYamlDatasetLoader(mongoInitiator.mongoDb)
         assertThrows<IllegalArgumentException> {
             cut.load("datasets/test-dataset-mongo-collection-with-incorrect-type.yml")
         }
@@ -141,7 +117,7 @@ class MongoYamlDatasetLoaderTest {
 
     @Test
     fun `load() should throw exception for collection with not supported type`() {
-        val cut = MongoYamlDatasetLoader(mongoDb)
+        val cut = MongoYamlDatasetLoader(mongoInitiator.mongoDb)
         val exception = assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-collection-with-unsupported-type.yml")
         }

@@ -2,6 +2,7 @@ plugins {
     id 'basic-kotlin-setup'
     id 'library-setup'
     id 'publish-package'
+    id 'java-test-fixtures'
 }
 
 description = 'DBUnit/DBRider dataset loaders for NO-SQL databases'
@@ -29,6 +30,10 @@ dependencies {
     testImplementation 'org.mongodb:mongodb-driver-kotlin-coroutine:_'
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core'
     testImplementation 'io.lettuce:lettuce-core:_'
+
+    testFixturesImplementation 'org.liquibase:liquibase-core:_'
+    testFixturesImplementation 'org.liquibase.ext:liquibase-mongodb:_'
+    testFixturesApi 'org.mongodb:mongodb-driver-kotlin-coroutine:_'
 }
 
 jacocoTestCoverageVerification {
