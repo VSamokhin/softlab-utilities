@@ -17,22 +17,25 @@
 package org.softlab.datataset.test.initiators
 
 import com.mongodb.kotlin.client.coroutine.MongoClient
+import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.runBlocking
 import liquibase.Liquibase
 import liquibase.database.DatabaseFactory
 import liquibase.resource.ClassLoaderResourceAccessor
+import org.softlab.dataset.mongo.MongoDatabaseFacade
 import org.softlab.dataset.mongo.MongoYamlDatasetLoader
 import org.softlab.dataset.mongo.coroutine.CoroutineMongoDatabase
 
 
 class MongoInitiator(override val dbUrl: String) : DatabaseInitiator {
     val mongoClient: MongoClient = MongoClient.create(dbUrl)
-    val mongoDb: CoroutineMongoDatabase
+    val mongoDb: MongoDatabase
+    private val mongoFacade: MongoDatabaseFacade
 
     init {
         val dbName = dbUrl.substringAfterLast("/")
-        val database = runBlocking { mongoClient.getDatabase(dbName) }
-        mongoDb = CoroutineMongoDatabase(database)
+        mongoDb = runBlocking { mongoClient.getDatabase(dbName) }
+        mongoFacade = CoroutineMongoDatabase(mongoDb)
     }
 
     override fun initSchema(changelog: String) {
@@ -52,7 +55,7 @@ class MongoInitiator(override val dbUrl: String) : DatabaseInitiator {
     }
 
     override fun seedData(dataset: String) {
-        MongoYamlDatasetLoader(mongoDb).load(dataset)
+        MongoYamlDatasetLoader(mongoFacade).load(dataset)
     }
 
     override fun close() {
