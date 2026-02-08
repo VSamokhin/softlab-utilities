@@ -14,9 +14,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.mongo.coroutine.CoroutineMongoDatabase
 import org.softlab.datataset.test.initiators.MongoInitiator
-import org.testcontainers.containers.MongoDBContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.mongodb.MongoDBContainer
 import java.time.ZonedDateTime
 import java.util.Date
 

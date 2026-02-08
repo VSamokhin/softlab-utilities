@@ -1,22 +1,18 @@
 package org.softlab.dataset.jdbc
 
 import com.github.database.rider.core.exception.DataBaseSeedingException
-import liquibase.Liquibase
-import liquibase.database.DatabaseFactory
-import liquibase.resource.ClassLoaderResourceAccessor
 import org.dbunit.assertion.DbComparisonFailure
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.MatcherAssert.assertThat
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.testcontainers.containers.PostgreSQLContainer
+import org.softlab.datataset.test.initiators.PostgresInitiator
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import java.lang.Thread.sleep
-import java.sql.Connection
-import java.sql.DriverManager
 
 
 /**
@@ -29,8 +25,7 @@ class JdbcDatasetLoaderTest {
         @Container
         private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
 
-        private fun getConnection(): Connection =
-            DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password)
+        private lateinit var postgresInitiator: PostgresInitiator
 
         @BeforeAll
         @JvmStatic
@@ -39,25 +34,14 @@ class JdbcDatasetLoaderTest {
             val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
             if (isMac) sleep(3000) // Wait for the container to be ready
 
-            val database = DatabaseFactory.getInstance()
-                .openDatabase(
-                    postgres.jdbcUrl,
-                    postgres.username,
-                    postgres.password,
-                    null,
-                    null
-                ) // Couldn't properly close this db, it seems like update() call below doesn't finish synchronously
-            Liquibase(
-                "liquibase/changelog-postgres.yaml",
-                ClassLoaderResourceAccessor(),
-                database
-            ).use { liquibase -> liquibase.update() }
+            postgresInitiator = PostgresInitiator(postgres.jdbcUrl, postgres.username, postgres.password)
+            postgresInitiator.initSchema("liquibase/changelog-postgres.yaml")
         }
     }
 
     @Test
     fun `load() loads dataset correctly`() {
-        getConnection().use {
+        postgresInitiator.getConnection().use {
             val loader = JdbcDatasetLoader(it)
             loader.load("datasets/test-dataset.yml")
             loader.compare("datasets/test-dataset.yml")
@@ -66,7 +50,7 @@ class JdbcDatasetLoaderTest {
 
     @Test
     fun `load() fails without clean on second try`() {
-        getConnection().use {
+        postgresInitiator.getConnection().use {
             val loader = JdbcDatasetLoader(it)
             loader.load("datasets/test-dataset.yml", true)
             val exc = assertThrows<DataBaseSeedingException> {
@@ -78,7 +62,7 @@ class JdbcDatasetLoaderTest {
 
     @Test
     fun `compare() fails on wrong data`() {
-        getConnection().use {
+        postgresInitiator.getConnection().use {
             val loader = JdbcDatasetLoader(it)
             loader.load("datasets/test-dataset.yml")
             val exc = assertThrows<DbComparisonFailure> {
@@ -90,7 +74,7 @@ class JdbcDatasetLoaderTest {
 
     @Test
     fun `compare() ignores specified columns on wrong data`() {
-        getConnection().use {
+        postgresInitiator.getConnection().use {
             val loader = JdbcDatasetLoader(it)
             loader.load("datasets/test-dataset.yml")
             loader.compare("datasets/test-dataset-incorrect-expected.yml", "bool_column", "long_column")
