@@ -7,7 +7,7 @@ import org.hamcrest.MatcherAssert.assertThat
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.softlab.datataset.test.initiators.PostgresInitiator
+import org.softlab.datataset.test.initiators.JdbcInitiator
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
@@ -25,7 +25,7 @@ class JdbcDatasetLoaderTest {
         @Container
         private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
 
-        private lateinit var postgresInitiator: PostgresInitiator
+        private lateinit var postgresInitiator: JdbcInitiator
 
         @BeforeAll
         @JvmStatic
@@ -34,7 +34,7 @@ class JdbcDatasetLoaderTest {
             val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
             if (isMac) sleep(3000) // Wait for the container to be ready
 
-            postgresInitiator = PostgresInitiator(postgres.jdbcUrl, postgres.username, postgres.password)
+            postgresInitiator = JdbcInitiator(postgres.jdbcUrl, postgres.username, postgres.password)
             postgresInitiator.initSchema("liquibase/changelog-postgres.yaml")
         }
     }

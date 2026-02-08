@@ -24,7 +24,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 
-class PostgresInitiator(
+class JdbcInitiator(
     override val dbUrl: String,
     private val username: String,
     private val password: String

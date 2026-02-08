@@ -30,13 +30,10 @@ dependencies {
     testImplementation 'org.mongodb:mongodb-driver-kotlin-coroutine'
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
     testImplementation 'io.lettuce:lettuce-core:_'
-
-    // Stuff for the test fixtures
+    // Additional stuff for the test fixtures
     testRuntimeOnly 'org.liquibase:liquibase-core:_'
-    testRuntimeOnly'org.liquibase.ext:liquibase-mongodb:_'
+    testRuntimeOnly 'org.liquibase.ext:liquibase-mongodb:_'
     testRuntimeOnly 'org.mongodb:mongodb-driver-sync'
-    testRuntimeOnly 'org.mongodb:mongodb-driver-kotlin-coroutine'
-    testRuntimeOnly 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
 
     testFixturesCompileOnly platform('org.mongodb:mongodb-driver-bom:_')
     testFixturesImplementation 'org.liquibase:liquibase-core:_'
@@ -44,6 +41,7 @@ dependencies {
     testFixturesCompileOnly 'org.mongodb:mongodb-driver-sync'                   // Provide externally for MongoInitiator
     testFixturesCompileOnly 'org.mongodb:mongodb-driver-kotlin-coroutine'       // Provide externally for MongoInitiator
     testFixturesCompileOnly 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'   // Provide externally for MongoInitiator
+    testFixturesCompileOnly 'com.github.database-rider:rider-core:_'            // Provide externally for PostgresInitiator
 }
 
 test {
