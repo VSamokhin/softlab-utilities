@@ -1,0 +1,46 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: Viktor Samokhin
+      changes:
+        - createCollection:
+            collectionName: schema1.users
+            options: |
+              {
+                validator: {
+                  $jsonSchema: {
+                    bsonType: "object",
+                    required: [ "user_id", "name", "email" ],
+                    properties: {
+                      user_id: {
+                        bsonType: "int",
+                      },  
+                      name: {
+                        bsonType: "string",
+                      },
+                      email: {
+                        bsonType: "string",
+                      }
+                    }
+                  }
+                }
+              }
+        - createCollection:
+            collectionName: schema2.products
+            options: |
+              {
+                validator: {
+                  $jsonSchema: {
+                    bsonType: "object",
+                    required: [ "product_id", "title" ],
+                    properties: {
+                      product_id: {
+                        bsonType: "int",
+                      },  
+                      title: {
+                        bsonType: "string",
+                      }
+                    }
+                  }
+                }
+              }

@@ -1,0 +1,104 @@
+package org.softlab.datatransfer.adapters.postgres
+
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.runBlocking
+import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.containsInAnyOrder
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.softlab.datataset.test.initiators.JdbcInitiator
+import org.testcontainers.junit.jupiter.Container
+import org.testcontainers.junit.jupiter.Testcontainers
+import org.testcontainers.postgresql.PostgreSQLContainer
+import org.testcontainers.utility.DockerImageName
+import java.lang.Thread.sleep
+import java.sql.SQLException
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+
+
+@Testcontainers
+class PostgresSourceTest {
+    companion object {
+        @Container
+        @JvmStatic
+        private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
+
+        private lateinit var postgresInitiator: JdbcInitiator
+
+        @JvmStatic
+        @BeforeAll
+        fun setup() {
+            // Workaround for Rancher Desktop on Mac, somehow the container is not ready while the tests start
+            val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
+            if (isMac) sleep(3000) // Wait for the container to be ready
+
+            postgresInitiator = JdbcInitiator(postgres.jdbcUrl, postgres.username, postgres.password)
+            postgresInitiator.initSchema("liquibase/changelog-source-postgres.yaml")
+        }
+    }
+
+    @BeforeEach
+    fun seedData() {
+        postgresInitiator.seedData("users-products.yml")
+    }
+
+    @Test
+    fun `listCollections() returns expected collections`() = runBlocking {
+        PostgresSource(postgresInitiator.getConnection()).use { cut ->
+            val collections = cut.listCollections().toList()
+
+            assertThat(
+                collections.map { it.metadata.name },
+                containsInAnyOrder("schema1.users", "schema2.products",
+                "public.databasechangelog", "public.databasechangeloglock")
+            )
+
+            val usersCollection = collections.first { it.metadata.name == "schema1.users" }
+            assertThat(
+                usersCollection.metadata.fields.map { it.name }.toList(),
+                containsInAnyOrder("user_id", "name", "email")
+            )
+
+            val productsCollection = collections.first { it.metadata.name == "schema2.products" }
+            assertThat(
+                productsCollection.metadata.fields.map { it.name }.toSet(),
+                containsInAnyOrder("product_id", "title")
+            )
+        }
+    }
+
+    @Test
+    fun `readDocuments() returns expected documents`() = runBlocking {
+        PostgresSource(postgresInitiator.getConnection()).use { cut ->
+            val collections = cut.listCollections().toList()
+
+            val usersCollection = collections.firstOrNull { it.metadata.name == "schema1.users" }
+            assertNotNull(usersCollection)
+            val users = usersCollection.readDocuments().toList()
+            assertThat(
+                users.map { it["name"] }.toList(),
+                containsInAnyOrder("Alice", "Bob")
+            )
+            assertThat(
+                users.map { it["email"] }.toList(),
+                containsInAnyOrder("alice@example.com", "bob@example.com")
+            )
+
+            val productsCollection = collections.firstOrNull { it.metadata.name == "schema2.products" }
+            assertNotNull(productsCollection)
+            val products = productsCollection.readDocuments().toList()
+            assertThat(products.map { it["title"] }.toList(), containsInAnyOrder("Gizmo"))
+        }
+    }
+
+    @Test
+    fun `test invalid connection string throws exception`() {
+        val exc = assertThrows<SQLException> {
+            PostgresSource("invalid://connection:string", "user", "pass")
+        }
+        assertEquals("08001", exc.sqlState)
+    }
+}

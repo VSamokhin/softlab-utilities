@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2025, Viktor Samokhin (wowyupiyo@gmail.com)
+ * Copyright (C) 2025-2026, Viktor Samokhin (wowyupiyo@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,22 +19,31 @@ package org.softlab.datatransfer.core
 import kotlinx.coroutines.flow.Flow
 
 
-// Represents metadata for a collection (table)
+/**
+ * Represents metadata for a collection (table)
+ */
 data class CollectionMetadata(
     val name: String,
     val fields: List<FieldMetadata>
 )
 
+/**
+ * Represents metadata for a field (column)
+ */
 data class FieldMetadata(
     val name: String,
     val type: String // Could be a standardized type name
 )
 
-// Represents a document (row)
+/**
+ * Represents a document (row)
+ */
 typealias Document = Map<String, Any?>
 
-// A collection (table in RDBMS, collection in NoSQL)
-interface Collection {
+/**
+ * A collection (table in RDBMS, collection in NoSQL)
+ */
+interface DocumentCollection {
     val metadata: CollectionMetadata
     fun readDocuments(): Flow<Document>
 }
@@ -43,7 +52,7 @@ interface Collection {
  * Source database interface
  */
 interface DatabaseSource : AutoCloseable {
-    fun listCollections(): List<Collection>
+    fun listCollections(): Flow<DocumentCollection>
 }
 
 /**

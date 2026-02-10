@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2025, Viktor Samokhin (wowyupiyo@gmail.com)
+ * Copyright (C) 2025-2026, Viktor Samokhin (wowyupiyo@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,27 +16,27 @@
 
 package org.softlab.datatransfer.adapters.mongo
 
-import com.mongodb.client.MongoClient
-import com.mongodb.client.MongoClients
+import com.mongodb.kotlin.client.coroutine.MongoClient
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import org.softlab.datatransfer.core.Collection
-import org.softlab.datatransfer.core.CollectionMetadata
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.runBlocking
+import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.DatabaseSource
-import org.softlab.datatransfer.core.Document
-import org.softlab.datatransfer.core.FieldMetadata
-import org.bson.Document as BsonDocument
 
 
 class MongoSource(
-    private val connString: String,
-    private val dbName: String = connString.substringAfterLast("/")
+    dbUrl: String,
+    private val client: MongoClient = MongoClient.create(dbUrl),
+    private val dbName: String = dbUrl.substringAfterLast("/")
 ) : DatabaseSource {
-    private val client: MongoClient = MongoClients.create(connString)
     private val db = client.getDatabase(dbName)
 
-    override fun listCollections(): List<Collection> {
-        return db.listCollectionNames().toList().map { MongoCollection(dbName, it, this) }
+    override fun listCollections(): Flow<DocumentCollection> {
+        return runBlocking {
+            db.listCollectionNames().map {
+                MongoDocumentCollection(dbName, it, this@MongoSource)
+            }
+        }
     }
 
     override fun close() {
@@ -46,30 +46,3 @@ class MongoSource(
     fun getClient(): MongoClient = client
 }
 
-class MongoCollection(
-    private val dbName: String,
-    private val collectionName: String,
-    private val source: MongoSource
-) : Collection {
-    override val metadata: CollectionMetadata by lazy {
-        // No strict schema in Mongo — just sample first document
-        val sampleDoc = source.getClient()
-            .getDatabase(dbName)
-            .getCollection(collectionName)
-            .find()
-            .firstOrNull()
-
-        val fields = sampleDoc?.keys?.map { FieldMetadata(it, "string") } ?: emptyList()
-        CollectionMetadata(collectionName, fields)
-    }
-
-    override fun readDocuments(): Flow<Document> = flow {
-        val mongoCollection = source.getClient()
-            .getDatabase(dbName)
-            .getCollection(collectionName, BsonDocument::class.java)
-
-        for (doc in mongoCollection.find()) {
-            emit(doc.toMap())
-        }
-    }
-}

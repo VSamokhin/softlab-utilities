@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2025, Viktor Samokhin (wowyupiyo@gmail.com)
+ * Copyright (C) 2025-2026, Viktor Samokhin (wowyupiyo@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,10 +22,12 @@ import org.softlab.datatransfer.core.DatabaseSource
 
 
 class Migrator {
-    fun migrate(source: DatabaseSource, destination: DatabaseDestination) = runBlocking {
-        for (collection in source.listCollections()) {
-            destination.createCollection(collection.metadata)
-            destination.insertDocuments(collection.metadata.name, collection.readDocuments())
+    suspend fun migrate(source: DatabaseSource, destination: DatabaseDestination) {
+        source.listCollections().collect { collection ->
+            runBlocking { destination.createCollection(collection.metadata) }
+            destination.insertDocuments(
+                collection.metadata.name, collection.readDocuments()
+            )
         }
     }
 }

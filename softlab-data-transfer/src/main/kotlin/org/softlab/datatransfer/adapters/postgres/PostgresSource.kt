@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2025, Viktor Samokhin (wowyupiyo@gmail.com)
+ * Copyright (C) 2025-2026, Viktor Samokhin (wowyupiyo@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.softlab.datatransfer.adapters.postgres
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import org.softlab.datatransfer.core.Collection
+import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.Document
@@ -27,49 +27,64 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 
-class PostgresSource(private val connString: String) : DatabaseSource {
-    private val connection: Connection = DriverManager.getConnection(connString)
+class PostgresSource(
+    private val connection: Connection,
+    private val closeConnection: Boolean = true
+) : DatabaseSource {
+    constructor(
+        jdbcUrl: String,
+        username: String,
+        password: String
+    ) : this(DriverManager.getConnection(jdbcUrl, username, password))
 
-    override fun listCollections(): List<Collection> {
-        val tables = mutableListOf<Collection>()
-        val rs = connection.metaData.getTables(null, null, "%", arrayOf("TABLE"))
-        while (rs.next()) {
-            val tableName = rs.getString("TABLE_NAME")
-            tables.add(PostgresCollection(connection, tableName))
-        }
-        return tables
+    constructor(jdbcUrl: String): this(DriverManager.getConnection(jdbcUrl))
+
+    override fun listCollections(): Flow<DocumentCollection> = flow {
+        connection.metaData
+            .getTables(null, null, "%", arrayOf("TABLE"))
+            .use { rs ->
+                while (rs.next()) {
+                    val schemaName = rs.getString("TABLE_SCHEM")!!
+                    val tableName = rs.getString("TABLE_NAME")!!
+                    emit(PostgresDocumentCollection(connection, schemaName, tableName))
+                }
+            }
     }
 
     override fun close() {
-        connection.close()
+        if (closeConnection) connection.close()
     }
 }
 
-class PostgresCollection(
+class PostgresDocumentCollection(
     private val connection: Connection,
+    private val schemaName: String,
     private val tableName: String
-) : Collection {
+) : DocumentCollection {
     override val metadata: CollectionMetadata by lazy {
         val columns = mutableListOf<FieldMetadata>()
-        val rs = connection.metaData.getColumns(null, null, tableName, "%")
-        while (rs.next()) {
-            columns.add(FieldMetadata(rs.getString("COLUMN_NAME"), rs.getString("TYPE_NAME")))
-        }
-        CollectionMetadata(tableName, columns)
+        connection.metaData
+            .getColumns(null, null, tableName, "%")
+            .use { rs ->
+                while (rs.next()) {
+                    columns.add(FieldMetadata(rs.getString("COLUMN_NAME"), rs.getString("TYPE_NAME")))
+                }
+                CollectionMetadata("$schemaName.$tableName", columns)
+            }
     }
 
     override fun readDocuments(): Flow<Document> = flow {
-        val stmt = connection.createStatement()
-        val rs = stmt.executeQuery("SELECT * FROM $tableName")
-        val columnCount = rs.metaData.columnCount
-        while (rs.next()) {
-            val row = mutableMapOf<String, Any?>()
-            for (i in 1..columnCount) {
-                row[rs.metaData.getColumnName(i)] = rs.getObject(i)
+        connection.createStatement().use { stmt ->
+            stmt.executeQuery("SELECT * FROM $schemaName.$tableName;").use { rs ->
+                val columnCount = rs.metaData.columnCount
+                while (rs.next()) {
+                    val row = mutableMapOf<String, Any?>()
+                    for (i in 1..columnCount) {
+                        row[rs.metaData.getColumnName(i)] = rs.getObject(i)
+                    }
+                    emit(row)
+                }
             }
-            emit(row)
         }
-        rs.close()
-        stmt.close()
     }
 }

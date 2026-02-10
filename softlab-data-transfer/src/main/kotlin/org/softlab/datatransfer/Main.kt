@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2025, Viktor Samokhin (wowyupiyo@gmail.com)
+ * Copyright (C) 2025-2026, Viktor Samokhin (wowyupiyo@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.softlab.datatransfer
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.parameters.arguments.argument
+import kotlinx.coroutines.runBlocking
 import org.softlab.datatransfer.adapters.mongo.MongoDestination
 import org.softlab.datatransfer.adapters.mongo.MongoSource
 import org.softlab.datatransfer.adapters.postgres.PostgresDestination
@@ -45,10 +46,12 @@ class Main : CliktCommand() {
             else -> error("Unsupported destination type")
         }
 
-        Migrator().migrate(sourceAdapter, destAdapter)
-
-        sourceAdapter.close()
-        destAdapter.close()
+        try {
+            runBlocking { Migrator().migrate(sourceAdapter, destAdapter) }
+        } finally {
+            sourceAdapter.close()
+            destAdapter.close()
+        }
     }
 }
 
