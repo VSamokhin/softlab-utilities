@@ -4,10 +4,13 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.containsInAnyOrder
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.softlab.datataset.test.initiators.JdbcInitiator
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
@@ -38,11 +41,36 @@ class PostgresSourceTest {
             postgresInitiator = JdbcInitiator(postgres.jdbcUrl, postgres.username, postgres.password)
             postgresInitiator.initSchema("liquibase/changelog-source-postgres.yaml")
         }
+
+        @AfterAll
+        @JvmStatic
+        fun cleanup() {
+            postgresInitiator.close()
+        }
     }
 
     @BeforeEach
     fun seedData() {
         postgresInitiator.seedData("users-products.yml")
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `class closes connection when configured`(closeConnection: Boolean) = runBlocking {
+        postgresInitiator.getConnection().use { connection ->
+            PostgresSource(connection, closeConnection).use { cut ->
+                cut.countDocuments("schema1.users")
+            }
+            assertEquals(closeConnection, connection.isClosed)
+        }
+    }
+
+    @Test
+    fun `countDocuments() returns correct count`() = runBlocking {
+        PostgresSource(postgresInitiator.getConnection()).use { cut ->
+            assertEquals(2, cut.countDocuments("schema1.users"))
+            assertEquals(1, cut.countDocuments("schema2.products"))
+        }
     }
 
     @Test

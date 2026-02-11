@@ -38,7 +38,7 @@ class MongoInitiator(override val dbUrl: String) : DatabaseInitiator {
         mongoFacade = CoroutineMongoDatabase(mongoDb)
     }
 
-    override fun initSchema(changelog: String) {
+    override fun initSchema(changelogPath: String) {
             DatabaseFactory.getInstance().openDatabase(
                 dbUrl,
                 null,
@@ -47,15 +47,15 @@ class MongoInitiator(override val dbUrl: String) : DatabaseInitiator {
                 null
             ).use { database ->
                 Liquibase(
-                    changelog,
+                    changelogPath,
                     ClassLoaderResourceAccessor(),
                     database
                 ).use { liquibase -> liquibase.update() }
             }
     }
 
-    override fun seedData(dataset: String) {
-        MongoYamlDatasetLoader(mongoFacade).load(dataset)
+    override fun seedData(datasetPath: String) {
+        MongoYamlDatasetLoader(mongoFacade).load(datasetPath)
     }
 
     override fun close() {

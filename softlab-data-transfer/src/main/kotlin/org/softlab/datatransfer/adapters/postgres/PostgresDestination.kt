@@ -16,6 +16,7 @@
 
 package org.softlab.datatransfer.adapters.postgres
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
@@ -24,15 +25,29 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 
-class PostgresDestination(private val connString: String) : DatabaseDestination {
-    private val connection: Connection = DriverManager.getConnection(connString)
+class PostgresDestination(
+    private val connection: Connection,
+    private val closeConnection: Boolean = true
+) : DatabaseDestination {
+    private val logger = KotlinLogging.logger {}
+
+    constructor(
+        jdbcUrl: String,
+        username: String,
+        password: String
+    ) : this(DriverManager.getConnection(jdbcUrl, username, password))
+
+    constructor(jdbcUrl: String): this(DriverManager.getConnection(jdbcUrl))
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
         val columnsDef = metadata.fields.joinToString(", ") {
-            "\"${it.name}\" ${mapType(it.type)}"
+            "${it.name} ${mapType(it.type)}"
         }
-        val sql = "CREATE TABLE IF NOT EXISTS \"${metadata.name}\" ($columnsDef)"
-        connection.createStatement().use { it.execute(sql) }
+        val sql = "CREATE TABLE IF NOT EXISTS ${metadata.name} ($columnsDef);"
+        connection.createStatement().use {
+            logger.trace { "Executing SQL: $sql" }
+            it.execute(sql)
+        }
     }
 
     private fun mapType(type: String): String {
@@ -46,20 +61,20 @@ class PostgresDestination(private val connString: String) : DatabaseDestination 
 
     override suspend fun insertDocuments(collectionName: String, documents: Flow<Document>) {
         documents.collect { doc ->
-            val columns = doc.keys.joinToString(", ") { "\"$it\"" }
+            val columns = doc.keys.joinToString(", ") { "$it" }
             val placeholders = doc.keys.joinToString(", ") { "?" }
-            val stmt = connection.prepareStatement(
-                "INSERT INTO \"$collectionName\" ($columns) VALUES ($placeholders)"
-            )
-            doc.values.forEachIndexed { i, value ->
-                stmt.setObject(i + 1, value)
+            connection.prepareStatement(
+                "INSERT INTO $collectionName ($columns) VALUES ($placeholders);"
+            ).use { stmt ->
+                doc.values.forEachIndexed { i, value ->
+                    stmt.setObject(i + 1, value)
+                }
+                stmt.executeUpdate()
             }
-            stmt.executeUpdate()
-            stmt.close()
         }
     }
 
     override fun close() {
-        connection.close()
+        if (closeConnection) connection.close()
     }
 }

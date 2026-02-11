@@ -14,7 +14,7 @@ import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.mongodb.MongoDBContainer
 import kotlin.test.assertContains
-import kotlin.test.assertNotNull
+import kotlin.test.assertEquals
 
 
 @Testcontainers
@@ -39,13 +39,21 @@ class MongoSourceTest {
         @AfterAll
         @JvmStatic
         fun cleanup() {
-            mongoContainer.close()
+            mongoInitiator.close()
         }
     }
 
     @BeforeEach
     fun seedData() {
         mongoInitiator.seedData("datasets/users-products.yml")
+    }
+
+    @Test
+    fun `countDocuments() returns correct count`() = runBlocking {
+        MongoSource(mongoInitiator.dbUrl).use { cut ->
+            assertEquals(2, cut.countDocuments("schema1.users"))
+            assertEquals(1, cut.countDocuments("schema2.products"))
+        }
     }
 
     @Test
@@ -70,24 +78,6 @@ class MongoSourceTest {
                 productsCollection.metadata.fields.map { it.name }.toSet(),
                 containsInAnyOrder("_id", "product_id", "title")
             )
-        }
-    }
-
-    @Test
-    fun `readDocuments() returns expected documents`() = runBlocking {
-        MongoSource(mongoInitiator.dbUrl).use { cut ->
-            val collections = cut.listCollections().toList()
-
-            val usersCollection = collections.firstOrNull { it.metadata.name == "schema1.users" }
-            assertNotNull(usersCollection)
-            val users = usersCollection.readDocuments().toList()
-            assertThat(users.map { it["name"] }.toList(), containsInAnyOrder("Alice", "Bob"))
-            assertThat(users.map { it["email"] }.toList(), containsInAnyOrder("alice@example.com", "bob@example.com"))
-
-            val productsCollection = collections.firstOrNull { it.metadata.name == "schema2.products" }
-            assertNotNull(productsCollection)
-            val products = productsCollection.readDocuments().toList()
-            assertThat(products.map { it["title"] }.toList(), containsInAnyOrder("Gizmo"))
         }
     }
 

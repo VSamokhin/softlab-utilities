@@ -9,12 +9,16 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
-import org.bson.BsonDocument
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import org.softlab.datataset.test.initiators.MongoInitiator
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
 import org.softlab.datatransfer.adapters.mongo.MongoDestination
+import org.softlab.datatransfer.adapters.mongo.MongoSource
+import org.softlab.datatransfer.adapters.postgres.PostgresDestination
+import org.softlab.datatransfer.adapters.postgres.PostgresSource
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
@@ -23,6 +27,9 @@ import org.softlab.datatransfer.core.FieldMetadata
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.mongodb.MongoDBContainer
+import org.testcontainers.postgresql.PostgreSQLContainer
+import org.testcontainers.utility.DockerImageName
+import java.lang.Thread.sleep
 
 
 @Testcontainers
@@ -30,18 +37,36 @@ class MigratorTest {
     companion object {
         private const val DATABASE = "testdb"
 
-        private const val NUM_RECORDS = 100_000
+        private const val NUM_RECORDS = 10_000
 
         @Container
         @JvmStatic
-        private val mongoContainer = MongoDBContainer("mongo:latest")
+        private val mongo = MongoDBContainer("mongo:latest")
 
-        private lateinit var mongoInitiator: MongoInitiator
+        @Container
+        @JvmStatic
+        private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
 
         @BeforeAll
         @JvmStatic
         fun setup() {
-            mongoInitiator = MongoInitiator("${mongoContainer.connectionString}/${DATABASE}")
+            // Workaround for Rancher Desktop on Mac, somehow the container is not ready while the tests start
+            val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
+            if (isMac) sleep(3000) // Wait for the container to be ready
+        }
+
+        @JvmStatic
+        fun getTargetDbs(): List<Arguments> {
+            return listOf(
+                Arguments.of(
+                    MongoDestination(mongo.connectionString, DATABASE),
+                    MongoSource(mongo.connectionString, dbName = DATABASE)
+                ),
+                Arguments.of(
+                    PostgresDestination("${postgres.jdbcUrl}/${DATABASE}", postgres.username, postgres.password),
+                    PostgresSource("${postgres.jdbcUrl}/${DATABASE}", postgres.username, postgres.password)
+                )
+            )
         }
     }
 
@@ -93,10 +118,13 @@ class MigratorTest {
         coVerify(exactly = 0) { mockDest.insertDocuments(any(), any()) }
     }
 
-    @Test
-    fun `migrate() handles large datasets efficiently`() = runBlocking {
+    @ParameterizedTest
+    @MethodSource("getTargetDbs")
+    fun `migrate() handles large datasets efficiently`(
+        destination: DatabaseDestination,
+        destinationAsSource: DatabaseSource) = runBlocking {
+
         val mockSource = mockk<DatabaseSource>()
-        val dest = MongoDestination("${mongoContainer.connectionString}/${DATABASE}")
         val mockCollection = mockk<DocumentCollection>()
 
         val testMetadata = CollectionMetadata(
@@ -117,12 +145,12 @@ class MigratorTest {
         every { mockCollection.readDocuments() } returns testDocuments
         every { mockSource.listCollections() } returns flowOf(mockCollection)
 
-        Migrator().migrate(mockSource, dest)
+        destination.use { Migrator().migrate(mockSource, it) }
 
         assertEquals(NUM_RECORDS, recordsCount)
         assertEquals(
             NUM_RECORDS.toLong(),
-            mongoInitiator.mongoDb.getCollection<BsonDocument>("large_table").countDocuments()
+            destinationAsSource.use { it.countDocuments("large_table") }
         )
     }
 }

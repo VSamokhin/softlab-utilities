@@ -53,6 +53,7 @@ interface DocumentCollection {
  */
 interface DatabaseSource : AutoCloseable {
     fun listCollections(): Flow<DocumentCollection>
+    suspend fun countDocuments(collectionName: String): Long
 }
 
 /**

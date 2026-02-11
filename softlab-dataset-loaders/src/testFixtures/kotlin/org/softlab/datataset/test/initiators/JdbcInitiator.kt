@@ -29,8 +29,12 @@ class JdbcInitiator(
     private val username: String,
     private val password: String
 ) : DatabaseInitiator {
-    private val lazyDatabase = lazy {
-        DatabaseFactory.getInstance()
+
+    private val lazySeedConnection = lazy { getConnection() }
+    private val seedConnection by lazySeedConnection
+
+    override fun initSchema(changelogPath: String) {
+        val database = DatabaseFactory.getInstance()
             .openDatabase(
                 dbUrl,
                 username,
@@ -38,26 +42,18 @@ class JdbcInitiator(
                 null,
                 null
             )
-    }
-    private val database by lazyDatabase
-
-    private val lazySeedConnection = lazy { getConnection() }
-    private val seedConnection by lazySeedConnection
-
-    override fun initSchema(changelog: String) {
         Liquibase(
-            changelog,
+            changelogPath,
             ClassLoaderResourceAccessor(),
             database
         ).use { liquibase -> liquibase.update() }
     }
 
-    override fun seedData(dataset: String) {
-        JdbcDatasetLoader(seedConnection).load(dataset, true)
+    override fun seedData(datasetPath: String) {
+        JdbcDatasetLoader(seedConnection).load(datasetPath, true)
     }
 
     override fun close() {
-        if (lazyDatabase.isInitialized()) database.close()
         if (lazySeedConnection.isInitialized()) seedConnection.close()
     }
 

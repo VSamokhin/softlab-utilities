@@ -20,8 +20,9 @@ import com.mongodb.kotlin.client.coroutine.MongoClient
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
-import org.softlab.datatransfer.core.DocumentCollection
+import org.bson.Document
 import org.softlab.datatransfer.core.DatabaseSource
+import org.softlab.datatransfer.core.DocumentCollection
 
 
 class MongoSource(
@@ -37,6 +38,10 @@ class MongoSource(
                 MongoDocumentCollection(dbName, it, this@MongoSource)
             }
         }
+    }
+
+    override suspend fun countDocuments(collectionName: String): Long {
+        return db.getCollection<Document>(collectionName).countDocuments()
     }
 
     override fun close() {

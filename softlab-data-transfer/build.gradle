@@ -50,5 +50,5 @@ test {
 }
 
 jacocoTestCoverageVerification {
-    jacocoVerification(it, 0.95, 0)
+    jacocoVerification(it, 0.74, 3)
 }

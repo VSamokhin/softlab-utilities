@@ -18,10 +18,10 @@ package org.softlab.datatransfer.adapters.postgres
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.Document
+import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.FieldMetadata
 import java.sql.Connection
 import java.sql.DriverManager
@@ -51,6 +51,14 @@ class PostgresSource(
             }
     }
 
+    override suspend fun countDocuments(collectionName: String): Long {
+        connection.createStatement().use { stmt ->
+            stmt.executeQuery("SELECT COUNT(*) FROM $collectionName;").use { rs ->
+                return if (rs.next()) rs.getLong(1) else error("Could not count rows in $collectionName")
+            }
+        }
+    }
+
     override fun close() {
         if (closeConnection) connection.close()
     }
@@ -76,11 +84,11 @@ class PostgresDocumentCollection(
     override fun readDocuments(): Flow<Document> = flow {
         connection.createStatement().use { stmt ->
             stmt.executeQuery("SELECT * FROM $schemaName.$tableName;").use { rs ->
-                val columnCount = rs.metaData.columnCount
+                val columns = Array(rs.metaData.columnCount) { rs.metaData.getColumnName(it + 1) }
                 while (rs.next()) {
                     val row = mutableMapOf<String, Any?>()
-                    for (i in 1..columnCount) {
-                        row[rs.metaData.getColumnName(i)] = rs.getObject(i)
+                    columns.forEachIndexed { i, c ->
+                        row[c] = rs.getObject(i + 1)
                     }
                     emit(row)
                 }

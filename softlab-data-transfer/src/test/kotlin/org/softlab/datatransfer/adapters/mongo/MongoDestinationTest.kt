@@ -5,10 +5,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.bson.BsonDocument
+import org.bson.Document
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.containsInAnyOrder
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.softlab.datataset.test.initiators.MongoInitiator
 import org.softlab.datatransfer.core.CollectionMetadata
@@ -40,6 +42,17 @@ class MongoDestinationTest {
         fun cleanup() {
             mongoInitiator.close()
         }
+    }
+
+    @BeforeEach
+    fun seedData() = runBlocking {
+        mongoInitiator.mongoDb.listCollections()
+            .map { it.getString("name") }
+            .collect { collection ->
+                mongoInitiator.mongoDb
+                    .getCollection<Document>(collection)
+                    .drop()
+            }
     }
 
     @Test
