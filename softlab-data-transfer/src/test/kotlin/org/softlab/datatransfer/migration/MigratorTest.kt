@@ -89,7 +89,7 @@ class MigratorTest {
             mapOf("id" to "2", "name" to "Test User 2")
         )
 
-        every { mockCollection.metadata } returns testMetadata
+        coEvery { mockCollection.fetchMetadata() } returns testMetadata
         every { mockCollection.readDocuments() } returns testDocuments
         every { mockSource.listCollections() } returns flowOf(mockCollection)
         coEvery { mockDest.createCollection(eq(testMetadata)) } returns Unit
@@ -98,7 +98,7 @@ class MigratorTest {
         runBlocking { Migrator().migrate(mockSource, mockDest) }
 
         verify(exactly = 1) { mockSource.listCollections() }
-        verify(exactly = 2) { mockCollection.metadata }
+        coVerify(exactly = 1) { mockCollection.fetchMetadata() }
         verify(exactly = 1) { mockCollection.readDocuments() }
         coVerify(exactly = 1) { mockDest.createCollection(testMetadata) }
         coVerify(exactly = 1) { mockDest.insertDocuments(testMetadata.name, any()) }
@@ -141,7 +141,7 @@ class MigratorTest {
             }
         }
 
-        every { mockCollection.metadata } returns testMetadata
+        coEvery { mockCollection.fetchMetadata() } returns testMetadata
         every { mockCollection.readDocuments() } returns testDocuments
         every { mockSource.listCollections() } returns flowOf(mockCollection)
 

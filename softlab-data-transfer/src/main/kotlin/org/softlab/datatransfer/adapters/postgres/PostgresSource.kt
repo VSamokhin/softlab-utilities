@@ -18,11 +18,8 @@ package org.softlab.datatransfer.adapters.postgres
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseSource
-import org.softlab.datatransfer.core.Document
 import org.softlab.datatransfer.core.DocumentCollection
-import org.softlab.datatransfer.core.FieldMetadata
 import java.sql.Connection
 import java.sql.DriverManager
 
@@ -46,7 +43,7 @@ class PostgresSource(
                 while (rs.next()) {
                     val schemaName = rs.getString("TABLE_SCHEM")!!
                     val tableName = rs.getString("TABLE_NAME")!!
-                    emit(PostgresDocumentCollection(connection, schemaName, tableName))
+                    emit(PostgresDocumentCollection(schemaName, tableName, connection))
                 }
             }
     }
@@ -61,38 +58,5 @@ class PostgresSource(
 
     override fun close() {
         if (closeConnection) connection.close()
-    }
-}
-
-class PostgresDocumentCollection(
-    private val connection: Connection,
-    private val schemaName: String,
-    private val tableName: String
-) : DocumentCollection {
-    override val metadata: CollectionMetadata by lazy {
-        val columns = mutableListOf<FieldMetadata>()
-        connection.metaData
-            .getColumns(null, null, tableName, "%")
-            .use { rs ->
-                while (rs.next()) {
-                    columns.add(FieldMetadata(rs.getString("COLUMN_NAME"), rs.getString("TYPE_NAME")))
-                }
-                CollectionMetadata("$schemaName.$tableName", columns)
-            }
-    }
-
-    override fun readDocuments(): Flow<Document> = flow {
-        connection.createStatement().use { stmt ->
-            stmt.executeQuery("SELECT * FROM $schemaName.$tableName;").use { rs ->
-                val columns = Array(rs.metaData.columnCount) { rs.metaData.getColumnName(it + 1) }
-                while (rs.next()) {
-                    val row = mutableMapOf<String, Any?>()
-                    columns.forEachIndexed { i, c ->
-                        row[c] = rs.getObject(i + 1)
-                    }
-                    emit(row)
-                }
-            }
-        }
     }
 }

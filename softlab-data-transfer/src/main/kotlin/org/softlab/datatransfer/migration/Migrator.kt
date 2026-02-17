@@ -16,7 +16,6 @@
 
 package org.softlab.datatransfer.migration
 
-import kotlinx.coroutines.runBlocking
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
 
@@ -24,9 +23,10 @@ import org.softlab.datatransfer.core.DatabaseSource
 class Migrator {
     suspend fun migrate(source: DatabaseSource, destination: DatabaseDestination) {
         source.listCollections().collect { collection ->
-            runBlocking { destination.createCollection(collection.metadata) }
+            val metadata = collection.fetchMetadata()
+            destination.createCollection(metadata)
             destination.insertDocuments(
-                collection.metadata.name, collection.readDocuments()
+                metadata.name, collection.readDocuments()
             )
         }
     }

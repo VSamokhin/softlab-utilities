@@ -13,7 +13,7 @@ databaseChangeLog:
                     required: [ "user_id", "name", "email" ],
                     properties: {
                       user_id: {
-                        bsonType: "int",
+                        bsonType: "long",
                       },  
                       name: {
                         bsonType: "string",

@@ -51,7 +51,7 @@ class PostgresSourceTest {
 
     @BeforeEach
     fun seedData() {
-        postgresInitiator.seedData("users-products.yml")
+        postgresInitiator.seedData("datasets/users-products.yml")
     }
 
     @ParameterizedTest
@@ -79,20 +79,20 @@ class PostgresSourceTest {
             val collections = cut.listCollections().toList()
 
             assertThat(
-                collections.map { it.metadata.name },
+                collections.map { it.fetchMetadata().name },
                 containsInAnyOrder("schema1.users", "schema2.products",
                 "public.databasechangelog", "public.databasechangeloglock")
             )
 
-            val usersCollection = collections.first { it.metadata.name == "schema1.users" }
+            val usersCollection = collections.first { it.fetchMetadata().name == "schema1.users" }
             assertThat(
-                usersCollection.metadata.fields.map { it.name }.toList(),
+                usersCollection.fetchMetadata().fields.map { it.name }.toList(),
                 containsInAnyOrder("user_id", "name", "email")
             )
 
-            val productsCollection = collections.first { it.metadata.name == "schema2.products" }
+            val productsCollection = collections.first { it.fetchMetadata().name == "schema2.products" }
             assertThat(
-                productsCollection.metadata.fields.map { it.name }.toSet(),
+                productsCollection.fetchMetadata().fields.map { it.name }.toSet(),
                 containsInAnyOrder("product_id", "title")
             )
         }
@@ -103,7 +103,7 @@ class PostgresSourceTest {
         PostgresSource(postgresInitiator.getConnection()).use { cut ->
             val collections = cut.listCollections().toList()
 
-            val usersCollection = collections.firstOrNull { it.metadata.name == "schema1.users" }
+            val usersCollection = collections.firstOrNull { it.fetchMetadata().name == "schema1.users" }
             assertNotNull(usersCollection)
             val users = usersCollection.readDocuments().toList()
             assertThat(
@@ -115,7 +115,7 @@ class PostgresSourceTest {
                 containsInAnyOrder("alice@example.com", "bob@example.com")
             )
 
-            val productsCollection = collections.firstOrNull { it.metadata.name == "schema2.products" }
+            val productsCollection = collections.firstOrNull { it.fetchMetadata().name == "schema2.products" }
             assertNotNull(productsCollection)
             val products = productsCollection.readDocuments().toList()
             assertThat(products.map { it["title"] }.toList(), containsInAnyOrder("Gizmo"))

@@ -24,6 +24,9 @@ import kotlinx.coroutines.flow.Flow
  */
 data class CollectionMetadata(
     val name: String,
+    /**
+     * Can be an empty list if schema is not known
+     */
     val fields: List<FieldMetadata>
 )
 
@@ -32,7 +35,8 @@ data class CollectionMetadata(
  */
 data class FieldMetadata(
     val name: String,
-    val type: String // Could be a standardized type name
+    val type: String,
+    val nullable: Boolean = false
 )
 
 /**
@@ -41,10 +45,11 @@ data class FieldMetadata(
 typealias Document = Map<String, Any?>
 
 /**
- * A collection (table in RDBMS, collection in NoSQL)
+ * A collection (table in RDBMS, collection in NoSQL).
+ * Its methods shall throw exceptions if collection does not exist or is not accessible.
  */
 interface DocumentCollection {
-    val metadata: CollectionMetadata
+    suspend fun fetchMetadata(): CollectionMetadata
     fun readDocuments(): Flow<Document>
 }
 

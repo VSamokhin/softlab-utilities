@@ -27,7 +27,7 @@ import org.softlab.dataset.mongo.MongoYamlDatasetLoader
 import org.softlab.dataset.mongo.coroutine.CoroutineMongoDatabase
 
 
-class MongoInitiator(override val dbUrl: String) : DatabaseInitiator {
+class MongoInitiator(override val dbUrl: String) : DatabaseInitiator<MongoDatabase> {
     val mongoClient: MongoClient = MongoClient.create(dbUrl)
     val mongoDb: MongoDatabase
     private val mongoFacade: MongoDatabaseFacade
@@ -38,7 +38,12 @@ class MongoInitiator(override val dbUrl: String) : DatabaseInitiator {
         mongoFacade = CoroutineMongoDatabase(mongoDb)
     }
 
-    override fun initSchema(changelogPath: String) {
+    override fun cleanup(additionalSteps: (MongoDatabase) -> Unit) {
+        runBlocking { mongoDb.drop() }
+        additionalSteps(mongoDb)
+    }
+
+    override fun initSchema(changelogPath: String, additionalSteps: (MongoDatabase) -> Unit) {
             DatabaseFactory.getInstance().openDatabase(
                 dbUrl,
                 null,
@@ -52,6 +57,7 @@ class MongoInitiator(override val dbUrl: String) : DatabaseInitiator {
                     database
                 ).use { liquibase -> liquibase.update() }
             }
+        additionalSteps(mongoDb)
     }
 
     override fun seedData(datasetPath: String) {

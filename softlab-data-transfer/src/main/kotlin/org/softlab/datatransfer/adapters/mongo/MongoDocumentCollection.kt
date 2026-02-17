@@ -16,43 +16,73 @@
 
 package org.softlab.datatransfer.adapters.mongo
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.any
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import org.bson.BsonDocument
 import org.bson.Document
+import org.softlab.dataset.mongo.MongoTypesMapper
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.FieldMetadata
 
 
 class MongoDocumentCollection(
-    private val dbName: String,
     private val collectionName: String,
     private val source: MongoSource
 ) : DocumentCollection {
-    override val metadata: CollectionMetadata by lazy {
-        // No strict schema in Mongo — just sample first document
-        val sampleDoc = runBlocking {
-            source.getClient()
-                .getDatabase(dbName)
-                .getCollection<BsonDocument>(collectionName)
-                .find()
-                .firstOrNull()
+    private val logger = KotlinLogging.logger {}
+
+    private val metadata: CollectionMetadata by lazy {
+        val mongoDb = source.getClient().getDatabase(source.dbName)
+        val colInfo = runBlocking {
+            mongoDb.listCollections()
+                .first { it["name"] == collectionName }
         }
 
-        val fields = sampleDoc?.keys?.map { FieldMetadata(it, "string") } ?: emptyList()
+        // Try to get schema from validator if exists
+        val types = MongoTypesMapper.listValidatorTypes(colInfo)
+            ?: runBlocking {
+                // Well, I have slim chances to get proper types from a sample document
+                source.getClient()
+                    .getDatabase(source.dbName)
+                    .getCollection<BsonDocument>(collectionName)
+                    .find()
+                    .firstOrNull()
+            }?.let {
+                MongoTypesMapper.listDocumentTypes(it)
+            }.also {
+                logger.warn {
+                    "Mongo collection '$collectionName' does not have validator" +
+                        " so I could not determine field types.\n" +
+                        "I will try to sample a document and get proper types from it," +
+                        " however it is an error prone approach" +
+                        " because some documents may miss some fields."
+                }
+            }
+            ?: emptyMap<String, Any>().also { // Give up
+                logger.warn {
+                    "There is no way to determine field types, later I may fail creating a collection/JDBC table"
+                }
+            }
+
+        val fields = types.entries.map { FieldMetadata(it.key, it.value.toString()) }
         CollectionMetadata(collectionName, fields)
     }
 
-    override fun readDocuments(): Flow<org.softlab.datatransfer.core.Document> = flow {
-        val mongoCollection = source.getClient()
-            .getDatabase(dbName)
-            .getCollection(collectionName, Document::class.java)
+    override suspend fun fetchMetadata(): CollectionMetadata = metadata
 
-        mongoCollection.find().collect { doc ->
-            emit(doc.toMap())
-        }
+    override fun readDocuments(): Flow<org.softlab.datatransfer.core.Document> = flow {
+        val mongoDb = source.getClient().getDatabase(source.dbName)
+        if (!mongoDb.listCollectionNames().any { it == collectionName })
+            error("Collection '$collectionName' does not exist in database '${source.dbName}'")
+        mongoDb.getCollection<Document>(collectionName)
+            .find().collect { doc ->
+                emit(doc.toMap())
+            }
     }
 }

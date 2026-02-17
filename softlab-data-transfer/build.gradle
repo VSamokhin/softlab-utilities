@@ -9,6 +9,7 @@ description = 'Pluggable database migration tool'
 
 dependencies {
     implementation platform('org.mongodb:mongodb-driver-bom:_')
+    implementation project(':softlab-dataset-loaders')
     implementation 'com.github.ajalt.clikt:clikt:_'
     implementation 'org.postgresql:postgresql:_'
     implementation 'org.mongodb:mongodb-driver-kotlin-coroutine'
@@ -49,6 +50,10 @@ test {
     dependsOn ':softlab-dataset-loaders:shadowJar' // WTF
 }
 
+startScripts {
+    dependsOn ':softlab-dataset-loaders:shadowJar' // WTF
+}
+
 jacocoTestCoverageVerification {
-    jacocoVerification(it, 0.74, 3)
+    jacocoVerification(it, 0.78, 3)
 }

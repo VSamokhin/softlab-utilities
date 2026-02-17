@@ -22,27 +22,25 @@ import org.bson.Document
 import org.softlab.dataset.YamlDatasetLoading
 import org.softlab.dataset.YamlTablesRows
 import org.softlab.dataset.mongo.MongoTypesMapper.asBsonDocument
-import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 
 /**
  * Map DBUnit's YAML dataset to Mongo's document 1:1
- * Where each dataset table turns into a Mongo collection and each table column to a [BsonDocument] property
+ * Where each dataset table turns into a Mongo collection and each table column to a [BsonDocument] property.
  *
- * Prior to using this class, ensure that the corresponding schema has been already created in Mongo
+ * Prior to using this class, ensure that a corresponding schema has been already created in Mongo
  */
 class MongoYamlDatasetLoader(
     private val mongoDb: MongoDatabaseFacade,
-    dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT
+    private val dateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC)
 ) : YamlDatasetLoading() {
     companion object {
         private const val BATCH_SIZE: Int = 500
     }
 
     override val logger = KotlinLogging.logger {}
-
-    private val formatter = dateTimeFormatter.withZone(ZoneId.of("UTC"))
 
     override fun loadImpl(dataset: YamlTablesRows, cleanBefore: Boolean) {
         val collectionDefinitions = mongoDb.mapCollections()
@@ -57,7 +55,7 @@ class MongoYamlDatasetLoader(
             val fieldTypes = MongoTypesMapper.listValidatorTypes(collectionDefinition)
                 ?: error("Could not retrieve validator options for collection: $collectionDefinition")
             table.value.asSequence()
-                .map { it.asBsonDocument(fieldTypes, formatter) }
+                .map { it.asBsonDocument(fieldTypes, dateTimeFormatter) }
                 .chunked(BATCH_SIZE)
                 .forEach {
                     collection.insertMany(it)

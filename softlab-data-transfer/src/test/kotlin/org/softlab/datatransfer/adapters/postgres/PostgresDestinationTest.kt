@@ -5,6 +5,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.softlab.datatransfer.core.CollectionMetadata
@@ -16,6 +17,7 @@ import org.testcontainers.utility.DockerImageName
 import java.lang.Thread.sleep
 import java.sql.Connection
 import java.sql.DriverManager
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -37,7 +39,6 @@ class PostgresDestinationTest {
             // Workaround for Rancher Desktop on Mac, somehow the container is not ready while the tests start
             val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
             if (isMac) sleep(3000) // Wait for the container to be ready
-
         }
     }
 
@@ -75,35 +76,45 @@ class PostgresDestinationTest {
                         fields = listOf(
                             FieldMetadata("id", "int"),
                             FieldMetadata("name", "string"),
-                            FieldMetadata("active", "boolean"),
-                            FieldMetadata("notes", "custom")
+                            FieldMetadata("active", "boolean")
                         )
                     )
                 )
             }
 
-            val columnTypes = getConnection().use { conn->
-                conn.createStatement().use { stmt ->
-                    stmt.executeQuery(
-                        """
-                            SELECT column_name, data_type
-                            FROM information_schema.columns
-                            WHERE table_schema = 'public' AND table_name = 'users';
-                            """.trimIndent()
-                    ).use { rs ->
-                        val result = mutableMapOf<String, String>()
-                        while (rs.next()) {
-                            result[rs.getString("column_name")] = rs.getString("data_type")
-                        }
-                        result
-                    }
-                }
+            val columns = getConnection().use {
+                PostgresHelper.readColumns("public", "users", it)
+                    .associate { fm -> fm.name to fm.type }
             }
 
-            assertEquals("integer", columnTypes["id"])
-            assertEquals("text", columnTypes["name"])
-            assertEquals("boolean", columnTypes["active"])
-            assertEquals("text", columnTypes["notes"])
+            assertEquals("integer", columns["id"])
+            assertEquals("text", columns["name"])
+            assertEquals("boolean", columns["active"])
+    }
+
+        @Test
+        fun `createCollection() throws for unknow field type`() {
+            PostgresDestination(getConnection(), false).use { destination ->
+                val col = CollectionMetadata("public.users",
+                    listOf(FieldMetadata("notes", "custom")))
+
+                val exc = assertThrows<IllegalStateException> {
+                    runBlocking { destination.createCollection(col) }
+                }
+                assertContains(exc.message!!, "custom")
+            }
+        }
+
+    @Test
+    fun `createCollection() works when no columns`() = runBlocking {
+        PostgresDestination(postgres.jdbcUrl, postgres.username, postgres.password).use { destination ->
+             destination.createCollection(CollectionMetadata("public.no_columns", emptyList()))
+        }
+
+        getConnection().use { conn ->
+            assertTrue(PostgresHelper.tableExists("public", "no_columns", conn))
+            assertTrue(PostgresHelper.readColumns("public", "no_columns", conn).isEmpty())
+        }
     }
 
     @Test

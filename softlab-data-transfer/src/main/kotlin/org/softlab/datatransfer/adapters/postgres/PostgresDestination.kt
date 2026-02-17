@@ -43,7 +43,7 @@ class PostgresDestination(
         val columnsDef = metadata.fields.joinToString(", ") {
             "${it.name} ${mapType(it.type)}"
         }
-        val sql = "CREATE TABLE IF NOT EXISTS ${metadata.name} ($columnsDef);"
+        val sql = "CREATE TABLE ${metadata.name} ($columnsDef);"
         connection.createStatement().use {
             logger.trace { "Executing SQL: $sql" }
             it.execute(sql)
@@ -52,16 +52,22 @@ class PostgresDestination(
 
     private fun mapType(type: String): String {
         return when (type.lowercase()) {
-            "int", "integer" -> "INTEGER"
-            "text", "string" -> "TEXT"
+            "smallint", "short", "int16" -> "SMALLINT"
+            "int", "integer", "int32" -> "INTEGER"
+            "long", "bigint", "int64" -> "BIGINT"
+            "float", "real" -> "REAL"
+            "double", "double precision" -> "DOUBLE PRECISION"
+            "text", "string", "varchar" -> "TEXT"
             "boolean" -> "BOOLEAN"
-            else -> "TEXT"
+            "blob", "bytea" -> "BYTEA"
+            "timestamp" -> "TIMESTAMP WITH TIME ZONE"
+            else -> error("Unsupported type: $type")
         }
     }
 
     override suspend fun insertDocuments(collectionName: String, documents: Flow<Document>) {
         documents.collect { doc ->
-            val columns = doc.keys.joinToString(", ") { "$it" }
+            val columns = doc.keys.joinToString(", ") { it }
             val placeholders = doc.keys.joinToString(", ") { "?" }
             connection.prepareStatement(
                 "INSERT INTO $collectionName ($columns) VALUES ($placeholders);"

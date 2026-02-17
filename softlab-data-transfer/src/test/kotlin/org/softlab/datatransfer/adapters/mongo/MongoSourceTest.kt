@@ -62,21 +62,21 @@ class MongoSourceTest {
             val collections = cut.listCollections().toList()
 
             assertThat(
-                collections.map { it.metadata.name },
+                collections.map { it.fetchMetadata().name },
                 containsInAnyOrder("schema1.users", "schema2.products",
                 "DATABASECHANGELOG", "DATABASECHANGELOGLOCK")
             )
 
-            val usersCollection = collections.first { it.metadata.name == "schema1.users" }
+            val usersCollection = collections.first { it.fetchMetadata().name == "schema1.users" }
             assertThat(
-                usersCollection.metadata.fields.map { it.name }.toList(),
-                containsInAnyOrder("_id", "user_id", "name", "email")
+                usersCollection.fetchMetadata().fields.map { it.name }.toList(),
+                containsInAnyOrder("user_id", "name", "email")
             )
 
-            val productsCollection = collections.first{ it.metadata.name == "schema2.products" }
+            val productsCollection = collections.first{ it.fetchMetadata().name == "schema2.products" }
             assertThat(
-                productsCollection.metadata.fields.map { it.name }.toSet(),
-                containsInAnyOrder("_id", "product_id", "title")
+                productsCollection.fetchMetadata().fields.map { it.name }.toSet(),
+                containsInAnyOrder("product_id", "title")
             )
         }
     }

@@ -17,20 +17,24 @@
 package org.softlab.datataset.test.initiators
 
 
-interface DatabaseInitiator : AutoCloseable {
+interface DatabaseInitiator<T> : AutoCloseable {
     /**
      * The underlying database's URL
      */
     val dbUrl: String
 
     /**
-     * Initialize the database schema using the provided Liquibase changelog file
+     * Do a full database cleanup (e.g. drop schema or database)
      */
-    fun initSchema(changelogPath: String)
+    fun cleanup(additionalSteps: (T) -> Unit = {})
 
     /**
-     * Seed the database with test data given in the DBUnit YAML format,
-     * cleaning up the affected collections before
+     * Initialize the database schema using the provided Liquibase changelog file
+     */
+    fun initSchema(changelogPath: String, additionalSteps: (T) -> Unit = {})
+
+    /**
+     * Seed the database with test data given in the DBUnit YAML format
      */
     fun seedData(datasetPath: String)
 }
