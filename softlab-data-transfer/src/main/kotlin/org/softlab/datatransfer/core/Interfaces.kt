@@ -34,7 +34,7 @@ data class CollectionMetadata(
 /**
  * Represents a document (row)
  */
-typealias Document = Map<String, Any?>
+typealias TransferDocument = Map<String, Any?>
 
 /**
  * A collection (table in RDBMS, collection in NoSQL).
@@ -42,7 +42,7 @@ typealias Document = Map<String, Any?>
  */
 interface DocumentCollection {
     suspend fun fetchMetadata(): CollectionMetadata
-    fun readDocuments(): Flow<Document>
+    fun readDocuments(): Flow<TransferDocument>
 }
 
 /**
@@ -58,5 +58,5 @@ interface DatabaseSource : AutoCloseable {
  */
 interface DatabaseDestination : AutoCloseable {
     suspend fun createCollection(metadata: CollectionMetadata)
-    suspend fun insertDocuments(collectionName: String, documents: Flow<Document>)
+    suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>)
 }

@@ -19,7 +19,7 @@ package org.softlab.datatransfer.adapters.postgres
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.softlab.datatransfer.core.CollectionMetadata
-import org.softlab.datatransfer.core.Document
+import org.softlab.datatransfer.core.TransferDocument
 import org.softlab.datatransfer.core.DocumentCollection
 import java.sql.Connection
 
@@ -39,7 +39,7 @@ class PostgresDocumentCollection(
 
     override suspend fun fetchMetadata(): CollectionMetadata = metadata
 
-    override fun readDocuments(): Flow<Document> = flow {
+    override fun readDocuments(): Flow<TransferDocument> = flow {
         connection.createStatement().use { stmt ->
             stmt.executeQuery("SELECT * FROM $schemaName.$tableName;").use { rs ->
                 val columns = Array(rs.metaData.columnCount) { rs.metaData.getColumnName(it + 1) }

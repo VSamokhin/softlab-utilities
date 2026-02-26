@@ -75,7 +75,7 @@ class MongoDocumentCollection(
 
     override suspend fun fetchMetadata(): CollectionMetadata = metadata
 
-    override fun readDocuments(): Flow<org.softlab.datatransfer.core.Document> = flow {
+    override fun readDocuments(): Flow<org.softlab.datatransfer.core.TransferDocument> = flow {
         val mongoDb = source.getClient().getDatabase(source.dbName)
         if (!mongoDb.listCollectionNames().any { it == collectionName })
             error("Collection '$collectionName' does not exist in database '${source.dbName}'")

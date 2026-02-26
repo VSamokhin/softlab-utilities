@@ -16,13 +16,16 @@
 
 package org.softlab.datatransfer.adapters.mongo
 
+import com.mongodb.client.model.CreateCollectionOptions
+import com.mongodb.client.model.ValidationOptions
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.any
 import org.bson.BsonDocument
+import org.bson.Document
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
-import org.softlab.datatransfer.core.Document
+import org.softlab.datatransfer.core.TransferDocument
 
 
 class MongoDestination(
@@ -34,14 +37,48 @@ class MongoDestination(
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
         if (!db.listCollectionNames().any { it == metadata.name }) {
-            db.createCollection(metadata.name)
+            if (metadata.fields.isNotEmpty()) {
+                val options = CreateCollectionOptions()
+                    .validationOptions(
+                        ValidationOptions().validator(buildValidator(metadata))
+                    )
+                db.createCollection(metadata.name, options)
+            } else {
+                db.createCollection(metadata.name)
+            }
         }
     }
 
-    override suspend fun insertDocuments(collectionName: String, documents: Flow<Document>) {
+    private fun buildValidator(metadata: CollectionMetadata): Document {
+        val properties = metadata.fields.associate { field ->
+            field.name to Document(mapOf(
+                "bsonType" to bsonTypeFor(field.type, field.nullable)
+            ))
+        }
+        val required = metadata.fields
+            .filterNot { it.nullable }
+            .map { it.name }
+        val jsonSchema = Document(mapOf(
+            "bsonType" to "object", "properties" to Document(properties)
+        ))
+        if (required.isNotEmpty()) {
+            jsonSchema["required"] = required
+        }
+        return Document(mapOf("\$jsonSchema" to jsonSchema))
+    }
+
+    private fun bsonTypeFor(type: String, nullable: Boolean): Any {
+        return if (nullable) {
+            listOf(type, "null")
+        } else {
+            type
+        }
+    }
+
+    override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {
         val collection = db.getCollection<BsonDocument>(collectionName)
         documents.collect { doc ->
-            collection.insertOne(org.bson.Document(doc).toBsonDocument())
+            collection.insertOne(Document(doc).toBsonDocument())
         }
     }
 

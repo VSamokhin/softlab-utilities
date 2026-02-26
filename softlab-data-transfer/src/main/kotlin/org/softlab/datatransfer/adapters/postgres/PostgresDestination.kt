@@ -20,7 +20,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
-import org.softlab.datatransfer.core.Document
+import org.softlab.datatransfer.core.TransferDocument
 import java.sql.Connection
 import java.sql.DriverManager
 
@@ -65,7 +65,7 @@ class PostgresDestination(
         }
     }
 
-    override suspend fun insertDocuments(collectionName: String, documents: Flow<Document>) {
+    override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {
         documents.collect { doc ->
             val columns = doc.keys.joinToString(", ") { it }
             val placeholders = doc.keys.joinToString(", ") { "?" }
