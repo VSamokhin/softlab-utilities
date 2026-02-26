@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.softlab.dataset.core.FieldDefinition
 import org.softlab.datatransfer.adapters.mongo.MongoDestination
 import org.softlab.datatransfer.adapters.mongo.MongoSource
 import org.softlab.datatransfer.adapters.postgres.PostgresDestination
@@ -23,7 +24,6 @@ import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.DocumentCollection
-import org.softlab.datatransfer.core.FieldMetadata
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.mongodb.MongoDBContainer
@@ -79,8 +79,8 @@ class MigratorTest {
         val testMetadata = CollectionMetadata(
             name = "users",
             fields = listOf(
-                FieldMetadata("id", "string"),
-                FieldMetadata("name", "string")
+                FieldDefinition("id", "string"),
+                FieldDefinition("name", "string")
             )
         )
 
@@ -129,7 +129,7 @@ class MigratorTest {
 
         val testMetadata = CollectionMetadata(
             name = "large_table",
-            fields = listOf(FieldMetadata("id", "string"))
+            fields = listOf(FieldDefinition("id", "string"))
         )
 
         // Generate a large number of test documents

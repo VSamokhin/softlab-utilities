@@ -30,28 +30,49 @@ import org.bson.BsonString
 import org.bson.BsonType
 import org.bson.BsonValue
 import org.bson.Document
+import org.softlab.dataset.core.FieldDefinition
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Date
 
 
 object MongoTypesMapper {
-    private fun unknownType(type: Any, field: String): Nothing =
+    private fun unknownType(type: String, field: String): Nothing =
         error("Unknown type '$type' of: $field")
 
     /**
      * Return a mapping of columns to their types as defined in the collection validator, if any
      */
-    fun listValidatorTypes(collectionInfo: Document): Map<String, Any>? =
-        collectionInfo
+    fun listValidatorTypes(collectionInfo: Document): Map<String, FieldDefinition>? {
+        val jsonSchema = collectionInfo
             .get("options", Document::class.java)
             ?.get("validator", Document::class.java)
             ?.get("\$jsonSchema", Document::class.java)
+        val required = jsonSchema
+            ?.get("required", List::class.java)
+            ?.mapNotNull { it.toString() }
+            ?.toSet()
+            ?: emptySet()
+        return jsonSchema
             ?.get("properties", Document::class.java)
             ?.entries
-            ?.associate { it.key to ((it.value as Document)["bsonType"])!! }
+            ?.associate { p ->
+                p.key to when(val type = (p.value as Document)["bsonType"]!!) {
+                    is String -> FieldDefinition(p.key, type, p.key !in required)
+                    is List<*> -> {
+                        check(type.size == 2) {
+                            "I expect a list of two types at this point, one of them must be 'null'," +
+                                " but got $type for field '${p.key}'"
+                        }
+                        val intendedType = type.filterNotNull().single { it != "null" }.toString()
+                        FieldDefinition(p.key, intendedType, true)
+                    }
+                    else -> unknownType(type::class.simpleName!!, p.key)
+                }
+            }
+    }
 
-    fun listDocumentTypes(document: BsonDocument): Map<String, Any> {
+    fun listDocumentTypes(document: BsonDocument): Map<String, FieldDefinition> {
         return document.entries.associate { (key, value) ->
             val type = when (value.bsonType) {
                 BsonType.DOUBLE -> "double"
@@ -69,7 +90,7 @@ object MongoTypesMapper {
                 BsonType.TIMESTAMP -> "timestamp"
                 else -> unknownType(value.bsonType.name, key)
             }
-            key to type
+            key to FieldDefinition(key, type, false)
         }
     }
 
@@ -77,13 +98,13 @@ object MongoTypesMapper {
      * Convert a map of field-value pairs as it comes out of [ObjectMapper.readValue] to a [BsonDocument]
      */
     fun Map<String, Any>.asBsonDocument(
-        typeHints: Map<String, Any>,
+        typeHints: Map<String, FieldDefinition>,
         dateTimeFormatter: DateTimeFormatter
     ): BsonDocument {
         return this.entries.map { field ->
-            val fieldType: Any = typeHints[field.key]
+            val fieldMeta = typeHints[field.key]
                 ?: error("Could not find field '${field.key}' among defined in the schema: ${typeHints.keys}")
-            val value = convertValue(field.key, field.value, fieldType, dateTimeFormatter)
+            val value = convertValue(fieldMeta, field.value, dateTimeFormatter)
             BsonElement(field.key, value)
         }.let { BsonDocument(it) }
     }
@@ -93,33 +114,26 @@ object MongoTypesMapper {
      */
     @Suppress("MagicNumber")
     private fun convertValue(
-        name: String,
+        fieldMeta: FieldDefinition,
         value: Any,
-        type: Any,
         dateTimeFormatter: DateTimeFormatter
     ): BsonValue {
-        return when (type) {
-            "double", 1 -> BsonDouble((value as Number).toDouble())
-            "string", 2 -> BsonString(value.toString())
-            "binData", 5 -> BsonBinary(
+        return when (fieldMeta.type) {
+            "double" -> BsonDouble((value as Number).toDouble())
+            "string" -> BsonString(value.toString())
+            "binData" -> BsonBinary(
                 org.dbunit.util.Base64.decode(
                     value.toString()
                 )
             )
-            "bool", 8 -> BsonBoolean(value as Boolean)
-            "date", 9 -> {
+            "bool" -> BsonBoolean(value as Boolean)
+            "date" -> {
                 val dateTime = ZonedDateTime.parse(value.toString(), dateTimeFormatter)
                 BsonDateTime(dateTime.toInstant().toEpochMilli())
             }
-            "int", 16 -> BsonInt32((value as Number).toInt())
-            "long", 18 -> BsonInt64((value as Number).toLong())
-            is List<*> -> {
-                // I may expect a list of no more than two types, e.g. ["string", "null"]
-                val intendedType = type.filterNotNull().single { it != "null" }
-                convertValue(name, value, intendedType, dateTimeFormatter)
-            }
-
-            else -> unknownType(type, name)
+            "int" -> BsonInt32((value as Number).toInt())
+            "long" -> BsonInt64((value as Number).toLong())
+            else -> unknownType(fieldMeta.type, fieldMeta.name)
         }
     }
 

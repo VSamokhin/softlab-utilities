@@ -25,10 +25,10 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import org.bson.BsonDocument
 import org.bson.Document
+import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.mongo.MongoTypesMapper
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DocumentCollection
-import org.softlab.datatransfer.core.FieldMetadata
 
 
 class MongoDocumentCollection(
@@ -64,14 +64,13 @@ class MongoDocumentCollection(
                         " because some documents may miss some fields."
                 }
             }
-            ?: emptyMap<String, Any>().also { // Give up
+            ?: emptyMap<String, FieldDefinition>().also { // Give up
                 logger.warn {
                     "There is no way to determine field types, later I may fail creating a collection/JDBC table"
                 }
             }
 
-        val fields = types.entries.map { FieldMetadata(it.key, it.value.toString()) }
-        CollectionMetadata(collectionName, fields)
+        CollectionMetadata(collectionName, types.values)
     }
 
     override suspend fun fetchMetadata(): CollectionMetadata = metadata

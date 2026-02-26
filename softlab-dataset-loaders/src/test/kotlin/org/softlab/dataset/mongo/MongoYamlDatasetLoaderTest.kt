@@ -111,7 +111,7 @@ class MongoYamlDatasetLoaderTest {
     @Test
     fun `load() should throw exception for collection with incorrect type`() {
         val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.mongoDb))
-        assertThrows<IllegalArgumentException> {
+        assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-collection-with-incorrect-type.yml")
         }
     }

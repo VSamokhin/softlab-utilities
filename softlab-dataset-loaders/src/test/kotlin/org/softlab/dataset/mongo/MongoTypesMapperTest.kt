@@ -20,6 +20,7 @@ import org.dbunit.util.Base64
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.allOf
 import org.hamcrest.Matchers.containsString
+import org.hamcrest.Matchers.equalTo
 import org.hamcrest.collection.IsMapContaining.hasEntry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.mongo.MongoTypesMapper.asBsonDocument
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -65,13 +67,7 @@ class MongoTypesMapperTest {
                 Arguments.of("int_field", "int", 7, BsonInt32(7)),
                 Arguments.of("int_field", "int", 7.0, BsonInt32(7)),
                 Arguments.of("long_field", "long", 42L, BsonInt64(42L)),
-                Arguments.of("long_field", "long", 42, BsonInt64(42L)),
-                Arguments.of(
-                    "nullable_string",
-                    listOf("string", "null"),
-                    "value",
-                    BsonString("value")
-                )
+                Arguments.of("long_field", "long", 42, BsonInt64(42L))
             )
         }
     }
@@ -90,7 +86,7 @@ class MongoTypesMapperTest {
                             mapOf(
                                 "name" to Document("bsonType", "string"),
                                 "active" to Document("bsonType", "bool"),
-                                "score" to Document("bsonType", arrayOf("double", "null"))
+                                "score" to Document("bsonType", listOf("double", "null"))
                             )
                         )
                     )
@@ -100,11 +96,66 @@ class MongoTypesMapperTest {
 
         assertThat(MongoTypesMapper.listValidatorTypes(schema),
             allOf(
-                hasEntry("name", "string"),
-                hasEntry("active", "bool"),
-                hasEntry("score", arrayOf("double", "null"))
+                hasEntry(equalTo("name"), equalTo(FieldDefinition("name","string", true))),
+                hasEntry(equalTo("active"), equalTo(FieldDefinition("active", "bool", true))),
+                hasEntry(equalTo("score"), equalTo(FieldDefinition("score", "double", true)))
             )
         )
+    }
+
+    @Test
+    fun `listValidatorTypes() infers types from validator with required fields`() {
+        val schema = Document(
+            "options",
+            Document(
+                "validator",
+                Document(
+                    "\$jsonSchema",
+                    Document(mapOf(
+                        "required" to listOf("name", "score"),
+                        "properties" to Document(mapOf(
+                            "name" to Document("bsonType", "double"),
+                            "active" to Document("bsonType", "binData"),
+                            "score" to Document("bsonType", listOf("long", "null"))
+                        ))
+                    ))
+                )
+            )
+        )
+
+        assertThat(MongoTypesMapper.listValidatorTypes(schema),
+            allOf(
+                hasEntry(equalTo("name"), equalTo(FieldDefinition("name","double", false))),
+                hasEntry(equalTo("active"), equalTo(FieldDefinition("active", "binData", true))),
+                hasEntry(equalTo("score"), equalTo(FieldDefinition("score", "long", true)))
+            )
+        )
+    }
+
+    @Test
+    fun `listValidatorTypes() throws for unexpected bsonType's type`() {
+        val schema = Document(
+            "options",
+            Document(
+                "validator",
+                Document(
+                    "\$jsonSchema",
+                    Document(
+                        "properties",
+                        Document(
+                            mapOf(
+                                "wrong_bson_type_field" to Document("bsonType", 123)
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val exc = assertThrows<IllegalStateException> {
+            MongoTypesMapper.listValidatorTypes(schema)
+        }
+        assertThat(exc.message, containsString("wrong_bson_type_field"))
     }
 
     @Test
@@ -132,19 +183,19 @@ class MongoTypesMapperTest {
         assertThat(
             types,
             allOf(
-                hasEntry("double_field", "double"),
-                hasEntry("string_field", "string"),
-                hasEntry("symbol_field", "string"),
-                hasEntry("id", "string"),
-                hasEntry("binData_field", "binData"),
-                hasEntry("bool_field", "bool"),
-                hasEntry("date_field", "date"),
-                hasEntry("int_field", "int"),
-                hasEntry("long_field", "long"),
-                hasEntry("object_field", "object"),
-                hasEntry("array_field", "array"),
-                hasEntry("decimal_field", "decimal"),
-                hasEntry("timestamp_field", "timestamp")
+                hasEntry(equalTo("double_field"), equalTo(FieldDefinition("double_field", "double"))),
+                hasEntry(equalTo("string_field"), equalTo(FieldDefinition("string_field", "string"))),
+                hasEntry(equalTo("symbol_field"), equalTo(FieldDefinition("symbol_field", "string"))),
+                hasEntry(equalTo("id"), equalTo(FieldDefinition("id", "string"))),
+                hasEntry(equalTo("binData_field"), equalTo(FieldDefinition("binData_field", "binData"))),
+                hasEntry(equalTo("bool_field"), equalTo(FieldDefinition("bool_field", "bool"))),
+                hasEntry(equalTo("date_field"), equalTo(FieldDefinition("date_field", "date"))),
+                hasEntry(equalTo("int_field"), equalTo(FieldDefinition("int_field", "int"))),
+                hasEntry(equalTo("long_field"), equalTo(FieldDefinition("long_field", "long"))),
+                hasEntry(equalTo("object_field"), equalTo(FieldDefinition("object_field", "object"))),
+                hasEntry(equalTo("array_field"), equalTo(FieldDefinition("array_field", "array"))),
+                hasEntry(equalTo("decimal_field"), equalTo(FieldDefinition("decimal_field", "decimal"))),
+                hasEntry(equalTo("timestamp_field"), equalTo(FieldDefinition("timestamp_field", "timestamp")))
             )
         )
     }
@@ -168,11 +219,11 @@ class MongoTypesMapperTest {
     @MethodSource("bsonDocumentCases")
     fun `asBsonDocument(typeHints,dateTimeFormatter) converts values using schema types`(
         fieldName: String,
-        fieldType: Any,
+        fieldType: String,
         fieldValue: Any,
         expected: BsonValue
     ) {
-        val fieldTypes = mapOf(fieldName to fieldType)
+        val fieldTypes = mapOf(fieldName to FieldDefinition(fieldName, fieldType))
         val fieldValues = mapOf(fieldName to fieldValue)
 
         val actual = fieldValues.asBsonDocument(fieldTypes, DateTimeFormatter.ISO_ZONED_DATE_TIME)
@@ -182,8 +233,8 @@ class MongoTypesMapperTest {
 
     @Test
     fun `asBsonDocument(typeHints,dateTimeFormatter) throws when field is missing from schema`() {
-        val fieldTypes = mapOf("known_filed" to "string")
-        val fieldValues = mapOf("unknown_field" to "value")
+        val fieldTypes = mapOf("known_field" to FieldDefinition("known_field", "string"))
+        val fieldValues = mapOf("unknown_field" to FieldDefinition("unknown_field", "value"))
 
         val exception = assertThrows<IllegalStateException> {
             fieldValues.asBsonDocument(fieldTypes, DateTimeFormatter.ISO_ZONED_DATE_TIME)
@@ -194,7 +245,7 @@ class MongoTypesMapperTest {
 
     @Test
     fun `asBsonDocument(typeHints,dateTimeFormatter) throws for unsupported type`() {
-        val fieldTypes = mapOf("amount" to "decimal")
+        val fieldTypes = mapOf("amount" to FieldDefinition("amount", "decimal"))
         val fieldValues = mapOf("amount" to "1.00")
 
         val exception = assertThrows<IllegalStateException> {

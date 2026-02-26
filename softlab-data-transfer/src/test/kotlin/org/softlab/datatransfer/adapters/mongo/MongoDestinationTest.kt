@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.softlab.datataset.test.initiators.MongoInitiator
 import org.softlab.datatransfer.core.CollectionMetadata
-import org.softlab.datatransfer.core.FieldMetadata
+import org.softlab.dataset.core.FieldDefinition
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.mongodb.MongoDBContainer
@@ -60,7 +60,7 @@ class MongoDestinationTest {
         MongoDestination(mongoInitiator.dbUrl).use { destination ->
             destination.createCollection(
                 CollectionMetadata("new_collection",
-                    listOf(FieldMetadata("id", "string")))
+                    listOf(FieldDefinition("id", "string")))
             )
             destination.createCollection(
                 CollectionMetadata("existing", emptyList())

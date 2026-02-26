@@ -41,7 +41,7 @@ class PostgresDestination(
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
         val columnsDef = metadata.fields.joinToString(", ") {
-            "${it.name} ${mapType(it.type)}"
+            "${it.name} ${mapType(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
         }
         val sql = "CREATE TABLE ${metadata.name} ($columnsDef);"
         connection.createStatement().use {

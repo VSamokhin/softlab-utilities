@@ -17,6 +17,7 @@
 package org.softlab.datatransfer.core
 
 import kotlinx.coroutines.flow.Flow
+import org.softlab.dataset.core.FieldDefinition
 
 
 /**
@@ -27,16 +28,7 @@ data class CollectionMetadata(
     /**
      * Can be an empty list if schema is not known
      */
-    val fields: List<FieldMetadata>
-)
-
-/**
- * Represents metadata for a field (column)
- */
-data class FieldMetadata(
-    val name: String,
-    val type: String,
-    val nullable: Boolean = false
+    val fields: Collection<FieldDefinition>
 )
 
 /**

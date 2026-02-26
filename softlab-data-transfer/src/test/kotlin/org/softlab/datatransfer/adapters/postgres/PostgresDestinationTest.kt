@@ -2,14 +2,16 @@ package org.softlab.datatransfer.adapters.postgres
 
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.contains
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import org.softlab.dataset.core.FieldDefinition
 import org.softlab.datatransfer.core.CollectionMetadata
-import org.softlab.datatransfer.core.FieldMetadata
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
@@ -59,7 +61,7 @@ class PostgresDestinationTest {
                 destination.createCollection(
                     CollectionMetadata(
                         name = "public.users",
-                        fields = listOf(FieldMetadata("id", "int"))
+                        fields = listOf(FieldDefinition("id", "int"))
                     )
                 )
             }
@@ -74,9 +76,9 @@ class PostgresDestinationTest {
                     CollectionMetadata(
                         name = "public.users",
                         fields = listOf(
-                            FieldMetadata("id", "int"),
-                            FieldMetadata("name", "string"),
-                            FieldMetadata("active", "boolean")
+                            FieldDefinition("id", "int", false),
+                            FieldDefinition("name", "string"),
+                            FieldDefinition("active", "boolean", false)
                         )
                     )
                 )
@@ -84,19 +86,20 @@ class PostgresDestinationTest {
 
             val columns = getConnection().use {
                 PostgresHelper.readColumns("public", "users", it)
-                    .associate { fm -> fm.name to fm.type }
             }
 
-            assertEquals("integer", columns["id"])
-            assertEquals("text", columns["name"])
-            assertEquals("boolean", columns["active"])
+            assertThat(columns, contains(
+                FieldDefinition("id", "integer", false),
+                FieldDefinition("name", "text"),
+                FieldDefinition("active", "boolean", false)
+            ))
     }
 
         @Test
         fun `createCollection() throws for unknow field type`() {
             PostgresDestination(getConnection(), false).use { destination ->
                 val col = CollectionMetadata("public.users",
-                    listOf(FieldMetadata("notes", "custom")))
+                    listOf(FieldDefinition("notes", "custom")))
 
                 val exc = assertThrows<IllegalStateException> {
                     runBlocking { destination.createCollection(col) }
@@ -124,9 +127,9 @@ class PostgresDestinationTest {
                 CollectionMetadata(
                     name = "public.users",
                     fields = listOf(
-                        FieldMetadata("id", "int"),
-                        FieldMetadata("name", "string"),
-                        FieldMetadata("active", "boolean")
+                        FieldDefinition("id", "int"),
+                        FieldDefinition("name", "string"),
+                        FieldDefinition("active", "boolean")
                     )
                 )
             )

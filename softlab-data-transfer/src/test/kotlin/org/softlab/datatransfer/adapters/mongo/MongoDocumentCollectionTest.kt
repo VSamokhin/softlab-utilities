@@ -56,12 +56,12 @@ class MongoDocumentCollectionTest {
         MongoSource(mongoInitiator.dbUrl).use { source ->
             val cutUsers = MongoDocumentCollection("schema1.users", source)
             val users = runBlocking { cutUsers.readDocuments().toList() }
-            assertThat(users.map { it["name"] }.toList(), containsInAnyOrder("Alice", "Bob"))
-            assertThat(users.map { it["email"] }.toList(), containsInAnyOrder("alice@example.com", "bob@example.com"))
+            assertThat(users.map { it["name"] }, containsInAnyOrder("Alice", "Bob"))
+            assertThat(users.map { it["email"] }, containsInAnyOrder("alice@example.com", "bob@example.com"))
 
             val cutProducts = MongoDocumentCollection("schema2.products", source)
             val products = runBlocking { cutProducts.readDocuments().toList() }
-            assertThat(products.map { it["title"] }.toList(), containsInAnyOrder("Gizmo"))
+            assertThat(products.map { it["title"] }, containsInAnyOrder("Gizmo"))
         }
     }
 
@@ -84,11 +84,11 @@ class MongoDocumentCollectionTest {
             val cut = MongoDocumentCollection("schema1.users", source)
 
             assertThat(
-                cut.fetchMetadata().fields.map { it.name }.toList(),
+                cut.fetchMetadata().fields.map { it.name },
                 contains("user_id", "name", "email")
             )
             assertThat(
-                cut.fetchMetadata().fields.map { it.type }.toList(),
+                cut.fetchMetadata().fields.map { it.type },
                 contains("long", "string", "string")
             )
         }
@@ -106,11 +106,11 @@ class MongoDocumentCollectionTest {
             val cut = MongoDocumentCollection("no_validator", source)
 
             assertThat(
-                cut.fetchMetadata().fields.map { it.name }.toList(),
+                cut.fetchMetadata().fields.map { it.name },
                 contains("_id", "some_id", "some_field") // Only the first document is sampled
             )
             assertThat(
-                cut.fetchMetadata().fields.map { it.type }.toList(),
+                cut.fetchMetadata().fields.map { it.type },
                 contains("string", "double", "string")
             )
         }
