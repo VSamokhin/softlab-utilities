@@ -28,15 +28,21 @@ import org.softlab.datatransfer.core.DocumentCollection
 /**
  * In order to pass authentication you may need to do like:
  * ```
- * MongoSource("mongodb://user:pass@example.com:27017/admin", dbName = "targetDb")
+ * MongoSource("mongodb://user:pass@example.com:27017/admin", databaseName = "targetDb")
  * ```
  */
 class MongoSource(
     dbUrl: String,
     private val client: MongoClient = MongoClient.create(dbUrl),
-    val dbName: String = dbUrl.substringAfterLast("/")
+    val databaseName: String = dbUrl.substringAfterLast("/")
 ) : DatabaseSource {
-    private val db = client.getDatabase(dbName)
+    companion object {
+        private const val BACKEND = "mongo"
+    }
+
+    private val db = client.getDatabase(databaseName)
+
+    override fun getBackendName(): String = BACKEND
 
     override fun listCollections(): Flow<DocumentCollection> {
         return runBlocking {
@@ -56,4 +62,3 @@ class MongoSource(
 
     fun getClient(): MongoClient = client
 }
-

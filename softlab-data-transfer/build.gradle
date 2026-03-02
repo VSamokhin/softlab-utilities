@@ -11,6 +11,8 @@ dependencies {
     implementation platform('org.mongodb:mongodb-driver-bom:_')
     implementation project(':softlab-dataset-loaders')
     implementation 'com.github.ajalt.clikt:clikt:_'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:_'
+    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:_'
     implementation 'org.postgresql:postgresql:_'
     implementation 'org.mongodb:mongodb-driver-kotlin-coroutine'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'

@@ -28,6 +28,10 @@ class PostgresSource(
     private val connection: Connection,
     private val closeConnection: Boolean = true
 ) : DatabaseSource {
+    companion object {
+        private const val BACKEND = "postgres"
+    }
+
     constructor(
         jdbcUrl: String,
         username: String,
@@ -35,6 +39,8 @@ class PostgresSource(
     ) : this(DriverManager.getConnection(jdbcUrl, username, password))
 
     constructor(jdbcUrl: String): this(DriverManager.getConnection(jdbcUrl))
+
+    override fun getBackendName(): String = BACKEND
 
     override fun listCollections(): Flow<DocumentCollection> = flow {
         connection.metaData

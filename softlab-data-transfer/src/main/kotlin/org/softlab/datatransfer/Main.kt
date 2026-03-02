@@ -24,6 +24,7 @@ import org.softlab.datatransfer.adapters.mongo.MongoDestination
 import org.softlab.datatransfer.adapters.mongo.MongoSource
 import org.softlab.datatransfer.adapters.postgres.PostgresDestination
 import org.softlab.datatransfer.adapters.postgres.PostgresSource
+import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.migration.Migrator
@@ -34,6 +35,7 @@ class Main : CliktCommand() {
     private val dest by argument(name = "--dest", help = "Destination DB connection string (URL)")
 
     override fun run() {
+        val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
         val sourceAdapter: DatabaseSource = when {
             source.startsWith("jdbc:postgres") -> PostgresSource(source)
             source.startsWith("mongodb") -> MongoSource(source)
@@ -41,8 +43,14 @@ class Main : CliktCommand() {
         }
 
         val destAdapter: DatabaseDestination = when {
-            dest.startsWith("jdbc:postgres") -> PostgresDestination(dest)
-            dest.startsWith("mongodb") -> MongoDestination(dest)
+            dest.startsWith("jdbc:postgres") -> PostgresDestination(
+                dest,
+                dataTypeMappings = dataTypeMappings.destination(PostgresDestination.BACKEND)
+            )
+            dest.startsWith("mongodb") -> MongoDestination(
+                dest,
+                dataTypeMappings = dataTypeMappings.destination(PostgresDestination.BACKEND)
+            )
             else -> error("Unsupported destination type")
         }
 

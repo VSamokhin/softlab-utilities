@@ -11,6 +11,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.softlab.dataset.core.FieldDefinition
+import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
@@ -31,6 +32,10 @@ class PostgresDestinationTest {
         @Container
         @JvmStatic
         private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
+
+        private val dataTypeMappings = ConfigProvider.config
+            .getDataTypeMappings()
+            .destination(PostgresDestination.BACKEND)
 
         private fun getConnection(): Connection =
             DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password)
@@ -57,7 +62,7 @@ class PostgresDestinationTest {
     @ValueSource(booleans = [true, false])
     fun `class closes connection when configured`(closeConnection: Boolean) = runBlocking {
         getConnection().use { connection ->
-            PostgresDestination(connection, closeConnection).use { destination ->
+            PostgresDestination(connection, dataTypeMappings, closeConnection).use { destination ->
                 destination.createCollection(
                     CollectionMetadata(
                         name = "public.users",
@@ -71,7 +76,7 @@ class PostgresDestinationTest {
 
     @Test
     fun `createCollection() creates table with mapped column types`() = runBlocking {
-            PostgresDestination(getConnection(), false).use { destination ->
+            PostgresDestination(getConnection(), dataTypeMappings, false).use { destination ->
                 destination.createCollection(
                     CollectionMetadata(
                         name = "public.users",
@@ -95,9 +100,37 @@ class PostgresDestinationTest {
             ))
     }
 
+    @Test
+    fun `getBackendName() returns postgres`() {
+        PostgresDestination(getConnection(), dataTypeMappings, false).use { destination ->
+            assertEquals("postgres", destination.getBackendName())
+        }
+    }
+
+    @Test
+    fun `createCollection() uses provided data type mappings`() = runBlocking {
+        PostgresDestination(
+            connection = getConnection(),
+            closeConnection = false,
+            dataTypeMappings = mapOf("custom_type" to "TEXT")
+        ).use { destination ->
+            destination.createCollection(
+                CollectionMetadata(
+                    name = "public.users",
+                    fields = listOf(FieldDefinition("notes", "custom_type"))
+                )
+            )
+        }
+
+        val columns = getConnection().use {
+            PostgresHelper.readColumns("public", "users", it)
+        }
+        assertThat(columns, contains(FieldDefinition("notes", "text")))
+    }
+
         @Test
         fun `createCollection() throws for unknow field type`() {
-            PostgresDestination(getConnection(), false).use { destination ->
+            PostgresDestination(getConnection(), dataTypeMappings, false).use { destination ->
                 val col = CollectionMetadata("public.users",
                     listOf(FieldDefinition("notes", "custom")))
 
@@ -110,7 +143,12 @@ class PostgresDestinationTest {
 
     @Test
     fun `createCollection() works when no columns`() = runBlocking {
-        PostgresDestination(postgres.jdbcUrl, postgres.username, postgres.password).use { destination ->
+        PostgresDestination(
+            postgres.jdbcUrl,
+            postgres.username,
+            postgres.password,
+            dataTypeMappings
+        ).use { destination ->
              destination.createCollection(CollectionMetadata("public.no_columns", emptyList()))
         }
 
@@ -122,7 +160,7 @@ class PostgresDestinationTest {
 
     @Test
     fun `insertDocuments() writes expected data`() = runBlocking {
-        PostgresDestination(getConnection()).use { destination ->
+        PostgresDestination(getConnection(), dataTypeMappings).use { destination ->
             destination.createCollection(
                 CollectionMetadata(
                     name = "public.users",

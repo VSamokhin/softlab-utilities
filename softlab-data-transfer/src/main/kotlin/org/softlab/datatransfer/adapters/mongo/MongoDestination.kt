@@ -30,10 +30,17 @@ import org.softlab.datatransfer.core.TransferDocument
 
 class MongoDestination(
     private val connString: String,
-    private val dbName: String = connString.substringAfterLast("/")
+    private val dataTypeMappings: Map<String, String>,
+    private val databaseName: String = connString.substringAfterLast("/")
 ) : DatabaseDestination {
+    companion object {
+        const val BACKEND = "mongo"
+    }
+
     private val client: MongoClient = MongoClient.create(connString)
-    private val db = client.getDatabase(dbName)
+    private val db = client.getDatabase(databaseName)
+
+    override fun getBackendName(): String = BACKEND
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
         if (!db.listCollectionNames().any { it == metadata.name }) {
@@ -68,10 +75,11 @@ class MongoDestination(
     }
 
     private fun bsonTypeFor(type: String, nullable: Boolean): Any {
+        val bsonType = dataTypeMappings[type.lowercase()] ?: error("Unsupported type: $type")
         return if (nullable) {
-            listOf(type, "null")
+            listOf(bsonType, "null")
         } else {
-            type
+            bsonType
         }
     }
 

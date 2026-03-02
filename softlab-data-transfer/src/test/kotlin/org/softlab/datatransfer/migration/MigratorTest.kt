@@ -20,6 +20,7 @@ import org.softlab.datatransfer.adapters.mongo.MongoDestination
 import org.softlab.datatransfer.adapters.mongo.MongoSource
 import org.softlab.datatransfer.adapters.postgres.PostgresDestination
 import org.softlab.datatransfer.adapters.postgres.PostgresSource
+import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
@@ -47,6 +48,13 @@ class MigratorTest {
         @JvmStatic
         private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
 
+        private val mongoTypes = ConfigProvider.config
+            .getDataTypeMappings()
+            .destination(MongoDestination.BACKEND)
+        private val postgresTypes = ConfigProvider.config
+            .getDataTypeMappings()
+            .destination(PostgresDestination.BACKEND)
+
         @BeforeAll
         @JvmStatic
         fun setup() {
@@ -59,11 +67,16 @@ class MigratorTest {
         fun getTargetDbs(): List<Arguments> {
             return listOf(
                 Arguments.of(
-                    MongoDestination(mongo.connectionString, DATABASE),
-                    MongoSource(mongo.connectionString, dbName = DATABASE)
+                    MongoDestination(mongo.connectionString, mongoTypes, DATABASE),
+                    MongoSource(mongo.connectionString, databaseName = DATABASE)
                 ),
                 Arguments.of(
-                    PostgresDestination("${postgres.jdbcUrl}/${DATABASE}", postgres.username, postgres.password),
+                    PostgresDestination(
+                        "${postgres.jdbcUrl}/${DATABASE}",
+                        postgres.username,
+                        postgres.password,
+                        postgresTypes
+                    ),
                     PostgresSource("${postgres.jdbcUrl}/${DATABASE}", postgres.username, postgres.password)
                 )
             )
@@ -122,7 +135,8 @@ class MigratorTest {
     @MethodSource("getTargetDbs")
     fun `migrate() handles large datasets efficiently`(
         destination: DatabaseDestination,
-        destinationAsSource: DatabaseSource) = runBlocking {
+        destinationAsSource: DatabaseSource
+    ) = runBlocking {
 
         val mockSource = mockk<DatabaseSource>()
         val mockCollection = mockk<DocumentCollection>()

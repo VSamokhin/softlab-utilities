@@ -74,6 +74,13 @@ class PostgresSourceTest {
     }
 
     @Test
+    fun `getBackendName() returns postgres`() {
+        PostgresSource(postgresInitiator.getConnection()).use { cut ->
+            assertEquals("postgres", cut.getBackendName())
+        }
+    }
+
+    @Test
     fun `listCollections() returns expected collections`() = runBlocking {
         PostgresSource(postgresInitiator.getConnection()).use { cut ->
             val collections = cut.listCollections().toList()

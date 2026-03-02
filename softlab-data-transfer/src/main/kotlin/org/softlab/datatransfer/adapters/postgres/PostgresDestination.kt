@@ -27,17 +27,28 @@ import java.sql.DriverManager
 
 class PostgresDestination(
     private val connection: Connection,
+    private val dataTypeMappings: Map<String, String>,
     private val closeConnection: Boolean = true
 ) : DatabaseDestination {
+    companion object {
+        const val BACKEND = "postgres"
+    }
+
     private val logger = KotlinLogging.logger {}
 
     constructor(
         jdbcUrl: String,
         username: String,
-        password: String
-    ) : this(DriverManager.getConnection(jdbcUrl, username, password))
+        password: String,
+        dataTypeMappings: Map<String, String>
+    ) : this(DriverManager.getConnection(jdbcUrl, username, password), dataTypeMappings, true)
 
-    constructor(jdbcUrl: String): this(DriverManager.getConnection(jdbcUrl))
+    constructor(
+        jdbcUrl: String,
+        dataTypeMappings: Map<String, String>
+    ): this(DriverManager.getConnection(jdbcUrl), dataTypeMappings, true)
+
+    override fun getBackendName(): String = BACKEND
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
         val columnsDef = metadata.fields.joinToString(", ") {
@@ -51,18 +62,7 @@ class PostgresDestination(
     }
 
     private fun mapType(type: String): String {
-        return when (type.lowercase()) {
-            "smallint", "short", "int16" -> "SMALLINT"
-            "int", "integer", "int32" -> "INTEGER"
-            "long", "bigint", "int64" -> "BIGINT"
-            "float", "real" -> "REAL"
-            "double", "double precision" -> "DOUBLE PRECISION"
-            "text", "string", "varchar" -> "TEXT"
-            "boolean" -> "BOOLEAN"
-            "blob", "bytea" -> "BYTEA"
-            "timestamp" -> "TIMESTAMP WITH TIME ZONE"
-            else -> error("Unsupported type: $type")
-        }
+        return dataTypeMappings[type.lowercase()] ?: error("Unsupported type: $type")
     }
 
     override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {

@@ -49,6 +49,7 @@ interface DocumentCollection {
  * Source database interface
  */
 interface DatabaseSource : AutoCloseable {
+    fun getBackendName(): String
     fun listCollections(): Flow<DocumentCollection>
     suspend fun countDocuments(collectionName: String): Long
 }
@@ -57,6 +58,7 @@ interface DatabaseSource : AutoCloseable {
  * Destination database interface
  */
 interface DatabaseDestination : AutoCloseable {
+    fun getBackendName(): String
     suspend fun createCollection(metadata: CollectionMetadata)
     suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>)
 }

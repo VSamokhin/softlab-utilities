@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.softlab.dataset.core.FieldDefinition
 import org.softlab.datataset.test.initiators.MongoInitiator
+import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
@@ -35,6 +36,8 @@ class MongoDestinationTest {
         private val mongoContainer = MongoDBContainer("mongo:latest")
 
         private lateinit var mongoInitiator: MongoInitiator
+
+        private val dataTypeMappings = ConfigProvider.config.getDataTypeMappings().destination(MongoDestination.BACKEND)
 
         @BeforeAll
         @JvmStatic
@@ -62,7 +65,7 @@ class MongoDestinationTest {
 
     @Test
     fun `createCollection() creates expected collection`() = runBlocking {
-        MongoDestination(mongoInitiator.dbUrl).use { destination ->
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
             destination.createCollection(
                 CollectionMetadata("new_collection",
                     listOf(
@@ -102,7 +105,7 @@ class MongoDestinationTest {
 
     @Test
     fun `insertDocuments() writes expected data`() = runBlocking {
-        MongoDestination(mongoInitiator.dbUrl).use { destination ->
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
             destination.createCollection(CollectionMetadata("users", emptyList()))
             destination.insertDocuments(
                 "users",
@@ -129,8 +132,15 @@ class MongoDestinationTest {
     }
 
     @Test
+    fun `getBackendName() returns mongo`() {
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            assertEquals("mongo", destination.getBackendName())
+        }
+    }
+
+    @Test
     fun `createCollection() forms expected validator descriptor`() = runBlocking {
-        MongoDestination(mongoInitiator.dbUrl).use { destination ->
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
             destination.createCollection(
                 CollectionMetadata(
                     "validator_shape",
@@ -162,7 +172,7 @@ class MongoDestinationTest {
 
     @Test
     fun `createCollection() omits required when all fields nullable`() = runBlocking {
-        MongoDestination(mongoInitiator.dbUrl).use { destination ->
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
             destination.createCollection(
                 CollectionMetadata(
                     "validator_all_nullable",
@@ -176,6 +186,31 @@ class MongoDestinationTest {
 
         val validator = getJsonSchemaValidator("validator_all_nullable")
         assertThat(validator, not(hasKey("required")))
+    }
+
+    @Test
+    fun `createCollection() maps aliases to bson types using config`() = runBlocking {
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            destination.createCollection(
+                CollectionMetadata(
+                    "validator_with_aliases",
+                    listOf(
+                        FieldDefinition("age", "integer"),
+                        FieldDefinition("memo", "text", nullable = true),
+                        FieldDefinition("enabled", "boolean")
+                    )
+                )
+            )
+        }
+
+        val validator = getJsonSchemaValidator("validator_with_aliases")
+        val properties = validator.get("properties", Document::class.java)
+        assertEquals("int", properties.get("age", Document::class.java).getString("bsonType"))
+        assertEquals(
+            listOf("string", "null"),
+            properties.get("memo", Document::class.java).getList("bsonType", String::class.java)
+        )
+        assertEquals("bool", properties.get("enabled", Document::class.java).getString("bsonType"))
     }
 
     private suspend fun getJsonSchemaValidator(collectionName: String): Document {

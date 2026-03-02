@@ -1,0 +1,25 @@
+data-transfer:
+  data-type-mappings:
+    destination:
+      postgres:
+        SMALLINT: [smallint, short, int16]
+        INTEGER: [int, integer, int32]
+        BIGINT: [long, bigint, int64]
+        REAL: [float, real]
+        DOUBLE PRECISION: [double, double precision]
+        TEXT: [text, string, varchar, character varying]
+        BOOLEAN: [boolean, bool]
+        BYTEA: [blob, bytea]
+        TIMESTAMP WITH TIME ZONE: [timestamp, timestamp with time zone]
+      mongo:
+        double: [float, real]
+        string: [text, varchar, character varying, symbol, objectid]
+        bool: [boolean]
+        date: []
+        timestamp: []
+        int: [integer, int32, smallint, short, int16]
+        long: [bigint, int64]
+        binData: [bindata, blob, bytea]
+        object: []
+        array: []
+        decimal: [decimal128]

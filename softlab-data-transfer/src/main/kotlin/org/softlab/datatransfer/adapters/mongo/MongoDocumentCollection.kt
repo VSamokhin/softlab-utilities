@@ -38,7 +38,7 @@ class MongoDocumentCollection(
     private val logger = KotlinLogging.logger {}
 
     private val metadata: CollectionMetadata by lazy {
-        val mongoDb = source.getClient().getDatabase(source.dbName)
+        val mongoDb = source.getClient().getDatabase(source.databaseName)
         val colInfo = runBlocking {
             mongoDb.listCollections()
                 .first { it["name"] == collectionName }
@@ -49,7 +49,7 @@ class MongoDocumentCollection(
             ?: runBlocking {
                 // Well, I have slim chances to get proper types from a sample document
                 source.getClient()
-                    .getDatabase(source.dbName)
+                    .getDatabase(source.databaseName)
                     .getCollection<BsonDocument>(collectionName)
                     .find()
                     .firstOrNull()
@@ -76,9 +76,9 @@ class MongoDocumentCollection(
     override suspend fun fetchMetadata(): CollectionMetadata = metadata
 
     override fun readDocuments(): Flow<org.softlab.datatransfer.core.TransferDocument> = flow {
-        val mongoDb = source.getClient().getDatabase(source.dbName)
+        val mongoDb = source.getClient().getDatabase(source.databaseName)
         if (!mongoDb.listCollectionNames().any { it == collectionName })
-            error("Collection '$collectionName' does not exist in database '${source.dbName}'")
+            error("Collection '$collectionName' does not exist in database '${source.databaseName}'")
         mongoDb.getCollection<Document>(collectionName)
             .find().collect { doc ->
                 emit(doc.toMap())

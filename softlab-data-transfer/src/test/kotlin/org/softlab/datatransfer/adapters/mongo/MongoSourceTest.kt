@@ -57,6 +57,13 @@ class MongoSourceTest {
     }
 
     @Test
+    fun `getBackendName() returns mongo`() {
+        MongoSource(mongoInitiator.dbUrl).use { cut ->
+            assertEquals("mongo", cut.getBackendName())
+        }
+    }
+
+    @Test
     fun `listCollections() returns expected collections`() = runBlocking {
         MongoSource(mongoInitiator.dbUrl). use { cut ->
             val collections = cut.listCollections().toList()
