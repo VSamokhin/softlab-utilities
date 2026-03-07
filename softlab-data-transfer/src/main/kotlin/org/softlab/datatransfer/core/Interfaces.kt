@@ -55,10 +55,26 @@ interface DatabaseSource : AutoCloseable {
 }
 
 /**
+ * Report progress on every X inserts
+ */
+const val REPORT_ON_INSERTS: Int = 20_000
+/**
+ * For where read/write batches are applicable, use this value
+ */
+const val BATCH_SIZE: Int = 10_000
+
+/**
  * Destination database interface
  */
 interface DatabaseDestination : AutoCloseable {
     fun getBackendName(): String
+    /**
+     * Must fail if collection already exists
+     */
     suspend fun createCollection(metadata: CollectionMetadata)
+    /**
+     * Must not fail if collection does not exist
+     */
+    suspend fun dropCollection(collectionName: String)
     suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>)
 }

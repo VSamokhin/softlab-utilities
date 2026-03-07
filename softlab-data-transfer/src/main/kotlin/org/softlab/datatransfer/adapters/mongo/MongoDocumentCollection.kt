@@ -16,6 +16,7 @@
 
 package org.softlab.datatransfer.adapters.mongo
 
+import com.mongodb.client.model.Projections
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.any
@@ -27,6 +28,7 @@ import org.bson.BsonDocument
 import org.bson.Document
 import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.mongo.MongoTypesMapper
+import org.softlab.dataset.mongo.MongoTypesMapper.asNormalizedMap
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DocumentCollection
 
@@ -80,8 +82,8 @@ class MongoDocumentCollection(
         if (!mongoDb.listCollectionNames().any { it == collectionName })
             error("Collection '$collectionName' does not exist in database '${source.databaseName}'")
         mongoDb.getCollection<Document>(collectionName)
-            .find().collect { doc ->
-                emit(doc.toMap())
+            .find().projection(Projections.excludeId()).collect { doc ->
+                emit(doc.asNormalizedMap())
             }
     }
 }

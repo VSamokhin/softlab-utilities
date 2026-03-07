@@ -1,24 +1,31 @@
-package org.softlab.datatransfer.adapters.postgres
+package org.softlab.datatransfer.util
 
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.containsInAnyOrder
+import org.hamcrest.Matchers.hasItem
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
+import org.softlab.dataset.core.FieldDefinition
 import org.softlab.datataset.test.initiators.JdbcInitiator
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import java.lang.Thread.sleep
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 
 @Testcontainers
-class PostgresHelperTest {
-    companion object {
+class PostgresTest {
+        companion object {
         @Container
         @JvmStatic
         private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
@@ -40,6 +47,13 @@ class PostgresHelperTest {
         fun cleanup() {
             postgresInitiator.close()
         }
+
+        @JvmStatic
+        fun getSchemaNames(): List<Arguments> = listOf(
+            Arguments.of("schema1.users", "schema1", "users"),
+            Arguments.of("users", "public", "users"),
+            Arguments.of("schema2.table.table", "schema2", "table.table")
+        )
     }
 
     @BeforeEach
@@ -56,36 +70,37 @@ class PostgresHelperTest {
     @Test
     fun `tableExists() returns true when table exists`() {
         postgresInitiator.getConnection().use { connection ->
-            assertTrue(PostgresHelper.tableExists("schema1", "users", connection))
-            assertTrue(PostgresHelper.tableExists("schema2", "products", connection))
+            assertTrue(Postgres.tableExists("schema1", "users", connection))
+            assertTrue(Postgres.tableExists("schema2", "products", connection))
         }
     }
 
     @Test
     fun `tableExists() returns false when table does not exist`() {
         postgresInitiator.getConnection().use { connection ->
-            assertFalse(PostgresHelper.tableExists("schema1", "non_existent", connection))
-            assertFalse(PostgresHelper.tableExists("schema2", "users", connection))
+            assertFalse(Postgres.tableExists("schema1", "non_existent", connection))
+            assertFalse(Postgres.tableExists("schema2", "users", connection))
         }
     }
 
     @Test
     fun `readColumns() returns expected fields for existing table`() {
         postgresInitiator.getConnection().use { connection ->
-            val fields = PostgresHelper.readColumns("schema1", "users", connection)
+            val fields = Postgres.readColumns("schema1", "users", connection)
 
             assertThat(fields.map { it.name }, containsInAnyOrder("user_id", "name", "email"))
             assertThat(
                 fields.map { it.type.lowercase() },
                 containsInAnyOrder("integer", "character varying", "character varying")
             )
+            assertThat(fields, hasItem(FieldDefinition("email", "character varying", true)))
         }
     }
 
     @Test
     fun `readColumns() returns empty list for absent table`() {
         postgresInitiator.getConnection().use { connection ->
-            assertTrue(PostgresHelper.readColumns("schema1", "non_existent", connection).isEmpty())
+            assertTrue(Postgres.readColumns("schema1", "non_existent", connection).isEmpty())
         }
     }
 
@@ -96,7 +111,31 @@ class PostgresHelperTest {
                 statement.execute("CREATE TABLE schema1.no_columns ();")
             }
 
-            assertTrue(PostgresHelper.readColumns("schema1", "no_columns", connection).isEmpty())
+            assertTrue(Postgres.readColumns("schema1", "no_columns", connection).isEmpty())
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = [ "jdbc:postgresql://localhost:5432/testdb", "jdbc:postgres://localhost:5432/testdb" ])
+    fun `isPostgresUri() returns true for postgresql URI`(uri: String) {
+        assertTrue(Postgres.isPostgresUri(uri))
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = [ "mongodb://localhost:27017/testdb", "http://localhost/testdb" ])
+    fun `isPostgresUri() returns false for mongo URI`(uri: String) {
+        assertFalse(Postgres.isPostgresUri(uri))
+    }
+
+    @ParameterizedTest
+    @MethodSource("getSchemaNames")
+    fun `getSchemaTable() returns expected schema and table`(
+        collectionName: String,
+        schemaName: String,
+        tableName: String
+    ) {
+        val schemaTable = Postgres.getSchemaTable(collectionName)
+        assertEquals(schemaName, schemaTable.first)
+        assertEquals(tableName, schemaTable.second)
     }
 }

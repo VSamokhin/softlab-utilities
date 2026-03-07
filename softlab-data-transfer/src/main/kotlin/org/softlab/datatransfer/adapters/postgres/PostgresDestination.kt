@@ -17,12 +17,23 @@
 package org.softlab.datatransfer.adapters.postgres
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.chunked
+import kotlinx.coroutines.launch
+import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
+import org.softlab.datatransfer.core.REPORT_ON_INSERTS
 import org.softlab.datatransfer.core.TransferDocument
+import org.softlab.datatransfer.util.Postgres
 import java.sql.Connection
 import java.sql.DriverManager
+import java.sql.PreparedStatement
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.plusAssign
 
 
 class PostgresDestination(
@@ -51,10 +62,25 @@ class PostgresDestination(
     override fun getBackendName(): String = BACKEND
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
+        val schemaTable = Postgres.getSchemaTable(metadata.name)
+        logger.debug { "Creating schema '${schemaTable.first}' if not exists and table '${schemaTable.second}'" }
         val columnsDef = metadata.fields.joinToString(", ") {
             "${it.name} ${mapType(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
         }
-        val sql = "CREATE TABLE ${metadata.name} ($columnsDef);"
+        connection.createStatement().use {
+            val createSchemaSql = "CREATE SCHEMA IF NOT EXISTS ${schemaTable.first};"
+            logger.trace { "Executing SQL: $createSchemaSql" }
+            it.execute(createSchemaSql)
+
+            val createTableSql = "CREATE TABLE ${metadata.name} ($columnsDef);"
+            logger.trace { "Executing SQL: $createTableSql" }
+            it.execute(createTableSql)
+        }
+    }
+
+    override suspend fun dropCollection(collectionName: String) {
+        logger.debug { "Dropping table '$collectionName'" }
+        val sql = "DROP TABLE IF EXISTS $collectionName;"
         connection.createStatement().use {
             logger.trace { "Executing SQL: $sql" }
             it.execute(sql)
@@ -65,19 +91,55 @@ class PostgresDestination(
         return dataTypeMappings[type.lowercase()] ?: error("Unsupported type: $type")
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
     override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {
-        documents.collect { doc ->
-            val columns = doc.keys.joinToString(", ") { it }
-            val placeholders = doc.keys.joinToString(", ") { "?" }
-            connection.prepareStatement(
-                "INSERT INTO $collectionName ($columns) VALUES ($placeholders);"
-            ).use { stmt ->
-                doc.values.forEachIndexed { i, value ->
-                    stmt.setObject(i + 1, value)
+        logger.debug { "Inserting documents into '$collectionName'" }
+
+        val schemaTable = Postgres.getSchemaTable(collectionName)
+        val fields = Postgres.readColumns(schemaTable.first, schemaTable.second, connection)
+        val fieldsLowerCase = fields.map { it.name.lowercase() }
+        val columns = fields.map { it.name }.joinToString(", ") { it }
+        val placeholders = fields.joinToString(", ") { "?" }
+
+        val total = AtomicInt(0)
+        val sql = "INSERT INTO $collectionName ($columns) VALUES ($placeholders);"
+        logger.trace { "Insert SQL: $sql" }
+        coroutineScope {
+            documents.chunked(BATCH_SIZE).collect { docs ->
+                launch {
+                    val saved = connection.prepareStatement(sql).use { stmt ->
+                        saveBatch(stmt, docs, collectionName, fieldsLowerCase)
+                    }
+                    total += saved
+                    if (total.load() % REPORT_ON_INSERTS == 0) {
+                        logger.info { "Inserted ${total.load()} rows into '$collectionName'" }
+                    }
                 }
-                stmt.executeUpdate()
             }
         }
+        logger.info { "Total of ${total.load()} rows inserted into '$collectionName'" }
+    }
+
+    private fun saveBatch(
+        stmt: PreparedStatement,
+        docs: List<TransferDocument>,
+        collectionName: String,
+        fields: List<String>
+    ): Int {
+        for (doc in docs) {
+            check(doc.keys.size <= fields.size) {
+                "Table '${collectionName}' has less columns than row:\n" +
+                    "table=${fields.joinToString(", ") { it }}\n" +
+                    "row=${doc.keys.joinToString(", ") { it }}"
+            }
+            val values =
+                doc.entries.associate { it.key.lowercase() to it.value } // I don't really like this
+            fields.forEachIndexed { i, field ->
+                stmt.setObject(i + 1, values[field])
+            }
+            stmt.addBatch()
+        }
+        return stmt.executeBatch().size
     }
 
     override fun close() {

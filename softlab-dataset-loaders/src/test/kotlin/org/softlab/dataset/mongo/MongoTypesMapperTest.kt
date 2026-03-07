@@ -15,6 +15,7 @@ import org.bson.BsonSymbol
 import org.bson.BsonTimestamp
 import org.bson.BsonValue
 import org.bson.Document
+import org.bson.types.Binary
 import org.bson.types.Decimal128
 import org.dbunit.util.Base64
 import org.hamcrest.MatcherAssert.assertThat
@@ -30,10 +31,12 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.mongo.MongoTypesMapper.asBsonDocument
+import org.softlab.dataset.mongo.MongoTypesMapper.asNormalizedMap
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Date
+import java.util.UUID
 
 
 class MongoTypesMapperTest {
@@ -159,6 +162,38 @@ class MongoTypesMapperTest {
     }
 
     @Test
+    fun `listValidatorTypes() returns null when validator is missing`() {
+        val schema = Document("options", Document())
+        assertEquals(null, MongoTypesMapper.listValidatorTypes(schema))
+    }
+
+    @Test
+    fun `listValidatorTypes() throws when bsonType list shape is invalid`() {
+        val schema = Document(
+            "options",
+            Document(
+                "validator",
+                Document(
+                    "\$jsonSchema",
+                    Document(
+                        "properties",
+                        Document(
+                            mapOf(
+                                "wrong_list_field" to Document("bsonType", listOf("double", "long", "null"))
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val exc = assertThrows<IllegalStateException> {
+            MongoTypesMapper.listValidatorTypes(schema)
+        }
+        assertThat(exc.message, containsString("wrong_list_field"))
+    }
+
+    @Test
     fun `listDocumentTypes() infers types from document values`() {
         val doc = Document(
             mapOf(
@@ -270,7 +305,10 @@ class MongoTypesMapperTest {
             "date_zone_field" to ZonedDateTime.ofInstant(Date(100).toInstant(), ZoneId.of("Z")),
             "binary_field" to byteArrayOf(1, 2, 3),
             "list_field" to listOf(1, 2, 3),
-            "array_field" to arrayOf("a", "b", "c")
+            "array_field" to arrayOf("a", "b", "c"),
+            "null_field" to null,
+            "uuid_field" to UUID.fromString("123e4567-e89b-12d3-a456-426614174000"),
+            "timestamp_field" to java.sql.Timestamp(1234)
         )
 
         val actual = values.asBsonDocument()
@@ -294,6 +332,9 @@ class MongoTypesMapperTest {
             BsonString("a"), BsonString("b"), BsonString("c"))),
             actual["array_field"]
         )
+        assertEquals(BsonNull(), actual["null_field"])
+        assertEquals(BsonString("123e4567-e89b-12d3-a456-426614174000"), actual["uuid_field"])
+        assertEquals(BsonTimestamp(1234), actual["timestamp_field"])
     }
 
     @Test
@@ -305,5 +346,33 @@ class MongoTypesMapperTest {
         }
 
         assertThat(exception.message, containsString("unsupported_field"))
+    }
+
+    @Test
+    fun `asNormalizedMap() throws for unsupported BsonValue`() {
+        val source = Document(mapOf("unsupported_bson_value" to BsonNull()))
+
+        val exception = assertThrows<IllegalStateException> {
+            source.asNormalizedMap()
+        }
+
+        assertThat(exception.message, containsString("unsupported_bson_value"))
+    }
+
+    @Test
+    fun `asNormalizedMap() converts binary and bson timestamp`() {
+        val source = Document(
+            mapOf(
+                "binary_field" to Binary(byteArrayOf(1, 2, 3)),
+                "ts_field" to BsonTimestamp(12345),
+                "plain_field" to "ok"
+            )
+        )
+
+        val actual = source.asNormalizedMap()
+
+        assertEquals(byteArrayOf(1, 2, 3).toList(), (actual["binary_field"] as ByteArray).toList())
+        assertEquals(java.sql.Timestamp(12345), actual["ts_field"])
+        assertEquals("ok", actual["plain_field"])
     }
 }

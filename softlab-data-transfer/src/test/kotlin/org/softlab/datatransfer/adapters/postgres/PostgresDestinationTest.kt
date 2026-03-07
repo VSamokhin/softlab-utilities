@@ -3,16 +3,20 @@ package org.softlab.datatransfer.adapters.postgres
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.allOf
 import org.hamcrest.Matchers.contains
+import org.hamcrest.Matchers.containsString
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.softlab.dataset.core.FieldDefinition
 import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.CollectionMetadata
+import org.softlab.datatransfer.util.Postgres
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import org.testcontainers.postgresql.PostgreSQLContainer
@@ -20,6 +24,7 @@ import org.testcontainers.utility.DockerImageName
 import java.lang.Thread.sleep
 import java.sql.Connection
 import java.sql.DriverManager
+import java.sql.SQLException
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -54,6 +59,8 @@ class PostgresDestinationTest {
         getConnection().use { conn ->
             conn.createStatement().use { stmt ->
                 stmt.execute("DROP TABLE IF EXISTS public.users;")
+                stmt.execute("DROP TABLE IF EXISTS custom.users;")
+                stmt.execute("DROP SCHEMA IF EXISTS custom CASCADE;")
             }
         }
     }
@@ -90,7 +97,7 @@ class PostgresDestinationTest {
             }
 
             val columns = getConnection().use {
-                PostgresHelper.readColumns("public", "users", it)
+                Postgres.readColumns("public", "users", it)
             }
 
             assertThat(columns, contains(
@@ -98,6 +105,23 @@ class PostgresDestinationTest {
                 FieldDefinition("name", "text"),
                 FieldDefinition("active", "boolean", false)
             ))
+    }
+
+    @Test
+    fun `createCollection() throws when table already exists`() = runBlocking {
+        PostgresDestination(getConnection(), dataTypeMappings, false).use { destination ->
+            val metadata = CollectionMetadata(
+                name = "public.users",
+                fields = listOf(FieldDefinition("id", "int"))
+            )
+
+            destination.createCollection(metadata)
+
+            val exc = assertThrows<SQLException> {
+                destination.createCollection(metadata)
+            }
+            assertThat(exc.message, containsString("users"))
+        }
     }
 
     @Test
@@ -123,7 +147,7 @@ class PostgresDestinationTest {
         }
 
         val columns = getConnection().use {
-            PostgresHelper.readColumns("public", "users", it)
+            Postgres.readColumns("public", "users", it)
         }
         assertThat(columns, contains(FieldDefinition("notes", "text")))
     }
@@ -153,8 +177,59 @@ class PostgresDestinationTest {
         }
 
         getConnection().use { conn ->
-            assertTrue(PostgresHelper.tableExists("public", "no_columns", conn))
-            assertTrue(PostgresHelper.readColumns("public", "no_columns", conn).isEmpty())
+            assertTrue(Postgres.tableExists("public", "no_columns", conn))
+            assertTrue(Postgres.readColumns("public", "no_columns", conn).isEmpty())
+        }
+    }
+
+    @Test
+    fun `createCollection() creates missing schema automatically`() = runBlocking {
+        PostgresDestination(getConnection(), dataTypeMappings).use { destination ->
+            destination.createCollection(
+                CollectionMetadata(
+                    name = "custom.users",
+                    fields = listOf(FieldDefinition("id", "int"))
+                )
+            )
+        }
+
+        getConnection().use { conn ->
+            assertTrue(Postgres.tableExists("custom", "users", conn))
+        }
+    }
+
+    @Test
+    fun `dropCollection() drops table with all data`() = runBlocking {
+        PostgresDestination(getConnection(), dataTypeMappings).use { destination ->
+            destination.createCollection(
+                CollectionMetadata(
+                    name = "public.users",
+                    fields = listOf(
+                        FieldDefinition("id", "int"),
+                        FieldDefinition("name", "string")
+                    )
+                )
+            )
+            destination.insertDocuments(
+                "public.users",
+                flowOf(
+                    mapOf("id" to 1, "name" to "Alice"),
+                    mapOf("id" to 2, "name" to "Bob")
+                )
+            )
+
+            destination.dropCollection("public.users")
+        }
+
+        getConnection().use { conn ->
+            assertFalse(Postgres.tableExists("public", "users", conn))
+        }
+    }
+
+    @Test
+    fun `dropCollection() doesn't fail if table not exists`() = runBlocking {
+        PostgresDestination(getConnection(), dataTypeMappings).use { destination ->
+            assertDoesNotThrow {  destination.dropCollection("public.something") }
         }
     }
 
@@ -197,6 +272,68 @@ class PostgresDestinationTest {
                     assertFalse(rs.next())
                 }
             }
+        }
+    }
+
+    @Test
+    fun `insertDocuments() writes null for missing nullable fields`() = runBlocking {
+        PostgresDestination(getConnection(), dataTypeMappings).use { destination ->
+            destination.createCollection(
+                CollectionMetadata(
+                    name = "public.users",
+                    fields = listOf(
+                        FieldDefinition("id", "int", false),
+                        FieldDefinition("name", "string", true),
+                        FieldDefinition("active", "boolean", true)
+                    )
+                )
+            )
+
+            destination.insertDocuments(
+                "public.users",
+                flowOf(
+                    mapOf("id" to 1)
+                )
+            )
+        }
+
+        getConnection().use { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.executeQuery("SELECT id, name, active FROM public.users;").use { rs ->
+                    assertTrue(rs.next())
+                    assertEquals(1, rs.getInt("id"))
+                    assertEquals(null, rs.getString("name"))
+                    assertEquals(false, rs.getBoolean("active"))
+                    assertTrue(rs.wasNull())
+                    assertFalse(rs.next())
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `insertDocuments() throws when document has more fields than table`() = runBlocking {
+        PostgresDestination(getConnection(), dataTypeMappings).use { destination ->
+            destination.createCollection(
+                CollectionMetadata(
+                    name = "public.users",
+                    fields = listOf(FieldDefinition("id", "int"))
+                )
+            )
+
+            val exc = assertThrows<IllegalStateException> {
+                destination.insertDocuments(
+                    "public.users",
+                    flowOf(
+                        mapOf("id" to 1, "extra" to "unexpected")
+                    )
+                )
+            }
+            assertThat(exc.message, allOf(
+                containsString("public.users"),
+                containsString("table=id"),
+                containsString("row=id, extra")
+            ))
         }
     }
 }

@@ -19,41 +19,62 @@ package org.softlab.datatransfer.adapters.mongo
 import com.mongodb.client.model.CreateCollectionOptions
 import com.mongodb.client.model.ValidationOptions
 import com.mongodb.kotlin.client.coroutine.MongoClient
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.any
+import kotlinx.coroutines.flow.chunked
+import kotlinx.coroutines.launch
 import org.bson.BsonDocument
 import org.bson.Document
+import org.softlab.dataset.mongo.MongoTypesMapper.asBsonDocument
+import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
+import org.softlab.datatransfer.core.REPORT_ON_INSERTS
 import org.softlab.datatransfer.core.TransferDocument
+import org.softlab.datatransfer.util.Mongo
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.plusAssign
 
 
 class MongoDestination(
-    private val connString: String,
+    private val uri: String,
     private val dataTypeMappings: Map<String, String>,
-    private val databaseName: String = connString.substringAfterLast("/")
+    private val databaseName: String = Mongo.getDatabaseName(uri)
 ) : DatabaseDestination {
     companion object {
         const val BACKEND = "mongo"
     }
 
-    private val client: MongoClient = MongoClient.create(connString)
+    private val logger = KotlinLogging.logger {}
+    private val client: MongoClient = MongoClient.create(uri)
     private val db = client.getDatabase(databaseName)
 
     override fun getBackendName(): String = BACKEND
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
-        if (!db.listCollectionNames().any { it == metadata.name }) {
-            if (metadata.fields.isNotEmpty()) {
-                val options = CreateCollectionOptions()
-                    .validationOptions(
-                        ValidationOptions().validator(buildValidator(metadata))
-                    )
-                db.createCollection(metadata.name, options)
-            } else {
-                db.createCollection(metadata.name)
-            }
+        check(!db.listCollectionNames().any { it == metadata.name }) {
+            "Collection '${metadata.name}' already exists, please drop it before proceeding"
         }
+
+        logger.debug { "Creating collection '$metadata.name'" }
+        if (metadata.fields.isNotEmpty()) {
+            val options = CreateCollectionOptions()
+                .validationOptions(
+                    ValidationOptions().validator(buildValidator(metadata))
+                )
+            db.createCollection(metadata.name, options)
+        } else {
+            db.createCollection(metadata.name)
+        }
+    }
+
+    override suspend fun dropCollection(collectionName: String) {
+        logger.debug { "Dropping collection '$collectionName'" }
+        db.getCollection<Document>(collectionName).drop()
     }
 
     private fun buildValidator(metadata: CollectionMetadata): Document {
@@ -83,11 +104,25 @@ class MongoDestination(
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
     override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {
+        logger.debug { "Inserting documents into '$collectionName'" }
+
         val collection = db.getCollection<BsonDocument>(collectionName)
-        documents.collect { doc ->
-            collection.insertOne(Document(doc).toBsonDocument())
+        val total = AtomicInt(0)
+        coroutineScope {
+            documents.chunked(BATCH_SIZE).collect { batch ->
+                launch {
+                    val docs = batch.map { doc -> doc.asBsonDocument() }
+                    collection.insertMany(docs)
+                    total += docs.size
+                    if (total.load() % REPORT_ON_INSERTS == 0) {
+                        logger.info { "Inserted ${total.load()} documents into '$collectionName'" }
+                    }
+                }
+            }
         }
+        logger.info { "Total of ${total.load()} documents inserted into '$collectionName'" }
     }
 
     override fun close() {

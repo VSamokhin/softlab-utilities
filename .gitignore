@@ -2,6 +2,7 @@
 .idea/
 .vscode/
 .kotlin/
+.run/
 **/build/
 **/bin/
 .DS_Store

@@ -23,6 +23,7 @@ import kotlinx.coroutines.runBlocking
 import org.bson.Document
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.DocumentCollection
+import org.softlab.datatransfer.util.Mongo
 
 
 /**
@@ -32,9 +33,9 @@ import org.softlab.datatransfer.core.DocumentCollection
  * ```
  */
 class MongoSource(
-    dbUrl: String,
-    private val client: MongoClient = MongoClient.create(dbUrl),
-    val databaseName: String = dbUrl.substringAfterLast("/")
+    uri: String,
+    private val client: MongoClient = MongoClient.create(uri),
+    val databaseName: String = Mongo.getDatabaseName(uri)
 ) : DatabaseSource {
     companion object {
         private const val BACKEND = "mongo"

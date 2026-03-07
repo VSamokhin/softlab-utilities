@@ -26,14 +26,19 @@ import org.bson.BsonDouble
 import org.bson.BsonElement
 import org.bson.BsonInt32
 import org.bson.BsonInt64
+import org.bson.BsonNull
 import org.bson.BsonString
+import org.bson.BsonTimestamp
 import org.bson.BsonType
 import org.bson.BsonValue
 import org.bson.Document
+import org.bson.types.Binary
 import org.softlab.dataset.core.FieldDefinition
+import java.sql.Timestamp
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Date
+import java.util.UUID
 
 
 object MongoTypesMapper {
@@ -88,6 +93,7 @@ object MongoTypesMapper {
                 BsonType.ARRAY -> "array"
                 BsonType.DECIMAL128 -> "decimal"
                 BsonType.TIMESTAMP -> "timestamp"
+
                 else -> unknownType(value.bsonType.name, key)
             }
             key to FieldDefinition(key, type, false)
@@ -104,7 +110,7 @@ object MongoTypesMapper {
         return this.entries.map { field ->
             val fieldMeta = typeHints[field.key]
                 ?: error("Could not find field '${field.key}' among defined in the schema: ${typeHints.keys}")
-            val value = convertValue(fieldMeta, field.value, dateTimeFormatter)
+            val value = convert2BsonValue(fieldMeta, field.value, dateTimeFormatter)
             BsonElement(field.key, value)
         }.let { BsonDocument(it) }
     }
@@ -113,7 +119,7 @@ object MongoTypesMapper {
      * See [BSON Types](https://www.mongodb.com/docs/manual/reference/bson-types/)
      */
     @Suppress("MagicNumber")
-    private fun convertValue(
+    private fun convert2BsonValue(
         fieldMeta: FieldDefinition,
         value: Any,
         dateTimeFormatter: DateTimeFormatter
@@ -127,40 +133,59 @@ object MongoTypesMapper {
                 )
             )
             "bool" -> BsonBoolean(value as Boolean)
-            "date" -> {
+            "date", "timestamp" -> {
                 val dateTime = ZonedDateTime.parse(value.toString(), dateTimeFormatter)
                 BsonDateTime(dateTime.toInstant().toEpochMilli())
             }
             "int" -> BsonInt32((value as Number).toInt())
             "long" -> BsonInt64((value as Number).toLong())
+
             else -> unknownType(fieldMeta.type, fieldMeta.name)
         }
     }
 
-    fun Map<String, Any>.asBsonDocument(): BsonDocument {
+    fun Map<String, Any?>.asBsonDocument(): BsonDocument {
         return this.entries.map { field ->
-            val value = convertValue(field.key, field.value)
+            val value = convert2BsonValue(field.key, field.value)
             BsonElement(field.key, value)
         }.let { BsonDocument(it) }
     }
 
-    private fun convertValue(
+    private fun convert2BsonValue(
         name: String,
-        value: Any
+        value: Any?
     ): BsonValue {
         return when (value) {
+            null -> BsonNull()
             is Double, is Float -> BsonDouble(value.toDouble())
             is Int, is Short, is Byte -> BsonInt32(value.toInt())
             is Long -> BsonInt64(value )
-            is String -> BsonString(value)
+            is String, is UUID -> BsonString(value.toString())
             is Boolean -> BsonBoolean(value)
+            is Timestamp -> BsonTimestamp(value.toInstant().toEpochMilli())
             is Date -> BsonDateTime(value.toInstant().toEpochMilli())
             is ZonedDateTime -> BsonDateTime(value.toInstant().toEpochMilli())
             is ByteArray -> BsonBinary(value)
-            is List<*> -> BsonArray(value.map { convertValue(name, it!!) })
-            is Array<*> -> BsonArray(value.map { convertValue(name, it!!) })
+            is List<*> -> BsonArray(value.map { convert2BsonValue(name, it!!) })
+            is Array<*> -> BsonArray(value.map { convert2BsonValue(name, it!!) })
 
-            else -> unknownType(value::class.simpleName!!, name)
+            else -> unknownType(value::class.qualifiedName!!, name)
         }
     }
+
+    private fun convertValue(name: String, value: Any?): Any? =
+        when (value) {
+            is Binary -> value.data
+            is BsonTimestamp -> Timestamp(value.value)
+            is BsonValue -> unknownType(value::class.qualifiedName!!,  name) // Not all BSON types covered )-:
+            else -> value
+        }
+
+    /**
+     * Convert BSON data types to java/kotlin ones
+     */
+    fun Document.asNormalizedMap(): Map<String, Any?> =
+        this.entries.associate {
+            it.key to convertValue(it.key, it.value)
+        }
 }

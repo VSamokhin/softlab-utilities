@@ -8,12 +8,15 @@ import org.bson.BsonDocument
 import org.bson.Document
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.containsInAnyOrder
+import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.hasKey
 import org.hamcrest.Matchers.not
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertDoesNotThrow
+import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.core.FieldDefinition
 import org.softlab.datataset.test.initiators.MongoInitiator
 import org.softlab.datatransfer.config.ConfigProvider
@@ -132,6 +135,33 @@ class MongoDestinationTest {
     }
 
     @Test
+    fun `dropCollection() drops collection with all data`() = runBlocking {
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            destination.createCollection(CollectionMetadata("users", emptyList()))
+            destination.insertDocuments(
+                "users",
+                flowOf(
+                    mapOf("user_id" to "1", "name" to "Alice"),
+                    mapOf("user_id" to "2", "name" to "Bob")
+                )
+            )
+            destination.dropCollection("users")
+        }
+
+        val collectionNames = mongoInitiator.mongoDb.listCollections()
+            .map { it.getString("name") }
+            .toList()
+        assertTrue("users" !in collectionNames)
+    }
+
+    @Test
+    fun `dropCollection() doesn't fail if collection not exists`() = runBlocking {
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            assertDoesNotThrow { destination.dropCollection("something") }
+        }
+    }
+
+    @Test
     fun `getBackendName() returns mongo`() {
         MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
             assertEquals("mongo", destination.getBackendName())
@@ -221,5 +251,19 @@ class MongoDestinationTest {
             .get("options", Document::class.java)
             .get("validator", Document::class.java)
             .get("\$jsonSchema", Document::class.java)
+    }
+
+    @Test
+    fun `createCollection() throws when collection already exists`() = runBlocking {
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            val metadata = CollectionMetadata("users", emptyList())
+
+            destination.createCollection(metadata)
+
+            val exc = assertThrows<IllegalStateException> {
+                destination.createCollection(metadata)
+            }
+            assertThat(exc.message, containsString("users"))
+        }
     }
 }

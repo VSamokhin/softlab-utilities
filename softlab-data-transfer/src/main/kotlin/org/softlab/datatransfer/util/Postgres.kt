@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package org.softlab.datatransfer.adapters.postgres
+package org.softlab.datatransfer.util
 
 import org.softlab.dataset.core.FieldDefinition
 import java.sql.Connection
 
 
-object PostgresHelper {
+object Postgres {
     fun readColumns(schemaName: String, tableName: String, conn: Connection): List<FieldDefinition> =
         conn.createStatement().use { stmt ->
             stmt.executeQuery(
@@ -50,4 +50,9 @@ object PostgresHelper {
             .use { rs ->
                 return rs.next()
             }
+
+    fun isPostgresUri(uri: String): Boolean = uri.startsWith("jdbc:postgres")
+
+    fun getSchemaTable(collectionName: String): Pair<String, String> =
+        collectionName.substringBefore(".", "public") to collectionName.substringAfter(".")
 }
