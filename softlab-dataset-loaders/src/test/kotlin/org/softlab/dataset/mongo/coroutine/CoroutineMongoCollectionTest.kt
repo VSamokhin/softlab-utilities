@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.testcontainers.containers.MongoDBContainer
+import org.softlab.datataset.test.initiators.createMongoContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 
@@ -18,7 +18,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 class CoroutineMongoCollectionTest {
     companion object {
         @Container
-        val mongoContainer = MongoDBContainer("mongo:latest")
+        val mongoContainer = createMongoContainer()
 
         private lateinit var mongoClient: MongoClient
         private lateinit var mongoDb: MongoDatabase
@@ -35,7 +35,6 @@ class CoroutineMongoCollectionTest {
         @JvmStatic
         fun cleanup() {
             mongoClient.close()
-            mongoContainer.stop()
         }
     }
 

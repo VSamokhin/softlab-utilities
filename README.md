@@ -85,6 +85,21 @@ tables:
         value:
 ```
 
+## _softlab-data-transfer_ – Database-to-Database Data Migration
+
+This project is a CLI migration utility that copies collections/tables between supported database backends.
+It detects source/destination adapters from connection URI, reads source metadata/documents, creates destination collections/tables, and streams data in batches.
+You can optionally drop destination targets first and limit migrated collections/tables by name prefix.
+
+Current limitations:
+* Only MongoDB and PostgreSQL adapters are implemented.
+* It migrates data and basic field schema/types, but not DB objects like indexes, constraints beyond inferred nullability, sequences, triggers, views, or stored procedures.
+* Mongo schema inference is best-effort when a validator is missing (falls back to sampling a document), so field typing can be incomplete/inaccurate.
+
+Configuration spots:
+* Type mapping config (embedded): `softlab-data-transfer/src/main/resources/data-transfer-config.yml` which can be overridden by a custom one
+placed in runtime working directory.
+
 ## _softlab-web-openapi_ – Requesting RESTful Endpoints Using OpenApi 3 Definition
 
 This project allows to simplify the process of requesting RESTful endpoints by using their OpenAPI 3 definition. It may save time and effort 

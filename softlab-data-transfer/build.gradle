@@ -1,0 +1,61 @@
+plugins {
+    id 'basic-kotlin-setup'
+    id 'application'
+    id 'com.gradleup.shadow'
+    id 'publish-package'
+}
+
+description = 'Pluggable database migration tool'
+
+dependencies {
+    implementation platform('org.mongodb:mongodb-driver-bom:_')
+    implementation project(':softlab-dataset-loaders')
+    implementation 'com.github.ajalt.clikt:clikt:_'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:_'
+    implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:_'
+    implementation 'org.postgresql:postgresql:_'
+    implementation 'org.mongodb:mongodb-driver-kotlin-coroutine'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
+
+    testImplementation 'com.jayway.jsonpath:json-path-assert:_'
+    testImplementation('io.mockk:mockk:_') {
+        exclude group: 'org.junit.jupiter', module: '*'
+    }
+
+    testImplementation project(':softlab-dataset-loaders')
+    testImplementation testFixtures(project(':softlab-dataset-loaders'))
+    // Additional stuff for the test fixtures
+    testRuntimeOnly 'org.liquibase:liquibase-core:_'
+    testRuntimeOnly'org.liquibase.ext:liquibase-mongodb:_'
+    testRuntimeOnly 'org.mongodb:mongodb-driver-sync'
+    testRuntimeOnly 'org.mongodb:mongodb-driver-kotlin-coroutine'
+    testRuntimeOnly 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
+    testRuntimeOnly 'com.github.database-rider:rider-core:_'
+    testRuntimeOnly 'org.postgresql:postgresql:_'
+
+    testImplementation platform('org.testcontainers:testcontainers-bom:_')
+    testImplementation 'org.testcontainers:testcontainers-postgresql'
+    testImplementation 'org.testcontainers:testcontainers-mongodb'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+}
+
+application {
+    mainClass = 'org.softlab.datatransfer.MainKt'
+}
+
+shadowJar {
+    dependsOn 'distTar', 'distZip'
+    archiveClassifier = ''
+}
+
+test {
+    dependsOn ':softlab-dataset-loaders:shadowJar' // WTF
+}
+
+startScripts {
+    dependsOn ':softlab-dataset-loaders:shadowJar' // WTF
+}
+
+jacocoTestCoverageVerification {
+    jacocoVerification(it, 0.8, 3)
+}

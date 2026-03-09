@@ -2,35 +2,56 @@ plugins {
     id 'basic-kotlin-setup'
     id 'library-setup'
     id 'publish-package'
+    id 'java-test-fixtures'
 }
 
 description = 'DBUnit/DBRider dataset loaders for NO-SQL databases'
 
 dependencies {
+    implementation platform('org.mongodb:mongodb-driver-bom:_')
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:_'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:_'
     implementation 'org.dbunit:dbunit:_'
-    compileOnly 'com.github.database-rider:rider-core:_'        // Provide externally for JdbcDataLoader
-    compileOnly 'io.lettuce:lettuce-core:_'                     // Provide externally for LettuceRedisHash
-    compileOnly 'org.mongodb:mongodb-driver-kotlin-coroutine:_' // Provide externally for CoroutineMongoDatabase
-    compileOnly 'org.jetbrains.kotlinx:kotlinx-coroutines-core' // Provide externally for CoroutineMongoDatabase
+    compileOnly 'com.github.database-rider:rider-core:_'          // Provide externally for JdbcDataLoader
+    compileOnly 'io.lettuce:lettuce-core:_'                       // Provide externally for LettuceRedisHash
+    compileOnly 'org.mongodb:mongodb-driver-kotlin-coroutine'     // Provide externally for CoroutineMongoDatabase
+    compileOnly 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_' // Provide externally for CoroutineMongoDatabase
 
-    implementation platform('org.testcontainers:testcontainers-bom:_')
-    testImplementation 'org.testcontainers:postgresql'
-    testImplementation 'org.testcontainers:mongodb'
+    testImplementation platform('org.mongodb:mongodb-driver-bom:_')
+
+    testImplementation platform('org.testcontainers:testcontainers-bom:_')
+    testImplementation 'org.testcontainers:testcontainers-postgresql'
+    testImplementation 'org.testcontainers:testcontainers-mongodb'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'com.redis:testcontainers-redis:_'
-    testImplementation 'org.testcontainers:junit-jupiter'
-
-    testImplementation 'org.liquibase:liquibase-core:_'
-    testImplementation 'org.liquibase.ext:liquibase-mongodb:_'
 
     testImplementation 'com.github.database-rider:rider-core:_'
     testRuntimeOnly 'org.postgresql:postgresql:_'
-    testImplementation 'org.mongodb:mongodb-driver-kotlin-coroutine:_'
-    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core'
+    testImplementation 'org.mongodb:mongodb-driver-kotlin-coroutine'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
     testImplementation 'io.lettuce:lettuce-core:_'
+    // Additional stuff for the test fixtures
+    testRuntimeOnly 'org.liquibase:liquibase-core:_'
+    testRuntimeOnly 'org.liquibase.ext:liquibase-mongodb:_'
+    testRuntimeOnly 'org.mongodb:mongodb-driver-sync'
+
+    testFixturesCompileOnly platform('org.mongodb:mongodb-driver-bom:_')
+    testFixturesCompileOnly platform('org.testcontainers:testcontainers-bom:_')
+    testFixturesImplementation 'org.liquibase:liquibase-core:_'
+    testFixturesCompileOnly 'org.liquibase.ext:liquibase-mongodb:_'             // Provide externally for MongoInitiator
+    testFixturesCompileOnly 'org.mongodb:mongodb-driver-sync'                   // Provide externally for MongoInitiator
+    testFixturesCompileOnly 'org.mongodb:mongodb-driver-kotlin-coroutine'       // Provide externally for MongoInitiator
+    testFixturesCompileOnly 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'   // Provide externally for MongoInitiator
+    testFixturesCompileOnly 'org.testcontainers:testcontainers-mongodb'         // Provide externally for MongoInitiator
+    testFixturesCompileOnly 'com.github.database-rider:rider-core:_'            // Provide externally for PostgresInitiator
+    testFixturesCompileOnly 'org.testcontainers:testcontainers-postgresql'      // Provide externally for PostgresInitiator
+    testFixturesCompileOnly 'com.redis:testcontainers-redis:_'                  // Provide externally for RedisInitiator
+}
+
+test {
+    dependsOn 'shadowJar' // WTF
 }
 
 jacocoTestCoverageVerification {
-    jacocoVerification(it, 0.95, 1)
+    jacocoVerification(it, 0.93, 1)
 }

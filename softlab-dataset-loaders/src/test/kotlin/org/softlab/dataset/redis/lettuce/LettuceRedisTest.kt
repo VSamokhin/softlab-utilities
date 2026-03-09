@@ -10,13 +10,17 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import org.testcontainers.utility.DockerImageName
-import java.lang.Thread.sleep
+import org.softlab.datataset.test.initiators.createRedisContainer
+import org.testcontainers.junit.jupiter.Container
+import org.testcontainers.junit.jupiter.Testcontainers
 
 
+@Testcontainers
 class LettuceRedisTest {
     companion object {
-        private val redisContainer: RedisContainer = RedisContainer(DockerImageName.parse("redis:latest"))
+        @Container
+        @JvmStatic
+        private val redisContainer = createRedisContainer()
 
         private lateinit var redisClient: RedisClient
         private lateinit var redisConnection: StatefulRedisConnection<String, String>
@@ -24,11 +28,6 @@ class LettuceRedisTest {
         @BeforeAll
         @JvmStatic
         fun setup() {
-            redisContainer.start()
-            // Workaround for Rancher Desktop on Mac, somehow the container is not ready while the tests start
-            val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
-            if (isMac) sleep(3000) // Wait for the container to be fully ready
-
             redisClient = RedisClient.create(redisContainer.redisURI)
             redisConnection = redisClient.connect()
         }
@@ -38,7 +37,6 @@ class LettuceRedisTest {
         fun cleanup() {
             redisConnection.close()
             redisClient.shutdown()
-            redisContainer.stop()
         }
     }
 

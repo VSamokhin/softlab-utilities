@@ -1,0 +1,38 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: Viktor Samokhin
+      changes:
+        - createCollection:
+            collectionName: data.various_datatypes
+            options: |
+              {
+                validator: {
+                  $jsonSchema: {
+                    bsonType: "object",
+                    required: [
+                      "some_integer_id",
+                      "some_bytea",
+                      "some_charvar_50",
+                      "some_smallint",
+                      "some_bigint",
+                      "some_real",
+                      "some_double",
+                      "some_boolean",
+                      "some_timestamp_tz"
+                    ],
+                    properties: {
+                      some_integer_id: { bsonType: "int" },
+                      some_bytea: { bsonType: "binData" },
+                      some_charvar_50: { bsonType: "string" },
+                      some_smallint: { bsonType: "int" },
+                      some_bigint: { bsonType: "long" },
+                      some_real: { bsonType: "double" },
+                      some_double: { bsonType: "double" },
+                      some_boolean: { bsonType: "bool" },
+                      some_timestamp_tz: { bsonType: "date" },
+                      some_text_nullable: { bsonType: [ "string", "null" ] }
+                    }
+                  }
+                }
+              }
