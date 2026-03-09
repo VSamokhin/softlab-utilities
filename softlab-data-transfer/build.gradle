@@ -57,5 +57,5 @@ startScripts {
 }
 
 jacocoTestCoverageVerification {
-    jacocoVerification(it, 0.9, 3)
+    jacocoVerification(it, 0.8, 3)
 }

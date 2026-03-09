@@ -36,12 +36,16 @@ dependencies {
     testRuntimeOnly 'org.mongodb:mongodb-driver-sync'
 
     testFixturesCompileOnly platform('org.mongodb:mongodb-driver-bom:_')
+    testFixturesCompileOnly platform('org.testcontainers:testcontainers-bom:_')
     testFixturesImplementation 'org.liquibase:liquibase-core:_'
     testFixturesCompileOnly 'org.liquibase.ext:liquibase-mongodb:_'             // Provide externally for MongoInitiator
     testFixturesCompileOnly 'org.mongodb:mongodb-driver-sync'                   // Provide externally for MongoInitiator
     testFixturesCompileOnly 'org.mongodb:mongodb-driver-kotlin-coroutine'       // Provide externally for MongoInitiator
     testFixturesCompileOnly 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'   // Provide externally for MongoInitiator
+    testFixturesCompileOnly 'org.testcontainers:testcontainers-mongodb'         // Provide externally for MongoInitiator
     testFixturesCompileOnly 'com.github.database-rider:rider-core:_'            // Provide externally for PostgresInitiator
+    testFixturesCompileOnly 'org.testcontainers:testcontainers-postgresql'      // Provide externally for PostgresInitiator
+    testFixturesCompileOnly 'com.redis:testcontainers-redis:_'                  // Provide externally for RedisInitiator
 }
 
 test {

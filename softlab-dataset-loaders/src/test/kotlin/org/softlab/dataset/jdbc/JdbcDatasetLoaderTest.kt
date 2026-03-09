@@ -8,11 +8,9 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.softlab.datataset.test.initiators.JdbcInitiator
+import org.softlab.datataset.test.initiators.createPostgresContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
-import org.testcontainers.postgresql.PostgreSQLContainer
-import org.testcontainers.utility.DockerImageName
-import java.lang.Thread.sleep
 
 
 /**
@@ -23,17 +21,13 @@ class JdbcDatasetLoaderTest {
     companion object {
         @JvmStatic
         @Container
-        private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
+        private val postgres = createPostgresContainer()
 
         private lateinit var postgresInitiator: JdbcInitiator
 
         @BeforeAll
         @JvmStatic
         fun setup() {
-            // Workaround for Rancher Desktop on Mac, somehow the container is not ready while the tests start
-            val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
-            if (isMac) sleep(3000) // Wait for the container to be ready
-
             postgresInitiator = JdbcInitiator(postgres.jdbcUrl, postgres.username, postgres.password)
             postgresInitiator.initSchema("liquibase/changelog-postgres.yaml")
         }

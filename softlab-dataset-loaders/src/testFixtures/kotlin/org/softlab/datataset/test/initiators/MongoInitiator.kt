@@ -25,7 +25,13 @@ import liquibase.resource.ClassLoaderResourceAccessor
 import org.softlab.dataset.mongo.MongoDatabaseFacade
 import org.softlab.dataset.mongo.MongoYamlDatasetLoader
 import org.softlab.dataset.mongo.coroutine.CoroutineMongoDatabase
+import org.testcontainers.mongodb.MongoDBContainer
 
+
+const val MONGO_CONTAINER = "mongo:8.2"
+
+fun createMongoContainer(container: String = MONGO_CONTAINER): MongoDBContainer =
+    MongoDBContainer(container)
 
 class MongoInitiator(override val dbUrl: String) : DatabaseInitiator<MongoDatabase> {
     val mongoClient: MongoClient = MongoClient.create(dbUrl)

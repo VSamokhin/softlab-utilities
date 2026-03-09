@@ -12,11 +12,9 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.softlab.datataset.test.initiators.JdbcInitiator
+import org.softlab.datataset.test.initiators.createPostgresContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
-import org.testcontainers.postgresql.PostgreSQLContainer
-import org.testcontainers.utility.DockerImageName
-import java.lang.Thread.sleep
 import java.sql.SQLException
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -27,17 +25,13 @@ class PostgresSourceTest {
     companion object {
         @Container
         @JvmStatic
-        private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
+        private val postgres = createPostgresContainer()
 
         private lateinit var postgresInitiator: JdbcInitiator
 
         @JvmStatic
         @BeforeAll
         fun setup() {
-            // Workaround for Rancher Desktop on Mac, somehow the container is not ready while the tests start
-            val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
-            if (isMac) sleep(3000) // Wait for the container to be ready
-
             postgresInitiator = JdbcInitiator(postgres.jdbcUrl, postgres.username, postgres.password)
             postgresInitiator.initSchema("liquibase/changelog-source-postgres.yaml")
         }

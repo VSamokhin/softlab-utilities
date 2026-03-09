@@ -20,11 +20,11 @@ import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.core.FieldDefinition
 import org.softlab.datataset.test.initiators.MongoInitiator
+import org.softlab.datataset.test.initiators.createMongoContainer
 import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
-import org.testcontainers.mongodb.MongoDBContainer
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -37,7 +37,7 @@ class MongoDestinationTest {
 
         @Container
         @JvmStatic
-        private val mongoContainer = MongoDBContainer("mongo:latest")
+        private val mongoContainer = createMongoContainer()
 
         private lateinit var mongoInitiator: MongoInitiator
 

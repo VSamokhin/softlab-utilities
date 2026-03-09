@@ -10,9 +10,9 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.softlab.datataset.test.initiators.MongoInitiator
+import org.softlab.datataset.test.initiators.createMongoContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
-import org.testcontainers.mongodb.MongoDBContainer
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
@@ -24,7 +24,7 @@ class MongoSourceTest {
 
         @Container
         @JvmStatic
-        private val mongoContainer = MongoDBContainer("mongo:latest")
+        private val mongoContainer = createMongoContainer()
 
         private lateinit var mongoInitiator: MongoInitiator
 

@@ -6,7 +6,6 @@ import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.allOf
 import org.hamcrest.Matchers.contains
 import org.hamcrest.Matchers.containsString
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -15,14 +14,12 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.postgresql.util.PSQLException
 import org.softlab.dataset.core.FieldDefinition
+import org.softlab.datataset.test.initiators.createPostgresContainer
 import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.util.Postgres
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
-import org.testcontainers.postgresql.PostgreSQLContainer
-import org.testcontainers.utility.DockerImageName
-import java.lang.Thread.sleep
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
@@ -36,7 +33,7 @@ class PostgresDestinationTest {
     companion object {
         @Container
         @JvmStatic
-        private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
+        private val postgres = createPostgresContainer()
 
         private val dataTypeMappings = ConfigProvider.config
             .getDataTypeMappings()
@@ -44,14 +41,6 @@ class PostgresDestinationTest {
 
         private fun getConnection(): Connection =
             DriverManager.getConnection(postgres.jdbcUrl, postgres.username, postgres.password)
-
-        @BeforeAll
-        @JvmStatic
-        fun setup() {
-            // Workaround for Rancher Desktop on Mac, somehow the container is not ready while the tests start
-            val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
-            if (isMac) sleep(3000) // Wait for the container to be ready
-        }
     }
 
     @BeforeEach

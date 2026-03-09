@@ -5,16 +5,14 @@ import org.hamcrest.Matchers.containsString
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.softlab.datataset.test.initiators.createMongoContainer
+import org.softlab.datataset.test.initiators.createPostgresContainer
 import org.softlab.datatransfer.adapters.mongo.MongoDestination
 import org.softlab.datatransfer.adapters.mongo.MongoSource
 import org.softlab.datatransfer.adapters.postgres.PostgresDestination
 import org.softlab.datatransfer.adapters.postgres.PostgresSource
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
-import org.testcontainers.mongodb.MongoDBContainer
-import org.testcontainers.postgresql.PostgreSQLContainer
-import org.testcontainers.utility.DockerImageName
-import java.lang.Thread.sleep
 import kotlin.test.assertIs
 
 
@@ -23,11 +21,11 @@ class AdapterProviderTest {
     companion object {
         @Container
         @JvmStatic
-        private val postgres = PostgreSQLContainer(DockerImageName.parse("postgres:latest"))
+        private val postgres = createPostgresContainer()
 
         @Container
         @JvmStatic
-        private val mongo = MongoDBContainer("mongo:latest")
+        private val mongo = createMongoContainer()
 
         private lateinit var postgresUri: String
         private lateinit var mongoUri: String
@@ -35,10 +33,6 @@ class AdapterProviderTest {
         @BeforeAll
         @JvmStatic
         fun setup() {
-            // Workaround for Rancher Desktop on Mac, somehow postgres container is not ready while the tests start
-            val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
-            if (isMac) sleep(3000) // Wait for the container to be ready
-
             postgresUri = "${postgres.jdbcUrl}&user=${postgres.username}&password=${postgres.password}"
             mongoUri = "${mongo.connectionString}/testdb"
         }
