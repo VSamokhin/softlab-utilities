@@ -13,6 +13,7 @@ import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import org.postgresql.util.PSQLException
 import org.softlab.dataset.core.FieldDefinition
 import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.CollectionMetadata
@@ -25,7 +26,6 @@ import java.lang.Thread.sleep
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
-import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -125,13 +125,6 @@ class PostgresDestinationTest {
     }
 
     @Test
-    fun `getBackendName() returns postgres`() {
-        PostgresDestination(getConnection(), dataTypeMappings, false).use { destination ->
-            assertEquals("postgres", destination.getBackendName())
-        }
-    }
-
-    @Test
     fun `createCollection() uses provided data type mappings`() = runBlocking {
         PostgresDestination(
             connection = getConnection(),
@@ -152,18 +145,19 @@ class PostgresDestinationTest {
         assertThat(columns, contains(FieldDefinition("notes", "text")))
     }
 
-        @Test
-        fun `createCollection() throws for unknow field type`() {
-            PostgresDestination(getConnection(), dataTypeMappings, false).use { destination ->
-                val col = CollectionMetadata("public.users",
-                    listOf(FieldDefinition("notes", "custom")))
+    @Test
+    fun `createCollection() causes postgres to throw for unknow field type`() {
+        PostgresDestination(getConnection(), dataTypeMappings, false).use { destination ->
+            val col = CollectionMetadata("public.users",
+                listOf(FieldDefinition("notes", "custom"))
+            )
 
-                val exc = assertThrows<IllegalStateException> {
-                    runBlocking { destination.createCollection(col) }
-                }
-                assertContains(exc.message!!, "custom")
+            val exc = assertThrows<PSQLException> {
+                runBlocking { destination.createCollection(col) }
             }
+            assertThat(exc.message, containsString("custom"))
         }
+    }
 
     @Test
     fun `createCollection() works when no columns`() = runBlocking {
@@ -195,6 +189,13 @@ class PostgresDestinationTest {
 
         getConnection().use { conn ->
             assertTrue(Postgres.tableExists("custom", "users", conn))
+        }
+    }
+
+    @Test
+    fun `getBackendName() returns postgres`() {
+        PostgresDestination(getConnection(), dataTypeMappings, false).use { destination ->
+            assertEquals("postgres", destination.getBackendName())
         }
     }
 

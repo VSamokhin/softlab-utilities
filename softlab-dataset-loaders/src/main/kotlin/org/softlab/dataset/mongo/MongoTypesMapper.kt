@@ -40,7 +40,11 @@ import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.UUID
 
-
+/**
+ * For the sake of simplicity
+ * - I treat BSON's "timestamp" as "long" when it goes out of the Mongo context.
+ * - From all the Postgres' date/time data types I stick to "TIMESTAMP WITH TIME ZONE" only.
+ */
 object MongoTypesMapper {
     private fun unknownType(type: String, field: String): Nothing =
         error("Unknown type '$type' of: $field")
@@ -133,10 +137,11 @@ object MongoTypesMapper {
                 )
             )
             "bool" -> BsonBoolean(value as Boolean)
-            "date", "timestamp" -> {
+            "date" -> {
                 val dateTime = ZonedDateTime.parse(value.toString(), dateTimeFormatter)
                 BsonDateTime(dateTime.toInstant().toEpochMilli())
             }
+            "timestamp" -> BsonTimestamp((value as Number).toLong())
             "int" -> BsonInt32((value as Number).toInt())
             "long" -> BsonInt64((value as Number).toLong())
 
@@ -144,6 +149,9 @@ object MongoTypesMapper {
         }
     }
 
+    /**
+     * Convert vanilla data types to those accepted by Mongo
+     */
     fun Map<String, Any?>.asBsonDocument(): BsonDocument {
         return this.entries.map { field ->
             val value = convert2BsonValue(field.key, field.value)
@@ -162,7 +170,7 @@ object MongoTypesMapper {
             is Long -> BsonInt64(value )
             is String, is UUID -> BsonString(value.toString())
             is Boolean -> BsonBoolean(value)
-            is Timestamp -> BsonTimestamp(value.toInstant().toEpochMilli())
+            is Timestamp -> BsonDateTime(value.toInstant().toEpochMilli())
             is Date -> BsonDateTime(value.toInstant().toEpochMilli())
             is ZonedDateTime -> BsonDateTime(value.toInstant().toEpochMilli())
             is ByteArray -> BsonBinary(value)
@@ -173,19 +181,20 @@ object MongoTypesMapper {
         }
     }
 
-    private fun convertValue(name: String, value: Any?): Any? =
+    private fun convert2JdbcValue(name: String, value: Any?): Any? =
         when (value) {
+            is Date -> Timestamp(value.toInstant().toEpochMilli())
             is Binary -> value.data
-            is BsonTimestamp -> Timestamp(value.value)
-            is BsonValue -> unknownType(value::class.qualifiedName!!,  name) // Not all BSON types covered )-:
+            is BsonTimestamp -> value.value // As this's an internal Mongo type, let's turn it into long
+            is BsonValue -> unknownType(value::class.qualifiedName!!,  name) // Not all BSON types covered
             else -> value
         }
 
     /**
-     * Convert BSON data types to java/kotlin ones
+     * Convert data types returned by the Mongo driver to those accepted by /jdbc/ Postgres
      */
     fun Document.asNormalizedMap(): Map<String, Any?> =
         this.entries.associate {
-            it.key to convertValue(it.key, it.value)
+            it.key to convert2JdbcValue(it.key, it.value)
         }
 }

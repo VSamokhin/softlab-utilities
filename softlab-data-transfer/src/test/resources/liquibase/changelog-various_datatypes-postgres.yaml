@@ -1,0 +1,59 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: Viktor Samokhin
+      sql:
+        - "CREATE SCHEMA IF NOT EXISTS data;"
+      changes:
+        - createTable:
+            schemaName: data
+            tableName: various_datatypes
+            columns:
+              - column:
+                  name: some_integer_id
+                  type: integer
+                  constraints:
+                    nullable: false
+              - column:
+                  name: some_bytea
+                  type: bytea
+                  constraints:
+                    nullable: false
+              - column:
+                  name: some_charvar_50
+                  type: text
+                  constraints:
+                    nullable: false
+              - column:
+                  name: some_smallint
+                  type: integer
+                  constraints:
+                    nullable: false
+              - column:
+                  name: some_bigint
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: some_real
+                  type: double precision
+                  constraints:
+                    nullable: false
+              - column:
+                  name: some_double
+                  type: double precision
+                  constraints:
+                    nullable: false
+              - column:
+                  name: some_boolean
+                  type: boolean
+                  constraints:
+                    nullable: false
+              - column:
+                  name: some_timestamp_tz
+                  type: timestamp with time zone
+                  constraints:
+                    nullable: false
+              - column:
+                  name: some_text_nullable
+                  type: text

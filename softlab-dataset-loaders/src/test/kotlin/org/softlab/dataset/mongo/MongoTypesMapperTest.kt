@@ -67,6 +67,7 @@ class MongoTypesMapperTest {
                     "date_field", "date", "2023-10-01T12:00:00Z",
                     BsonDateTime(zonedDateTime.toInstant().toEpochMilli())
                 ),
+                Arguments.of("timestamp_field", "timestamp", 1234L, BsonTimestamp(1234L)),
                 Arguments.of("int_field", "int", 7, BsonInt32(7)),
                 Arguments.of("int_field", "int", 7.0, BsonInt32(7)),
                 Arguments.of("long_field", "long", 42L, BsonInt64(42L)),
@@ -334,7 +335,7 @@ class MongoTypesMapperTest {
         )
         assertEquals(BsonNull(), actual["null_field"])
         assertEquals(BsonString("123e4567-e89b-12d3-a456-426614174000"), actual["uuid_field"])
-        assertEquals(BsonTimestamp(1234), actual["timestamp_field"])
+        assertEquals(BsonDateTime(1234), actual["timestamp_field"])
     }
 
     @Test
@@ -360,19 +361,21 @@ class MongoTypesMapperTest {
     }
 
     @Test
-    fun `asNormalizedMap() converts binary and bson timestamp`() {
+    fun `asNormalizedMap() converts expected data types`() {
         val source = Document(
             mapOf(
                 "binary_field" to Binary(byteArrayOf(1, 2, 3)),
                 "ts_field" to BsonTimestamp(12345),
-                "plain_field" to "ok"
+                "plain_field" to "ok",
+                "date_field" to Date(54321L)
             )
         )
 
         val actual = source.asNormalizedMap()
 
         assertEquals(byteArrayOf(1, 2, 3).toList(), (actual["binary_field"] as ByteArray).toList())
-        assertEquals(java.sql.Timestamp(12345), actual["ts_field"])
+        assertEquals(12345L, actual["ts_field"])
         assertEquals("ok", actual["plain_field"])
+        assertEquals(java.sql.Timestamp(54321L), actual["date_field"])
     }
 }

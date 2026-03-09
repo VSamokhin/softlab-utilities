@@ -88,7 +88,8 @@ class PostgresDestination(
     }
 
     private fun mapType(type: String): String {
-        return dataTypeMappings[type.lowercase()] ?: error("Unsupported type: $type")
+        val normalizedType = type.lowercase()
+        return dataTypeMappings[normalizedType] ?: normalizedType
     }
 
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)

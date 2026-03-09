@@ -28,17 +28,11 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
-import org.softlab.datatransfer.adapters.mongo.MongoDestination
-import org.softlab.datatransfer.adapters.mongo.MongoSource
-import org.softlab.datatransfer.adapters.postgres.PostgresDestination
-import org.softlab.datatransfer.adapters.postgres.PostgresSource
-import org.softlab.datatransfer.config.ConfigProvider
+import org.softlab.datatransfer.adapters.AdapterProvider
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.StringTokenFilter
 import org.softlab.datatransfer.migration.Migrator
-import org.softlab.datatransfer.util.Mongo
-import org.softlab.datatransfer.util.Postgres
 import org.softlab.datatransfer.util.StopWatch
 
 
@@ -57,25 +51,10 @@ class Main : CliktCommand() {
         .multiple()
 
     override fun run() {
-        val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
         val sourceNameFilter = StringTokenFilter.from(sourceFilter)
-        val sourceAdapter: DatabaseSource = when {
-            Postgres.isPostgresUri(source) -> PostgresSource(source)
-            Mongo.isMongoUri(source) -> MongoSource(source)
-            else -> error("Unsupported source database")
-        }
 
-        val destAdapter: DatabaseDestination = when {
-            Postgres.isPostgresUri(dest) -> PostgresDestination(
-                dest,
-                dataTypeMappings = dataTypeMappings.destination(PostgresDestination.BACKEND)
-            )
-            Mongo.isMongoUri(dest) -> MongoDestination(
-                dest,
-                dataTypeMappings = dataTypeMappings.destination(MongoDestination.BACKEND)
-            )
-            else -> error("Unsupported destination type")
-        }
+        val sourceAdapter: DatabaseSource = AdapterProvider.sourceFor(source)
+        val destAdapter: DatabaseDestination = AdapterProvider.destinationFor(dest)
 
         val timer = StopWatch().start()
         try {

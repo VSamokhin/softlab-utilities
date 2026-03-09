@@ -30,7 +30,7 @@ class LettuceRedisTest {
         @JvmStatic
         fun setup() {
             redisContainer.start()
-            // Workaround for Rancher Desktop on Mac, somehow the container is not ready while the tests start
+            // Workaround for Rancher Desktop on Mac, somehow postgres container is not ready while the tests start
             val isMac = System.getProperty("os.name").contains("Mac", ignoreCase = true)
             if (isMac) sleep(3000) // Wait for the container to be fully ready
 

@@ -96,7 +96,8 @@ class MongoDestination(
     }
 
     private fun bsonTypeFor(type: String, nullable: Boolean): Any {
-        val bsonType = dataTypeMappings[type.lowercase()] ?: error("Unsupported type: $type")
+        val normalizedType = type.lowercase()
+        val bsonType = dataTypeMappings[normalizedType] ?: normalizedType
         return if (nullable) {
             listOf(bsonType, "null")
         } else {

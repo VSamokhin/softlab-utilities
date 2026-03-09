@@ -1,5 +1,6 @@
 package org.softlab.datatransfer.adapters.mongo
 
+import com.mongodb.MongoCommandException
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -106,69 +107,7 @@ class MongoDestinationTest {
         assertTrue(existingOptions.isEmpty())
     }
 
-    @Test
-    fun `insertDocuments() writes expected data`() = runBlocking {
-        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
-            destination.createCollection(CollectionMetadata("users", emptyList()))
-            destination.insertDocuments(
-                "users",
-                flowOf(
-                    mapOf("user_id" to "1", "name" to "Alice"),
-                    mapOf("user_id" to "2", "name" to "Bob")
-                )
-            )
-        }
-
-        val docs = mongoInitiator.mongoDb
-            .getCollection<BsonDocument>("users")
-            .find()
-            .toList()
-
-        assertThat(
-            docs.map { it["user_id"]?.asString()?.value }.toList(),
-            containsInAnyOrder("1", "2")
-        )
-        assertThat(
-            docs.map { it["name"]?.asString()?.value }.toList(),
-            containsInAnyOrder("Alice", "Bob")
-        )
-    }
-
-    @Test
-    fun `dropCollection() drops collection with all data`() = runBlocking {
-        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
-            destination.createCollection(CollectionMetadata("users", emptyList()))
-            destination.insertDocuments(
-                "users",
-                flowOf(
-                    mapOf("user_id" to "1", "name" to "Alice"),
-                    mapOf("user_id" to "2", "name" to "Bob")
-                )
-            )
-            destination.dropCollection("users")
-        }
-
-        val collectionNames = mongoInitiator.mongoDb.listCollections()
-            .map { it.getString("name") }
-            .toList()
-        assertTrue("users" !in collectionNames)
-    }
-
-    @Test
-    fun `dropCollection() doesn't fail if collection not exists`() = runBlocking {
-        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
-            assertDoesNotThrow { destination.dropCollection("something") }
-        }
-    }
-
-    @Test
-    fun `getBackendName() returns mongo`() {
-        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
-            assertEquals("mongo", destination.getBackendName())
-        }
-    }
-
-    @Test
+        @Test
     fun `createCollection() forms expected validator descriptor`() = runBlocking {
         MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
             destination.createCollection(
@@ -243,14 +182,18 @@ class MongoDestinationTest {
         assertEquals("bool", properties.get("enabled", Document::class.java).getString("bsonType"))
     }
 
-    private suspend fun getJsonSchemaValidator(collectionName: String): Document {
-        val collectionInfo = mongoInitiator.mongoDb.listCollections()
-            .toList()
-            .first { it.getString("name") == collectionName }
-        return collectionInfo
-            .get("options", Document::class.java)
-            .get("validator", Document::class.java)
-            .get("\$jsonSchema", Document::class.java)
+    @Test
+    fun `createCollection() causes mongo to throw for unknow field type`() {
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            val col = CollectionMetadata("users",
+                listOf(FieldDefinition("notes", "custom"))
+            )
+
+            val exc = assertThrows<MongoCommandException> {
+                runBlocking { destination.createCollection(col) }
+            }
+            assertThat(exc.message, containsString("custom"))
+        }
     }
 
     @Test
@@ -265,5 +208,77 @@ class MongoDestinationTest {
             }
             assertThat(exc.message, containsString("users"))
         }
+    }
+
+    @Test
+    fun `getBackendName() returns mongo`() {
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            assertEquals("mongo", destination.getBackendName())
+        }
+    }
+
+    @Test
+    fun `dropCollection() drops collection with all data`() = runBlocking {
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            destination.createCollection(CollectionMetadata("users", emptyList()))
+            destination.insertDocuments(
+                "users",
+                flowOf(
+                    mapOf("user_id" to "1", "name" to "Alice"),
+                    mapOf("user_id" to "2", "name" to "Bob")
+                )
+            )
+            destination.dropCollection("users")
+        }
+
+        val collectionNames = mongoInitiator.mongoDb.listCollections()
+            .map { it.getString("name") }
+            .toList()
+        assertTrue("users" !in collectionNames)
+    }
+
+    @Test
+    fun `dropCollection() doesn't fail if collection not exists`() = runBlocking {
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            assertDoesNotThrow { destination.dropCollection("something") }
+        }
+    }
+
+    @Test
+    fun `insertDocuments() writes expected data`() = runBlocking {
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            destination.createCollection(CollectionMetadata("users", emptyList()))
+            destination.insertDocuments(
+                "users",
+                flowOf(
+                    mapOf("user_id" to "1", "name" to "Alice"),
+                    mapOf("user_id" to "2", "name" to "Bob")
+                )
+            )
+        }
+
+        val docs = mongoInitiator.mongoDb
+            .getCollection<BsonDocument>("users")
+            .find()
+            .toList()
+
+        assertThat(
+            docs.map { it["user_id"]?.asString()?.value }.toList(),
+            containsInAnyOrder("1", "2")
+        )
+        assertThat(
+            docs.map { it["name"]?.asString()?.value }.toList(),
+            containsInAnyOrder("Alice", "Bob")
+        )
+    }
+
+    private suspend fun getJsonSchemaValidator(collectionName: String): Document {
+        val collectionInfo = mongoInitiator.mongoDb.listCollections()
+            .toList()
+            .first { it.getString("name") == collectionName }
+        return collectionInfo
+            .get("options", Document::class.java)
+            .get("validator", Document::class.java)
+            .get("\$jsonSchema", Document::class.java)
     }
 }
