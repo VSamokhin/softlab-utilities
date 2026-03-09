@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 
 
 @Testcontainers
-class PostgresDocumentCollectionTest {
+class PostgresDocumentCollectionIT {
     companion object {
         @Container
         @JvmStatic

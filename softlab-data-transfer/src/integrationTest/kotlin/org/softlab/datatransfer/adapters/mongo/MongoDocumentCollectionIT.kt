@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 
 
 @Testcontainers
-class MongoDocumentCollectionTest {
+class MongoDocumentCollectionIT {
     companion object {
         private const val DATABASE = "testdb"
 

@@ -7,6 +7,17 @@ plugins {
 
 description = 'Pluggable database migration tool'
 
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+sourceSets {
+    integrationTest {
+        resources.srcDir 'src/test/resources'
+    }
+}
+
 dependencies {
     implementation platform('org.mongodb:mongodb-driver-bom:_')
     implementation project(':softlab-dataset-loaders')
@@ -49,6 +60,10 @@ shadowJar {
 }
 
 test {
+    dependsOn ':softlab-dataset-loaders:shadowJar' // WTF
+}
+
+integrationTest {
     dependsOn ':softlab-dataset-loaders:shadowJar' // WTF
 }
 
