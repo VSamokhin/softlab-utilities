@@ -29,7 +29,7 @@ import kotlin.test.assertTrue
 
 
 @Testcontainers
-class PostgresDestinationTest {
+class PostgresDestinationIT {
     companion object {
         @Container
         @JvmStatic

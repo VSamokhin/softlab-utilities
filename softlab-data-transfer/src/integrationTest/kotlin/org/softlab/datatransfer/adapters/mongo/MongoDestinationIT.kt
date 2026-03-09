@@ -31,7 +31,7 @@ import kotlin.test.assertTrue
 
 
 @Testcontainers
-class MongoDestinationTest {
+class MongoDestinationIT {
     companion object {
         private const val DATABASE = "testdb"
 
