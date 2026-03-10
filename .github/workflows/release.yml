@@ -1,10 +1,6 @@
 name: Create GitHub Release
 
 on:
-  push:
-    tags:
-      - 'v*'
-
   # pull_request event is required only for autolabeler
   pull_request:
     # Only following types are handled by the action, but one can default to all as well
@@ -35,17 +31,39 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      # Drafts your next Release notes as Pull Requests are merged into "main"
-      - uses: release-drafter/release-drafter@v6
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+      - name: Checkout (workflow_run)
+        if: github.event_name == 'workflow_run'
+        uses: actions/checkout@v5
         with:
-          name: ${{ github.ref_name }}
-          tag: ${{ github.ref_name }}
-          version: ${{ github.ref_name }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve latest tag (workflow_run)
+        if: github.event_name == 'workflow_run'
+        id: latest_tag
+        run: |
+          TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          if [ -z "$TAG" ]; then
+            echo "No v* tags found. Skipping release-drafter for workflow_run."
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release (workflow_run)
+        if: github.event_name == 'workflow_run' && steps.latest_tag.outputs.found == 'true'
+        uses: release-drafter/release-drafter@v6
+        with:
+          name: ${{ steps.latest_tag.outputs.tag }}
+          tag: ${{ steps.latest_tag.outputs.tag }}
+          version: ${{ steps.latest_tag.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: release-drafter/release-drafter@v6
-        if: github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v')
+      - name: Update release (pull_request)
+        if: github.event_name == 'pull_request'
+        uses: release-drafter/release-drafter@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
