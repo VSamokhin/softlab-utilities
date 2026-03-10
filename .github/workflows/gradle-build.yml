@@ -14,7 +14,7 @@ on:
     tags:
       - '!**'
     paths-ignore:
-      - '.github/*.yml'
+      - '.github/**'
       - '.gitignore'
       - '**/*.md'
   pull_request:
@@ -23,7 +23,7 @@ on:
     tags:
       - '!**'
     paths-ignore:
-      - '.github/*.yml'
+      - '.github/**'
       - '.gitignore'
       - '**/*.md'
 
