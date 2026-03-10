@@ -17,7 +17,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
  * These tests are relying on a PostgreSQL instance, but other JDBC/SQL databases should work as well
  */
 @Testcontainers
-class JdbcDatasetLoaderTest {
+class JdbcDatasetLoaderIT {
     companion object {
         @JvmStatic
         @Container

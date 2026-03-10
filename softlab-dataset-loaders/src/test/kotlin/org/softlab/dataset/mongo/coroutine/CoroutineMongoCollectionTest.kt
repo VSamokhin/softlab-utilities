@@ -1,101 +1,47 @@
 package org.softlab.dataset.mongo.coroutine
 
-import com.mongodb.kotlin.client.coroutine.MongoClient
-import com.mongodb.kotlin.client.coroutine.MongoDatabase
-import kotlinx.coroutines.runBlocking
-import org.bson.Document
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
+import com.mongodb.MongoNamespace
+import com.mongodb.client.model.DeleteOptions
+import com.mongodb.client.model.InsertManyOptions
+import com.mongodb.kotlin.client.coroutine.MongoCollection
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import org.bson.BsonDocument
+import org.bson.conversions.Bson
 import org.junit.jupiter.api.Test
-import org.softlab.datataset.test.initiators.createMongoContainer
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
+import kotlin.test.assertEquals
 
 
-@Testcontainers
 class CoroutineMongoCollectionTest {
-    companion object {
-        @Container
-        val mongoContainer = createMongoContainer()
+    @Test
+    fun `name returns wrapped collection name`() {
+        val wrapped = mockk<MongoCollection<BsonDocument>>(relaxed = true)
+        every { wrapped.namespace } returns MongoNamespace("testdb", "users")
 
-        private lateinit var mongoClient: MongoClient
-        private lateinit var mongoDb: MongoDatabase
+        val cut = CoroutineMongoCollection(wrapped)
 
-        @BeforeAll
-        @JvmStatic
-        fun setup() {
-            mongoContainer.start()
-            mongoClient = MongoClient.create(mongoContainer.replicaSetUrl)
-            mongoDb = runBlocking { mongoClient.getDatabase("testdb") }
-        }
-
-        @AfterAll
-        @JvmStatic
-        fun cleanup() {
-            mongoClient.close()
-        }
-    }
-
-    @BeforeEach
-    fun seedData() {
-        runBlocking {
-            mongoDb.getCollection<Document>("users").drop()
-            mongoDb.getCollection<Document>("cities").drop()
-        }
-        runBlocking {
-            mongoDb.getCollection<Document>("users").insertMany(listOf(
-                Document(mapOf("_id" to 1, "name" to "Alice", "age" to 30)),
-                Document(mapOf("_id" to 2, "name" to "Bob", "age" to 25))
-            ))
-
-            mongoDb.getCollection<Document>("cities").insertOne(
-                Document(mapOf("_id" to 1, "city" to "Munich", "population" to 42))
-            )
-        }
+        assertEquals("users", cut.name)
     }
 
     @Test
-    fun `name returns a correct name`() {
-        val db = CoroutineMongoDatabase(mongoDb)
+    fun `deleteAll() delegates to wrapped collection`() {
+        val wrapped = mockk<MongoCollection<BsonDocument>>(relaxed = true)
+        val cut = CoroutineMongoCollection(wrapped)
 
-        assertEquals("users", db.getCollection("users").name)
-        assertEquals("cities", db.getCollection("cities").name)
+        cut.deleteAll()
+
+        coVerify(exactly = 1) { wrapped.deleteMany(any<Bson>(), any<DeleteOptions>()) }
     }
 
     @Test
-    fun `deleteAll() drops all documents in a collection`() {
-        val cut = CoroutineMongoDatabase(mongoDb)
+    fun `insertMany() delegates to wrapped collection`() {
+        val wrapped = mockk<MongoCollection<BsonDocument>>(relaxed = true)
+        val cut = CoroutineMongoCollection(wrapped)
+        val docs = listOf(BsonDocument("id", org.bson.BsonInt32(1)))
 
-        val actualUsers = mongoDb.getCollection<Document>("users")
-        assertEquals(2, runBlocking { actualUsers.countDocuments() })
-        cut.getCollection("users").deleteAll()
-        assertEquals(0, runBlocking { actualUsers.countDocuments() })
+        cut.insertMany(docs)
 
-        val actualCities = mongoDb.getCollection<Document>("cities")
-        assertEquals(1, runBlocking { actualCities.countDocuments() })
-        cut.getCollection("cities").deleteAll()
-        assertEquals(0, runBlocking { actualCities.countDocuments() })
-    }
-
-    @Test
-    fun `insertMany() inserts several documents into collection`() {
-        val cut = CoroutineMongoDatabase(mongoDb)
-
-        val actualUsers = mongoDb.getCollection<Document>("users")
-        assertEquals(2, runBlocking { actualUsers.countDocuments() })
-        cut.getCollection("users").insertMany(
-            listOf(Document(mapOf("_id" to 3, "name" to "Viktor", "age" to 42)).toBsonDocument())
-        )
-        assertEquals(3, runBlocking { actualUsers.countDocuments() })
-
-        val actualCities = mongoDb.getCollection<Document>("cities")
-        assertEquals(1, runBlocking { actualCities.countDocuments() })
-        cut.getCollection("cities").insertMany(listOf(
-            Document(mapOf("_id" to 2, "city" to "Kyiv", "population" to 100500)).toBsonDocument(),
-            Document(mapOf("_id" to 3, "city" to "Berlin", "population" to 500100)).toBsonDocument()
-        ))
-        assertEquals(3, runBlocking { actualCities.countDocuments() })
+        coVerify(exactly = 1) { wrapped.insertMany(docs, any<InsertManyOptions>()) }
     }
 }

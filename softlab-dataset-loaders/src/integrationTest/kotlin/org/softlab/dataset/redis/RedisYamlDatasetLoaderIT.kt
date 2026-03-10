@@ -18,7 +18,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 
 
 @Testcontainers
-class RedisYamlDatasetLoaderTest {
+class RedisYamlDatasetLoaderIT {
     companion object {
         @Container
         @JvmStatic

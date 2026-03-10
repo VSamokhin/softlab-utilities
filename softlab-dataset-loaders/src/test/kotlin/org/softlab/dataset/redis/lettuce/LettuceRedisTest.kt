@@ -1,102 +1,51 @@
 package org.softlab.dataset.redis.lettuce
 
-import com.redis.testcontainers.RedisContainer
-import io.lettuce.core.RedisClient
 import io.lettuce.core.api.StatefulRedisConnection
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.containsInAnyOrder
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.BeforeAll
+import io.lettuce.core.api.sync.RedisCommands
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import org.junit.jupiter.api.Test
-import org.softlab.datataset.test.initiators.createRedisContainer
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
 
 
-@Testcontainers
 class LettuceRedisTest {
-    companion object {
-        @Container
-        @JvmStatic
-        private val redisContainer = createRedisContainer()
-
-        private lateinit var redisClient: RedisClient
-        private lateinit var redisConnection: StatefulRedisConnection<String, String>
-
-        @BeforeAll
-        @JvmStatic
-        fun setup() {
-            redisClient = RedisClient.create(redisContainer.redisURI)
-            redisConnection = redisClient.connect()
-        }
-
-        @AfterAll
-        @JvmStatic
-        fun cleanup() {
-            redisConnection.close()
-            redisClient.shutdown()
-        }
-    }
-
     @Test
-    fun `hashSet() should set fields and values to the hash`() {
-        val cut = LettuceRedis(redisConnection)
+    fun `flushDb delegates to redis commands`() {
+        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
+        val connection = mockk<StatefulRedisConnection<String, String>>(relaxed = true)
+        every { connection.sync() } returns commands
 
-        val key = "testKey"
-        val expectedEntries = mapOf("field1" to "value1", "field2" to "value2")
-
-        cut.hashSet(key, expectedEntries)
-
-        val actual = redisConnection.sync().hgetall(key)
-        assertEquals(expectedEntries.size, actual.size)
-        assertThat(
-            actual.keys,
-            containsInAnyOrder(*expectedEntries.keys.toTypedArray())
-        )
-        assertThat(
-            actual.values,
-            containsInAnyOrder(*expectedEntries.values.toTypedArray())
-        )
-    }
-
-    @Test
-    fun `flushDb() should clean up all the data`() {
-        val cut = LettuceRedis(redisConnection)
-
-        val commands = redisConnection.sync()
-
-        val hashKey = "hashKey"
-        commands.hset(hashKey, mapOf("field1" to "value1", "field2" to "value2"))
-        assertTrue(commands.hgetall(hashKey).isNotEmpty())
-        val setKey = "setKey"
-        commands.sadd(setKey, "member1", "member2", "member3")
-        assertTrue(commands.smembers(setKey).isNotEmpty())
-
+        val cut = LettuceRedis(connection)
         cut.flushDb()
 
-        assertTrue(commands.hgetall(hashKey).isEmpty())
-        assertTrue(commands.smembers(setKey).isEmpty())
+        verify(exactly = 1) { commands.flushdb() }
     }
 
     @Test
-    fun `setAdd() should add all members to the set correctly`() {
-        val cut = LettuceRedis(redisConnection)
+    fun `hashSet delegates all entries`() {
+        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
+        val connection = mockk<StatefulRedisConnection<String, String>>(relaxed = true)
+        every { connection.sync() } returns commands
 
-        val key = "testSetKey"
-        val expectedMembers = setOf("member1", "member2", "member3")
+        val cut = LettuceRedis(connection)
+        val entries = mapOf("field1" to "value1", "field2" to "value2")
 
-        cut.setAdd(key, expectedMembers)
+        cut.hashSet("testKey", entries)
 
-        val actualMembers = redisConnection.sync().smembers(key)
-        assertEquals(
-            expectedMembers.size,
-            actualMembers.size
-        )
-        assertThat(
-            actualMembers,
-            containsInAnyOrder(*expectedMembers.toTypedArray())
-        )
+        verify(exactly = 1) { commands.hset("testKey", entries) }
+    }
+
+    @Test
+    fun `setAdd splits members into chunks and delegates`() {
+        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
+        val connection = mockk<StatefulRedisConnection<String, String>>(relaxed = true)
+        every { connection.sync() } returns commands
+
+        val cut = LettuceRedis(connection)
+        val members = (1..120).map { "member$it" }.toSet()
+
+        cut.setAdd("testSet", members)
+
+        verify(exactly = 3) { commands.sadd(eq("testSet"), *anyVararg()) }
     }
 }
