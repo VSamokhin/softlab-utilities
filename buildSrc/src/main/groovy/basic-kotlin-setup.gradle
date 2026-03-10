@@ -19,8 +19,8 @@ sourceSets {
 }
 
 configurations {
-    integrationTestImplementation.extendsFrom implementation
-    integrationTestRuntimeOnly.extendsFrom runtimeOnly
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
 }
 
 dependencies {
@@ -31,6 +31,9 @@ dependencies {
     testImplementation 'org.jetbrains.kotlin:kotlin-test'
     testImplementation 'org.junit.jupiter:junit-jupiter-params'
     testImplementation 'org.hamcrest:hamcrest:_'
+    testImplementation('io.mockk:mockk:_') {
+        exclude group: 'org.junit.jupiter', module: '*'
+    }
 }
 
 def jacocoExclusions = []

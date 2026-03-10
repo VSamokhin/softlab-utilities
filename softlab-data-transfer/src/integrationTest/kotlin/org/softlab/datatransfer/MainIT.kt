@@ -3,8 +3,8 @@ package org.softlab.datatransfer
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.collection.IsIterableContainingInOrder.contains
+import org.hamcrest.MatcherAssert
+import org.hamcrest.collection.IsIterableContainingInOrder
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
@@ -29,7 +29,7 @@ import kotlin.test.assertEquals
  * just a quick proof whether all transfer combinations are functional
  */
 @Testcontainers
-class MainTest {
+class MainIT {
     companion object {
         private const val EXPECTED_RECORDS = 100L
         private const val COLLECTION_NAME = "data.various_datatypes"
@@ -64,8 +64,10 @@ class MainTest {
             postgresSourceUri =
                 "${postgresSource.dbUrl}&user=${postgres.username}&password=${postgres.password}"
             createPostgresTargetDatabase()
-            postgresDest = JdbcInitiator("jdbc:postgresql://${postgres.host}:${postgres.firstMappedPort}" +
-                "/$POSTGRES_TARGET_DB?loggerLevel=OFF", postgres.username, postgres.password)
+            postgresDest = JdbcInitiator(
+                "jdbc:postgresql://${postgres.host}:${postgres.firstMappedPort}" +
+                    "/$POSTGRES_TARGET_DB?loggerLevel=OFF", postgres.username, postgres.password
+            )
             postgresDestUri =
                 "${postgresDest.dbUrl}&user=${postgres.username}&password=${postgres.password}"
 
@@ -156,7 +158,7 @@ class MainTest {
         val targetCollections = destDb.listCollections()
             .map { it.fetchMetadata().name }
             .toList()
-        assertThat(targetCollections, contains(COLLECTION_NAME))
+        MatcherAssert.assertThat(targetCollections, IsIterableContainingInOrder.contains(COLLECTION_NAME))
 
         val targetCount = destDb.countDocuments(COLLECTION_NAME)
         assertEquals(EXPECTED_RECORDS, targetCount)

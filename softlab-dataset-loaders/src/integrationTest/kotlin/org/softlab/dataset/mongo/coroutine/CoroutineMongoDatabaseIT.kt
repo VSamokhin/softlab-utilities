@@ -15,7 +15,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 
 
 @Testcontainers
-class CoroutineMongoDatabaseTest {
+class CoroutineMongoDatabaseIT {
     companion object {
         @Container
         val mongoContainer = createMongoContainer()
