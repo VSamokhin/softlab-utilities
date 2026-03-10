@@ -42,10 +42,10 @@ class MigratorIT {
 
         private val mongoTypes = ConfigProvider.config
             .getDataTypeMappings()
-            .destination(MongoDestination.Companion.BACKEND)
+            .destination(MongoDestination.BACKEND)
         private val postgresTypes = ConfigProvider.config
             .getDataTypeMappings()
-            .destination(PostgresDestination.Companion.BACKEND)
+            .destination(PostgresDestination.BACKEND)
 
         @JvmStatic
         fun getTargetDbs(): List<Arguments> {
