@@ -22,7 +22,7 @@ import java.util.Date
 
 
 @Testcontainers
-class MongoYamlDatasetLoaderTest {
+class MongoYamlDatasetLoaderIT {
     companion object {
         private const val DATABASE: String = "testdb"
 

@@ -7,17 +7,6 @@ plugins {
 
 description = 'Pluggable database migration tool'
 
-configurations {
-    integrationTestImplementation.extendsFrom testImplementation
-    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
-}
-
-sourceSets {
-    integrationTest {
-        resources.srcDir 'src/test/resources'
-    }
-}
-
 dependencies {
     implementation platform('org.mongodb:mongodb-driver-bom:_')
     implementation project(':softlab-dataset-loaders')
@@ -29,25 +18,22 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
 
     testImplementation 'com.jayway.jsonpath:json-path-assert:_'
-    testImplementation('io.mockk:mockk:_') {
-        exclude group: 'org.junit.jupiter', module: '*'
-    }
 
-    testImplementation project(':softlab-dataset-loaders')
-    testImplementation testFixtures(project(':softlab-dataset-loaders'))
+    integrationTestImplementation project(':softlab-dataset-loaders')
+    integrationTestImplementation testFixtures(project(':softlab-dataset-loaders'))
     // Additional stuff for the test fixtures
-    testRuntimeOnly 'org.liquibase:liquibase-core:_'
-    testRuntimeOnly'org.liquibase.ext:liquibase-mongodb:_'
-    testRuntimeOnly 'org.mongodb:mongodb-driver-sync'
-    testRuntimeOnly 'org.mongodb:mongodb-driver-kotlin-coroutine'
-    testRuntimeOnly 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
-    testRuntimeOnly 'com.github.database-rider:rider-core:_'
-    testRuntimeOnly 'org.postgresql:postgresql:_'
+    integrationTestRuntimeOnly 'org.liquibase:liquibase-core:_'
+    integrationTestRuntimeOnly'org.liquibase.ext:liquibase-mongodb:_'
+    integrationTestRuntimeOnly 'org.mongodb:mongodb-driver-sync'
+    integrationTestRuntimeOnly 'org.mongodb:mongodb-driver-kotlin-coroutine'
+    integrationTestRuntimeOnly 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
+    integrationTestRuntimeOnly 'com.github.database-rider:rider-core:_'
+    integrationTestRuntimeOnly 'org.postgresql:postgresql:_'
 
-    testImplementation platform('org.testcontainers:testcontainers-bom:_')
-    testImplementation 'org.testcontainers:testcontainers-postgresql'
-    testImplementation 'org.testcontainers:testcontainers-mongodb'
-    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    integrationTestImplementation platform('org.testcontainers:testcontainers-bom:_')
+    integrationTestImplementation 'org.testcontainers:testcontainers-postgresql'
+    integrationTestImplementation 'org.testcontainers:testcontainers-mongodb'
+    integrationTestImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 }
 
 application {
