@@ -21,7 +21,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import io.github.oshai.kotlinlogging.KLogger
-import java.io.File
+import org.softlab.dataset.core.FileLoader
 
 /**
  * Definition of "Tables -> Rows -> Columns (name/value)" mappings.
@@ -39,15 +39,10 @@ abstract class YamlDatasetLoading : DatasetLoader {
 
     override fun load(datasetPath: String, cleanBefore: Boolean) {
         logger.info { "Loading dataset: $datasetPath" }
-        val content = readResource(datasetPath).yamlAsObject<YamlTablesRows>()
-        loadImpl(content, cleanBefore)
-    }
-
-    protected fun readResource(resourcePath: String): String {
-        val fileUrl = checkNotNull(javaClass.getClassLoader().getResource(resourcePath)) {
-            "Could not read resource file: $resourcePath"
+        val content = checkNotNull(FileLoader.readText(datasetPath)) {
+            "Could not load dataset: $datasetPath"
         }
-        return File(fileUrl.toURI()).readText()
+        loadImpl(content.yamlAsObject<YamlTablesRows>(), cleanBefore)
     }
 
     protected inline fun <reified T> String.yamlAsObject(): T = YAML_MAPPER.readValue<T>(this)

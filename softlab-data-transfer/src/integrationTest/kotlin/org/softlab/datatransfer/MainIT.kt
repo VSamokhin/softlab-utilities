@@ -14,12 +14,15 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.softlab.datataset.test.initiators.JdbcInitiator
 import org.softlab.datataset.test.initiators.MongoInitiator
+import org.softlab.datataset.test.initiators.RedisInitiator
 import org.softlab.datataset.test.initiators.createMongoContainer
 import org.softlab.datataset.test.initiators.createPostgresContainer
+import org.softlab.datataset.test.initiators.createRedisContainer
 import org.softlab.datatransfer.adapters.AdapterProvider
 import org.softlab.datatransfer.core.DatabaseSource
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import java.net.URI
 import java.sql.DriverManager
 import kotlin.test.assertEquals
 
@@ -38,6 +41,7 @@ class MainIT {
         private const val POSTGRES_CHANGELOG = "liquibase/changelog-various_datatypes-postgres.yaml"
         private const val MONGO_CHANGELOG = "liquibase/changelog-various_datatypes-mongo.yaml"
         private const val DATASET = "datasets/various_datatypes.yml"
+        private const val REDIS_MAPPING = "mappings/various_datatypes-redis.yml"
 
         @Container
         @JvmStatic
@@ -47,6 +51,10 @@ class MainIT {
         @JvmStatic
         private val mongo = createMongoContainer()
 
+        @Container
+        @JvmStatic
+        private val redis = createRedisContainer()
+
         private lateinit var postgresSource: JdbcInitiator
         private lateinit var postgresDest: JdbcInitiator
 
@@ -55,6 +63,12 @@ class MainIT {
 
         private lateinit var mongoSource: MongoInitiator
         private lateinit var mongoDest: MongoInitiator
+
+        private lateinit var redisSource: RedisInitiator
+        private lateinit var redisDest: RedisInitiator
+
+        private lateinit var redisSourceUri: String
+        private lateinit var redisDestUri: String
 
         @BeforeAll
         @JvmStatic
@@ -73,6 +87,11 @@ class MainIT {
 
             mongoSource = MongoInitiator("${mongo.connectionString}/main_source_db")
             mongoDest = MongoInitiator("${mongo.connectionString}/main_target_db")
+
+            redisSourceUri = redis.redisURI
+            redisDestUri = redisDbUri(1)
+            redisSource = RedisInitiator(redisSourceUri, REDIS_MAPPING)
+            redisDest = RedisInitiator(redisDestUri, REDIS_MAPPING)
         }
 
         @AfterAll
@@ -83,6 +102,9 @@ class MainIT {
 
             mongoSource.close()
             mongoDest.close()
+
+            redisSource.close()
+            redisDest.close()
         }
 
         private fun createPostgresTargetDatabase() {
@@ -94,6 +116,11 @@ class MainIT {
                     stmt.execute("CREATE DATABASE $POSTGRES_TARGET_DB;")
                 }
             }
+        }
+
+        private fun redisDbUri(dbIndex: Int): String {
+            val uri = URI(redis.redisURI.toString())
+            return URI(uri.scheme, uri.rawAuthority, "/$dbIndex", uri.rawQuery, uri.rawFragment).toString()
         }
 
         @JvmStatic
@@ -117,6 +144,26 @@ class MainIT {
                 postgresSourceUri,
                 postgresDestUri,
                 AdapterProvider.sourceFor(postgresDestUri)
+            ),
+            Arguments.of(
+                postgresSourceUri,
+                redisDestUri,
+                AdapterProvider.sourceFor(redisDestUri, mapOf("mapping" to REDIS_MAPPING))
+            ),
+            Arguments.of(
+                mongoSource.dbUrl,
+                redisDestUri,
+                AdapterProvider.sourceFor(redisDestUri, mapOf("mapping" to REDIS_MAPPING))
+            ),
+            Arguments.of(
+                redisSourceUri,
+                postgresDestUri,
+                AdapterProvider.sourceFor(postgresDestUri)
+            ),
+            Arguments.of(
+                redisSourceUri,
+                mongoDest.dbUrl,
+                AdapterProvider.sourceFor(mongoDest.dbUrl)
             )
         )
     }
@@ -135,12 +182,17 @@ class MainIT {
         }
         mongoSource.cleanup()
         mongoDest.cleanup()
+        redisSource.cleanup()
+        redisDest.cleanup()
 
         postgresSource.initSchema(POSTGRES_CHANGELOG)
         postgresSource.seedData(DATASET)
 
         mongoSource.initSchema(MONGO_CHANGELOG)
         mongoSource.seedData(DATASET)
+
+        redisSource.initSchema("ignored")
+        redisSource.seedData(DATASET)
     }
 
     @ParameterizedTest
@@ -152,7 +204,14 @@ class MainIT {
     ) = runBlocking {
 
         assertDoesNotThrow {
-            main(arrayOf(sourceUri, destUri, "--source-filter", COLLECTION_NAME))
+            val args = mutableListOf(sourceUri, destUri, "--source-filter", COLLECTION_NAME)
+            if (sourceUri.startsWith("redis")) {
+                args += listOf("--source-options", "mapping=$REDIS_MAPPING")
+            }
+            if (destUri.startsWith("redis")) {
+                args += listOf("--dest-options", "mapping=$REDIS_MAPPING")
+            }
+            main(args.toTypedArray())
         }
 
         val targetCollections = destDb.listCollections()

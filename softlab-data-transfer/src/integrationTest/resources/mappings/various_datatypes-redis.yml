@@ -1,0 +1,20 @@
+tables:
+  - table: data.various_datatypes
+    fields:
+      - {name: some_integer_id, type: integer}
+      - {name: some_bytea, type: bytea}
+      - {name: some_charvar_50, type: text}
+      - {name: some_smallint, type: integer}
+      - {name: some_bigint, type: bigint}
+      - {name: some_real, type: double precision}
+      - {name: some_double, type: double precision}
+      - {name: some_boolean, type: boolean}
+      - {name: some_timestamp_tz, type: timestamp with time zone}
+      - {name: some_text_nullable, type: text, nullable: true}
+    sets:
+      - key: data.various_datatypes
+        member: ${some_integer_id}
+    hashes:
+      - key: data.various_datatypes:${some_integer_id}
+        field:
+        value:
