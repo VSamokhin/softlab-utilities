@@ -39,7 +39,6 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.plusAssign
 
 
-@Suppress("TooManyFunctions")
 class RedisDestination(
     uri: String,
     mappingsFile: String,

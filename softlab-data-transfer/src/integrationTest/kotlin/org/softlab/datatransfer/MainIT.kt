@@ -201,7 +201,7 @@ class MainIT {
         sourceUri: String,
         destUri: String,
         destDb: DatabaseSource
-    ) = runBlocking {
+    )  {
 
         assertDoesNotThrow {
             val args = mutableListOf(sourceUri, destUri, "--source-filter", COLLECTION_NAME)
@@ -214,12 +214,14 @@ class MainIT {
             main(args.toTypedArray())
         }
 
-        val targetCollections = destDb.listCollections()
-            .map { it.fetchMetadata().name }
-            .toList()
+        val targetCollections = runBlocking {
+            destDb.listCollections()
+                .map { it.fetchMetadata().name }
+                .toList()
+        }
         MatcherAssert.assertThat(targetCollections, IsIterableContainingInOrder.contains(COLLECTION_NAME))
 
-        val targetCount = destDb.countDocuments(COLLECTION_NAME)
+        val targetCount = runBlocking { destDb.countDocuments(COLLECTION_NAME) }
         assertEquals(EXPECTED_RECORDS, targetCount)
     }
 }

@@ -46,6 +46,9 @@ class RedisMappingTemplate private constructor(
             return RedisMappingTemplate(template, placeholders, Regex(regex.toString()))
         }
 
+        fun of(table: RedisTableMapping): RedisMappingTemplate =
+            of(table.anchorHash().key ?: table.table)
+
         fun exactPlaceholder(value: String): String {
             val matcher = VALUE_PLACEHOLDER.matcher(value)
             if (matcher.matches()) {

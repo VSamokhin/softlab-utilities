@@ -20,6 +20,7 @@ import io.lettuce.core.RedisClient
 import io.lettuce.core.api.StatefulRedisConnection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import org.softlab.dataset.redis.RedisMappingTemplate
 import org.softlab.dataset.redis.RedisMappingsLoader
 import org.softlab.dataset.redis.RedisTableMappings
 import org.softlab.datatransfer.core.DatabaseSource
@@ -51,11 +52,13 @@ class RedisSource(
         }
     }
 
-    override suspend fun countDocuments(collectionName: String): Long =
-        RedisDocumentCollection(
-            RedisMappingValidator.requireTable(mappings, collectionName),
-            commands
-        ).countDocuments()
+    /**
+     * This is a heavy call, avoid using it in the production
+     */
+    override suspend fun countDocuments(collectionName: String): Long {
+        val table = RedisMappingValidator.requireTable(mappings, collectionName)
+        return commands.keys(RedisMappingTemplate.of(table).toGlob()).size.toLong()
+    }
 
     override fun close() {
         connection.close()

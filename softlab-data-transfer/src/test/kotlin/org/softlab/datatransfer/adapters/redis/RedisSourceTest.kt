@@ -75,13 +75,53 @@ class RedisSourceTest {
         }
 
         assertEquals(
-            "Redis source mapping for table 'users' must use at least one placeholder in hash.key",
+            "Redis source mapping for table 'users' must use at least one placeholder in anchor hash key",
             exc.message
         )
     }
 
     @Test
-    fun `listCollections() returns mapped Redis collections`() = runBlocking {
+    fun `constructor throws when mapping has no row-level anchor hash`() {
+        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
+        val connection = mockk<StatefulRedisConnection<String, String>>()
+        every { connection.sync() } returns commands
+        val client = mockk<RedisClient>(relaxed = true)
+
+        val exc = assertThrows<IllegalStateException> {
+            RedisSource(
+                uri = "redis://localhost:6379/0",
+                mappingsFile = "unused",
+                client = client,
+                connection = connection,
+                mappings = RedisTableMappings(
+                    tables = listOf(
+                        RedisTableMapping(
+                            table = "users",
+                            fields = listOf(
+                                FieldDefinition("id", "integer"),
+                                FieldDefinition("status", "text")
+                            ),
+                            hashes = listOf(
+                                RedisHashMapping(
+                                    key = "users:\${id}:status",
+                                    field = "status",
+                                    value = "\${status}"
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        }
+
+        assertEquals(
+            "Redis table 'users' must define a row-level anchor hash without field/value mappings",
+            exc.message
+        )
+    }
+
+    @Test
+    fun `listCollections() returns mapped Redis collections`() {
         val commands = mockk<RedisCommands<String, String>>(relaxed = true)
         val connection = mockk<StatefulRedisConnection<String, String>>()
         every { connection.sync() } returns commands
@@ -103,17 +143,15 @@ class RedisSourceTest {
             )
         )
 
-        val collections = cut.listCollections().map { it.fetchMetadata().name }.toList()
+        val collections = runBlocking { cut.listCollections().map { it.fetchMetadata().name }.toList() }
 
         assertEquals(listOf("users"), collections)
     }
 
     @Test
-    fun `countDocuments() counts reconstructed Redis rows`() = runBlocking {
+    fun `countDocuments() counts reconstructed Redis rows`() {
         val commands = mockk<RedisCommands<String, String>>()
         every { commands.keys("users:*") } returns listOf("users:1", "users:2")
-        every { commands.hgetall("users:1") } returns mapOf("name" to "Alice")
-        every { commands.hgetall("users:2") } returns mapOf("name" to "Bob")
         val connection = mockk<StatefulRedisConnection<String, String>>()
         every { connection.sync() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
@@ -137,7 +175,7 @@ class RedisSourceTest {
             )
         )
 
-        assertEquals(2L, cut.countDocuments("users"))
+        assertEquals(2L, runBlocking { cut.countDocuments("users") })
     }
 
     @Test

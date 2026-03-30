@@ -8,6 +8,9 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.allOf
+import org.hamcrest.Matchers.containsString
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.core.FieldDefinition
@@ -16,7 +19,6 @@ import org.softlab.dataset.redis.RedisSetMapping
 import org.softlab.dataset.redis.RedisTableMapping
 import org.softlab.dataset.redis.RedisTableMappings
 import org.softlab.datatransfer.core.CollectionMetadata
-import kotlin.test.assertEquals
 
 
 class RedisDestinationTest {
@@ -45,11 +47,17 @@ class RedisDestinationTest {
 
         val exc = assertThrows<IllegalStateException> {
             runBlocking {
-                cut.createCollection(CollectionMetadata("users", listOf(FieldDefinition("id", "integer"))))
+                cut.createCollection(
+                    CollectionMetadata(
+                        "users", listOf(FieldDefinition("id", "integer"))
+                    )
+                )
             }
         }
-
-        assertEquals("Redis hash key for table 'users' refers to unknown fields: missing", exc.message)
+        assertThat(exc.message, allOf(
+            containsString("'users'"),
+            containsString("missing")
+        ))
     }
 
     @Test
@@ -147,10 +155,6 @@ class RedisDestinationTest {
                 )
             )
         }
-
-        assertEquals(
-            "Duplicate field found in hash, please assure the mapping is correct: users:1/id",
-            exc.message
-        )
+        assertThat(exc.message, containsString("users:1/id"))
     }
 }

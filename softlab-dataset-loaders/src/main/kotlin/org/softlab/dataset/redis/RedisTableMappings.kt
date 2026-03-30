@@ -31,7 +31,12 @@ data class RedisTableMapping(
     val fields: List<FieldDefinition> = emptyList(),
     val hashes: List<RedisHashMapping> = emptyList(),
     val sets: List<RedisSetMapping> = emptyList()
-)
+) {
+    fun anchorHash(): RedisHashMapping =
+        hashes.firstOrNull { it.value == null && it.field == null } ?: error(
+            "Redis table '$table' must define a row-level anchor hash without field/value mappings"
+        )
+}
 
 data class RedisHashMapping(
     val key: String? = null,

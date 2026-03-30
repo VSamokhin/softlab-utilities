@@ -17,6 +17,8 @@
 package org.softlab.datatransfer.adapters.redis
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.lettuce.core.KeyScanCursor
+import io.lettuce.core.ScanArgs
 import io.lettuce.core.api.sync.RedisCommands
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -38,7 +40,6 @@ import java.time.ZonedDateTime
 import java.util.Base64
 
 
-@Suppress("TooManyFunctions")
 class RedisDocumentCollection(
     private val table: RedisTableMapping,
     private val commands: RedisCommands<String, String>
@@ -52,53 +53,70 @@ class RedisDocumentCollection(
     override suspend fun fetchMetadata(): CollectionMetadata = metadata
 
     override fun readDocuments(): Flow<TransferDocument> = flow {
-        readRows().forEach { emit(it) }
-    }
-
-    fun countDocuments(): Long = readRows().size.toLong()
-
-    private fun readRows(): List<TransferDocument> {
-        val rawRows = linkedMapOf<String, MutableMap<String, String>>()
-        table.hashes.forEach { hash -> mergeHashRows(hash, rawRows) }
-
-        val fieldNames = metadata.fields.map { it.name }.toSet()
-        return rawRows.values.map { row ->
-            val unexpectedFields = row.keys - fieldNames
-            check(unexpectedFields.isEmpty()) {
-                "Redis source mapping for table '${table.table}' yielded fields not declared in schema: " +
-                    unexpectedFields.joinToString(", ")
-            }
-            metadata.fields.associate { field ->
-                field.name to row[field.name]?.let { convertValue(it, field) }
-            }
-        }.also {
-            logger.debug { "Read ${it.size} logical rows from Redis table '${table.table}'" }
+        scanKeys(RedisMappingTemplate.of(table).toGlob()).forEach { key ->
+            emit(readRow(key))
         }
     }
 
-    private fun mergeHashRows(
+    private fun readRow(anchorKey: String): TransferDocument {
+        val row = linkedMapOf<String, String>()
+        val anchorHash = table.anchorHash()
+        mergeHashAtKey(anchorHash, anchorKey, row)
+
+        val remaining = table.hashes.filterNot { it == anchorHash }.toMutableList()
+        while (remaining.isNotEmpty()) {
+            val resolved = remaining.filter { canResolveHashKey(it, row) }
+            check(resolved.isNotEmpty()) {
+                val unresolved = remaining.joinToString(", ") { it.key ?: table.table }
+                "Redis source mapping for table '${table.table}' cannot resolve hash keys for: $unresolved"
+            }
+            resolved.forEach { hash ->
+                remaining.remove(hash)
+                renderHashKey(hash, row)?.let { mergeHashAtKey(hash, it, row) }
+            }
+        }
+
+        return toDocument(row)
+    }
+
+    private fun canResolveHashKey(hash: RedisHashMapping, row: Map<String, String>): Boolean {
+        val keyTemplate = RedisMappingTemplate.of(hash.key ?: table.table)
+        return keyTemplate.placeholders().all { it in row }
+    }
+
+    private fun scanKeys(pattern: String): Sequence<String> = sequence {
+        var cursor = commands.scan(ScanArgs().match(pattern))
+        while (true) {
+            cursor.keys().forEach { yield(it) }
+            if (cursor.isFinished) {
+                break
+            }
+            cursor = commands.scan(cursor, ScanArgs().match(pattern))
+        }
+    }
+
+    private fun renderHashKey(
         hash: RedisHashMapping,
-        rawRows: LinkedHashMap<String, MutableMap<String, String>>
+        row: Map<String, String>
+    ): String? {
+        val keyTemplate = RedisMappingTemplate.of(hash.key ?: table.table)
+        return if (keyTemplate.placeholders().all { it in row }) {
+            keyTemplate.render(row)
+        } else {
+            null
+        }
+    }
+
+    private fun mergeHashAtKey(
+        hash: RedisHashMapping,
+        key: String,
+        row: MutableMap<String, String>
     ) {
         val keyTemplate = hash.key ?: table.table
         val keyPattern = RedisMappingTemplate.of(keyTemplate)
-
-        commands.keys(keyPattern.toGlob())
-            .sorted()
-            .forEach { key -> mergeSingleHashRow(hash, keyTemplate, keyPattern, key, rawRows) }
-    }
-
-    private fun mergeSingleHashRow(
-        hash: RedisHashMapping,
-        keyTemplate: String,
-        keyPattern: RedisMappingTemplate,
-        key: String,
-        rawRows: LinkedHashMap<String, MutableMap<String, String>>
-    ) {
         val keyValues = checkNotNull(keyPattern.match(key)) {
             "Could not match Redis key '$key' against template '$keyTemplate'"
         }
-        val row = rawRows.computeIfAbsent(rowId(keyValues)) { linkedMapOf() }
         mergeValues(row, keyValues, "key '$key'")
         mergeHashEntries(hash, key, row)
     }
@@ -144,9 +162,6 @@ class RedisDocumentCollection(
         }
     }
 
-    private fun rowId(values: Map<String, String>): String =
-        values.entries.sortedBy { it.key }.joinToString("|") { (key, value) -> "$key=$value" }
-
     private fun mergeValues(target: MutableMap<String, String>, source: Map<String, String>, sourceName: String) {
         source.forEach { (field, value) ->
             mergeValue(target, field, value, sourceName)
@@ -157,6 +172,18 @@ class RedisDocumentCollection(
         val previous = target.putIfAbsent(field, value)
         check(previous == null || previous == value) {
             "Conflicting Redis values found for '${table.table}.$field' while reading $sourceName"
+        }
+    }
+
+    private fun toDocument(row: Map<String, String>): TransferDocument {
+        val fieldNames = metadata.fields.map { it.name }.toSet()
+        val unexpectedFields = row.keys - fieldNames
+        check(unexpectedFields.isEmpty()) {
+            "Redis source mapping for table '${table.table}' yielded fields not declared in schema: " +
+                unexpectedFields.joinToString(", ")
+        }
+        return metadata.fields.associate { field ->
+            field.name to row[field.name]?.let { convertValue(it, field) }
         }
     }
 
@@ -187,4 +214,6 @@ class RedisDocumentCollection(
         runCatching { Time.valueOf(value) }
             .recoverCatching { Time.valueOf(LocalTime.parse(value)) }
             .getOrThrow()
+
+    private fun KeyScanCursor<String>.keys(): List<String> = keys
 }

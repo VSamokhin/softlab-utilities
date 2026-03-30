@@ -24,7 +24,7 @@ import org.softlab.datatransfer.core.CollectionMetadata
 
 object RedisMappingValidator {
     fun validateSourceMappings(mappings: RedisTableMappings) {
-        mappings.tables.forEach(::validateSourceMapping)
+        mappings.tables.forEach(this::validateSourceMapping)
     }
 
     fun validateSourceMapping(table: RedisTableMapping) {
@@ -34,11 +34,13 @@ object RedisMappingValidator {
         require(table.hashes.isNotEmpty()) {
             "Redis source mapping for table '${table.table}' must define at least one hash mapping"
         }
+        val anchorHash = table.anchorHash()
+        val anchorKeyTemplate = RedisMappingTemplate.of(anchorHash.key ?: table.table)
+        check(anchorKeyTemplate.placeholders().isNotEmpty()) {
+            "Redis source mapping for table '${table.table}' must use at least one placeholder in anchor hash key"
+        }
+
         table.hashes.forEach { hash ->
-            val keyTemplate = RedisMappingTemplate.of(hash.key ?: table.table)
-            check(keyTemplate.placeholders().isNotEmpty()) {
-                "Redis source mapping for table '${table.table}' must use at least one placeholder in hash.key"
-            }
             check(hash.value != null || hash.field == null) {
                 "Redis source mapping for table '${table.table}' " +
                     "cannot reconstruct rows from hash.field without hash.value"
