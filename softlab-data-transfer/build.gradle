@@ -3,6 +3,7 @@ plugins {
     id 'application'
     id 'com.gradleup.shadow'
     id 'publish-package'
+    id 'com.google.osdetector'
 }
 
 description = 'Pluggable database migration tool'
@@ -18,6 +19,9 @@ dependencies {
     implementation 'org.apache.commons:commons-pool2:_'
     implementation 'org.mongodb:mongodb-driver-kotlin-coroutine'
     implementation 'io.lettuce:lettuce-core:_'
+    if (osdetector.arch == "aarch_64") {
+        runtimeOnly 'io.netty:netty-resolver-dns-native-macos:_:osx-aarch_64'
+    }
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
 
     testImplementation 'com.jayway.jsonpath:json-path-assert:_'
@@ -26,7 +30,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':softlab-dataset-loaders'))
     // Additional stuff for the test fixtures
     integrationTestRuntimeOnly 'org.liquibase:liquibase-core:_'
-    integrationTestRuntimeOnly'org.liquibase.ext:liquibase-mongodb:_'
+    integrationTestRuntimeOnly 'org.liquibase.ext:liquibase-mongodb:_'
     integrationTestRuntimeOnly 'org.mongodb:mongodb-driver-sync'
     integrationTestRuntimeOnly 'org.mongodb:mongodb-driver-kotlin-coroutine'
     integrationTestRuntimeOnly 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
