@@ -61,6 +61,6 @@ object AdapterProvider {
 
     private fun requireRedisMappings(uri: String, options: Map<String, String>): String =
         checkNotNull(options[MAPPING_OPTION]) {
-            "Redis adapter for '$uri' requires adapter option '$MAPPING_OPTION'"
+            "Redis adapter for '$uri' requires additional option '$MAPPING_OPTION'"
         }
 }

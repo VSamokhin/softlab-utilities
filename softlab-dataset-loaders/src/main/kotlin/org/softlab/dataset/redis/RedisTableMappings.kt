@@ -22,8 +22,10 @@ import org.softlab.dataset.core.FieldDefinition
 data class RedisTableMappings(
     val tables: List<RedisTableMapping> = emptyList()
 ) {
-    fun table(tableName: String): RedisTableMapping? =
-        tables.firstOrNull { it.table == tableName }
+    fun table(tableName: String): RedisTableMapping =
+        checkNotNull(tables.firstOrNull { it.table == tableName }) {
+            "Could not find Redis mapping for table: $tableName"
+        }
 }
 
 data class RedisTableMapping(

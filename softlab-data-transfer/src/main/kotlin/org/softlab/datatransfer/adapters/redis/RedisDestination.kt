@@ -23,10 +23,10 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.chunked
+import kotlinx.coroutines.launch
 import org.softlab.dataset.redis.RedisDatasetMapper
 import org.softlab.dataset.redis.RedisMappingTemplate
 import org.softlab.dataset.redis.RedisMappingsLoader
-import org.softlab.dataset.redis.RedisSeedData
 import org.softlab.dataset.redis.RedisTableMapping
 import org.softlab.dataset.redis.RedisTableMappings
 import org.softlab.datatransfer.core.BATCH_SIZE
@@ -42,39 +42,37 @@ import kotlin.concurrent.atomics.plusAssign
 class RedisDestination(
     uri: String,
     mappingsFile: String,
-    private val mappings: RedisTableMappings = RedisMappingsLoader.load(mappingsFile),
     private val client: RedisClient = RedisClient.create(uri),
-    private val connection: StatefulRedisConnection<String, String> = client.connect()
+    private val mappings: RedisTableMappings = RedisMappingsLoader.load(mappingsFile),
+    private val closeClient: Boolean = true
 ) : DatabaseDestination {
     companion object {
         const val BACKEND = "redis"
-        private const val DELETE_CHUNK_SIZE = 200
-        private const val MAX_KEYS_IN_ERROR = 5
+        private const val KEYS_CHUNK_SIZE = 200
     }
 
     private val logger = KotlinLogging.logger {}
+    private val connection: StatefulRedisConnection<String, String> = client.connect()
     private val commands = connection.sync()
 
     override fun getBackendName(): String = BACKEND
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
-        val table = requireTable(metadata.name)
-        RedisMappingValidator.validateDestinationMapping(table, metadata)
-
-        val existingKeys = mappedKeys(table)
-        check(existingKeys.isEmpty()) {
-            "Redis keys already exist for '${metadata.name}', please drop them before proceeding: " +
-                existingKeys.take(MAX_KEYS_IN_ERROR).joinToString(", ")
+        RedisMappingGenerator.generate(metadata)?.run {
+            logger.trace { "Generated Redis mapping:\n${RedisMappingGenerator.asYaml(this)}" }
         }
+        // Basically, nothing to create, only a sanity check
+        val matchedTable = mappings.table(metadata.name)
+        RedisMappingValidator.validateDestinationMapping(matchedTable, metadata)
     }
 
     @Suppress("SpreadOperator")
     override suspend fun dropCollection(collectionName: String) {
-        val table = mappings.table(collectionName) ?: return
+        val table = mappings.table(collectionName)
         val keys = mappedKeys(table)
         if (keys.isNotEmpty()) {
             logger.debug { "Dropping ${keys.size} Redis keys for '$collectionName'" }
-            keys.chunked(DELETE_CHUNK_SIZE).forEach { chunk ->
+            keys.chunked(KEYS_CHUNK_SIZE).forEach { chunk ->
                 commands.del(*chunk.toTypedArray())
             }
         }
@@ -82,15 +80,17 @@ class RedisDestination(
 
     @OptIn(ExperimentalAtomicApi::class, ExperimentalCoroutinesApi::class)
     override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {
-        val table = requireTable(collectionName)
         logger.debug { "Inserting documents into '$collectionName'" }
 
         val total = AtomicInt(0)
         coroutineScope {
+            val matchedTable = mappings.table(collectionName)
             documents.chunked(BATCH_SIZE).collect { batch ->
-                total += saveBatch(table, batch)
-                if (total.load() % REPORT_ON_INSERTS == 0) {
-                    logger.info { "Inserted $total logical rows into '$collectionName'" }
+                launch {
+                    total += saveBatch(matchedTable, batch)
+                    if (total.load() % REPORT_ON_INSERTS == 0) {
+                        logger.info { "Inserted $total logical rows into '$collectionName'" }
+                    }
                 }
             }
         }
@@ -99,11 +99,8 @@ class RedisDestination(
 
     override fun close() {
         connection.close()
-        client.shutdown()
+        if (closeClient) client.shutdown()
     }
-
-    private fun requireTable(collectionName: String): RedisTableMapping =
-        RedisMappingValidator.requireTable(mappings, collectionName)
 
     private fun mappedKeys(table: RedisTableMapping): Set<String> {
         val keyPatterns = buildSet {
@@ -113,52 +110,24 @@ class RedisDestination(
         return keyPatterns.flatMapTo(linkedSetOf()) { commands.keys(it) }
     }
 
-    private fun saveBatch(
-        table: RedisTableMapping,
-        batch: List<TransferDocument>
-    ): Int {
-        val rows = batch.map { it.withoutNullValues() }
-        val seedData = RedisDatasetMapper.mapRows(rows, table)
-        ensureNoExistingSeedData(seedData)
-        writeSeedData(seedData)
-        return rows.size
-    }
-
-    private fun ensureNoExistingSeedData(seedData: RedisSeedData) {
-        seedData.hashes.forEach { (key, entries) ->
-            entries.keys.forEach { field ->
-                check(!commands.hexists(key, field)) {
-                    "Duplicate field found in hash, please assure the mapping is correct: $key/$field"
-                }
-            }
-        }
-        seedData.sets.forEach { (key, members) ->
-            members.forEach { member ->
-                check(!commands.sismember(key, member)) {
-                    "Duplicate member found in set, please assure the mapping is correct: $key/$member"
-                }
-            }
-        }
+    private fun saveBatch(table: RedisTableMapping, batch: List<TransferDocument>): Int {
+        val seedData = RedisDatasetMapper.mapRows(batch, table)
+        writeSeedData(seedData.hashes, seedData.sets)
+        return batch.size
     }
 
     @Suppress("SpreadOperator")
-    private fun writeSeedData(seedData: RedisSeedData) {
-        seedData.hashes.forEach { (key, entries) ->
+    private fun writeSeedData(
+        hashes: Map<String, Map<String, String>>,
+        sets: Map<String, Set<String>>
+    ) {
+        hashes.forEach { (key, entries) ->
             commands.hset(key, entries)
         }
-        seedData.sets.forEach { (key, members) ->
-            members.chunked(DELETE_CHUNK_SIZE).forEach { chunk ->
+        sets.forEach { (key, members) ->
+            members.chunked(KEYS_CHUNK_SIZE).forEach { chunk ->
                 commands.sadd(key, *chunk.toTypedArray())
             }
         }
     }
-
-    private fun TransferDocument.withoutNullValues(): Map<String, Any> =
-        buildMap {
-            this@withoutNullValues.forEach { (key, value) ->
-                if (value != null) {
-                    put(key, value)
-                }
-            }
-        }
 }

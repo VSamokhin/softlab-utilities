@@ -25,7 +25,7 @@ data class RedisSeedData(
 )
 
 object RedisDatasetMapper {
-    fun mapRows(rows: List<Map<String, Any>>, mappings: RedisTableMapping): RedisSeedData {
+    fun mapRows(rows: List<Map<String, Any?>>, mappings: RedisTableMapping): RedisSeedData {
         // Not the most efficient way memory-wise, but this approach helps to avoid silently overwriting existing values
         // when a non-unique combination of key-field in hash or member in set appears
         val hashes = linkedMapOf<String, LinkedHashMap<String, String>>()
@@ -52,12 +52,12 @@ object RedisDatasetMapper {
         }
 
     private fun seedHash(
-        row: Map<String, Any>,
+        row: Map<String, Any?>,
         hash: RedisHashMapping,
         table: String,
         results: LinkedHashMap<String, LinkedHashMap<String, String>>
     ) {
-        val rowStrings = row.mapValues { (_, value) -> asString(value) }
+        val rowStrings = row.mapNotNullValues { value -> asString(value) }
         val key = hash.key?.let {
             RedisMappingTemplate.of(it).render(rowStrings)
         } ?: table
@@ -66,14 +66,14 @@ object RedisDatasetMapper {
         }
         val columns = hash.value?.let {
             listOf(RedisMappingTemplate.exactPlaceholder(it))
-        } ?: row.keys.toList()  // Or all columns otherwise
+        } ?: rowStrings.keys.toList()  // Or all columns otherwise
         columns.forEach { column ->
             val fieldName = field ?: column
-            val value: Any? = row[column]
+            val value: String? = rowStrings[column]
             if (value != null) {
                 val previousValue =
                     results.computeIfAbsent(key) { linkedMapOf() }
-                        .put(fieldName, asString(value))
+                        .put(fieldName, value)
                 check(previousValue == null) {
                     "Duplicate field found in hash, please assure the mapping is correct: $key/$fieldName"
                 }
@@ -82,29 +82,37 @@ object RedisDatasetMapper {
     }
 
     private fun seedSet(
-        row: Map<String, Any>,
+        row: Map<String, Any?>,
         set: RedisSetMapping,
         table: String,
         results: LinkedHashMap<String, LinkedHashSet<String>>
     ) {
-        val rowStrings = row.mapValues { (_, value) -> asString(value) }
+        val rowStrings = row.mapNotNullValues { value -> asString(value) }
         val key = set.key?.let {
             RedisMappingTemplate.of(it).render(rowStrings)
         } ?: table
         val columns = set.member?.let {
             listOf(RedisMappingTemplate.exactPlaceholder(it))
-        } ?: row.keys.toList() // Or all columns otherwise
+        } ?: rowStrings.keys.toList() // Or all columns otherwise
         columns.forEach { column ->
-            val member: Any? = row[column]
+            val member: String? = rowStrings[column]
             if (member != null) {
-                val strMember = asString(member)
                 val added =
                     results.computeIfAbsent(key) { linkedSetOf() }
-                        .add(strMember)
+                        .add(member)
                 check(added) {
-                    "Duplicate member found in set, please assure the mapping is correct: $key/$strMember"
+                    "Duplicate member found in set, please assure the mapping is correct: $key/$member"
                 }
             }
         }
     }
+
+    private inline fun <K, V : Any, R : Any> Map<K, V?>.mapNotNullValues(transform: (V) -> R): Map<K, R> =
+        buildMap {
+            this@mapNotNullValues.forEach { (key, value) ->
+                if (value != null) {
+                    put(key, transform(value))
+                }
+            }
+        }
 }

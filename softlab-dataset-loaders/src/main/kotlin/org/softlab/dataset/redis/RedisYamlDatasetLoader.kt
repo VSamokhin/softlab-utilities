@@ -38,11 +38,9 @@ class RedisYamlDatasetLoader(
 
         if (cleanBefore) redisHash.flushDb()
 
-        dataset.entries.forEach { (tableName, table) ->
-            val matchedTable = checkNotNull(mappings.table(tableName)) {
-                "Could not find corresponding mapping for table: $tableName"
-            }
-            val seedData = RedisDatasetMapper.mapRows(table, matchedTable)
+        dataset.entries.forEach { (tableName, rows) ->
+            val matchedTable = mappings.table(tableName)
+            val seedData = RedisDatasetMapper.mapRows(rows, matchedTable)
             seedData.hashes.forEach { (key, entries) ->
                 redisHash.hashSet(key, entries)
             }

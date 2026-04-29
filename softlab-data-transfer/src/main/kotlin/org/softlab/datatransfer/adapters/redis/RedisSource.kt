@@ -30,9 +30,9 @@ import org.softlab.datatransfer.core.DocumentCollection
 class RedisSource(
     uri: String,
     mappingsFile: String,
+    private val mappings: RedisTableMappings = RedisMappingsLoader.load(mappingsFile),
     private val client: RedisClient = RedisClient.create(uri),
-    private val connection: StatefulRedisConnection<String, String> = client.connect(),
-    private val mappings: RedisTableMappings = RedisMappingsLoader.load(mappingsFile)
+    private val connection: StatefulRedisConnection<String, String> = client.connect()
 ) : DatabaseSource {
     companion object {
         const val BACKEND = "redis"
@@ -56,7 +56,7 @@ class RedisSource(
      * This is a heavy call, avoid using it in the production
      */
     override suspend fun countDocuments(collectionName: String): Long {
-        val table = RedisMappingValidator.requireTable(mappings, collectionName)
+        val table = mappings.table(collectionName)
         return commands.keys(RedisMappingTemplate.of(table).toGlob()).size.toLong()
     }
 

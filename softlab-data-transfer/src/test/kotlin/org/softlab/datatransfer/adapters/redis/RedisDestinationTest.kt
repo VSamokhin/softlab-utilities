@@ -29,12 +29,12 @@ class RedisDestinationTest {
         val connection = mockk<StatefulRedisConnection<String, String>>()
         every { connection.sync() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
+        every { client.connect() } returns connection
 
         val cut = RedisDestination(
             uri = "redis://localhost:6379/0",
             mappingsFile = "unused",
             client = client,
-            connection = connection,
             mappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
@@ -61,19 +61,19 @@ class RedisDestinationTest {
     }
 
     @Test
-    fun `dropCollection() deletes all mapped keys`() = runBlocking {
+    fun `dropCollection() deletes all mapped keys`() {
         val commands = mockk<RedisCommands<String, String>>(relaxed = true)
         every { commands.keys("users:*") } returns listOf("users:1", "users:2")
         every { commands.keys("users") } returns listOf("users")
         val connection = mockk<StatefulRedisConnection<String, String>>()
         every { connection.sync() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
+        every { client.connect() } returns connection
 
         val cut = RedisDestination(
             uri = "redis://localhost:6379/0",
             mappingsFile = "unused",
             client = client,
-            connection = connection,
             mappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
@@ -85,23 +85,23 @@ class RedisDestinationTest {
             )
         )
 
-        cut.dropCollection("users")
+        runBlocking { cut.dropCollection("users") }
 
         verify(exactly = 1) { commands.del("users:1", "users:2", "users") }
     }
 
     @Test
-    fun `insertDocuments() writes hashes and sets from rows`() = runBlocking {
+    fun `insertDocuments() writes hashes and sets from rows`() {
         val commands = mockk<RedisCommands<String, String>>(relaxed = true)
         val connection = mockk<StatefulRedisConnection<String, String>>()
         every { connection.sync() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
+        every { client.connect() } returns connection
 
         val cut = RedisDestination(
             uri = "redis://localhost:6379/0",
             mappingsFile = "unused",
             client = client,
-            connection = connection,
             mappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
@@ -113,7 +113,12 @@ class RedisDestinationTest {
             )
         )
 
-        cut.insertDocuments("users", flowOf(mapOf("id" to 1, "name" to "Alice")))
+        runBlocking {
+            cut.insertDocuments(
+                "users",
+                flowOf(mapOf("id" to 1, "name" to "Alice"))
+            )
+        }
 
         verify(exactly = 1) {
             commands.hset("users:1", mapOf("id" to "1", "name" to "Alice"))
@@ -122,19 +127,19 @@ class RedisDestinationTest {
     }
 
     @Test
-    fun `insertDocuments() detects duplicate hash fields across batches`() = runBlocking {
+    fun `insertDocuments() detects duplicate hash fields across batches`() {
         val commands = mockk<RedisCommands<String, String>>(relaxed = true)
         every { commands.hexists("users:1", "id") } returnsMany listOf(false, true)
         every { commands.hexists("users:1", "name") } returns false
         val connection = mockk<StatefulRedisConnection<String, String>>()
         every { connection.sync() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
+        every { client.connect() } returns connection
 
         val cut = RedisDestination(
             uri = "redis://localhost:6379/0",
             mappingsFile = "unused",
             client = client,
-            connection = connection,
             mappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
@@ -146,7 +151,7 @@ class RedisDestinationTest {
             )
         )
 
-        val exc = assertThrows<IllegalStateException> {
+        val exc = assertThrows<IllegalStateException> { runBlocking {
             cut.insertDocuments(
                 "users",
                 flowOf(
@@ -154,7 +159,7 @@ class RedisDestinationTest {
                     mapOf("id" to 1, "name" to "Bob")
                 )
             )
-        }
+        } }
         assertThat(exc.message, containsString("users:1/id"))
     }
 }

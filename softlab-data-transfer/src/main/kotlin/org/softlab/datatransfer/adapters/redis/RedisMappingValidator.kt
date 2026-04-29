@@ -78,11 +78,6 @@ object RedisMappingValidator {
         }
     }
 
-    fun requireTable(mappings: RedisTableMappings, collectionName: String): RedisTableMapping =
-        checkNotNull(mappings.table(collectionName)) {
-            "Could not find Redis mapping for collection '$collectionName'"
-        }
-
     private fun requireKnownFields(
         fields: Set<String>,
         placeholders: Set<String>,
