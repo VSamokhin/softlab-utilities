@@ -15,6 +15,7 @@ import org.softlab.datataset.test.initiators.createMongoContainer
 import org.softlab.datataset.test.initiators.createPostgresContainer
 import org.softlab.datatransfer.adapters.mongo.MongoDestination
 import org.softlab.datatransfer.adapters.mongo.MongoSource
+import org.softlab.datatransfer.adapters.postgres.ConnectionPool
 import org.softlab.datatransfer.adapters.postgres.PostgresDestination
 import org.softlab.datatransfer.adapters.postgres.PostgresSource
 import org.softlab.datatransfer.config.ConfigProvider
@@ -56,12 +57,20 @@ class MigratorIT {
                 ),
                 Arguments.of(
                     PostgresDestination(
-                        "${postgres.jdbcUrl}/${DATABASE}",
-                        postgres.username,
-                        postgres.password,
+                        ConnectionPool(
+                            "${postgres.jdbcUrl}/${DATABASE}",
+                            postgres.username,
+                            postgres.password
+                        ),
                         postgresTypes
                     ),
-                    PostgresSource("${postgres.jdbcUrl}/${DATABASE}", postgres.username, postgres.password)
+                    PostgresSource(
+                        ConnectionPool(
+                            "${postgres.jdbcUrl}/${DATABASE}",
+                            postgres.username,
+                            postgres.password
+                        )
+                    )
                 )
             )
         }

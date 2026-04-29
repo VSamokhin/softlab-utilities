@@ -18,6 +18,7 @@ package org.softlab.datatransfer.adapters
 
 import org.softlab.datatransfer.adapters.mongo.MongoDestination
 import org.softlab.datatransfer.adapters.mongo.MongoSource
+import org.softlab.datatransfer.adapters.postgres.ConnectionPool
 import org.softlab.datatransfer.adapters.postgres.PostgresDestination
 import org.softlab.datatransfer.adapters.postgres.PostgresSource
 import org.softlab.datatransfer.adapters.redis.RedisDestination
@@ -34,7 +35,7 @@ object AdapterProvider {
     private const val MAPPING_OPTION = "mapping"
 
     fun sourceFor(uri: String, options: Map<String, String> = emptyMap()): DatabaseSource = when {
-        Postgres.isPostgresUri(uri) -> PostgresSource(uri)
+        Postgres.isPostgresUri(uri) -> PostgresSource(ConnectionPool(uri))
         Mongo.isMongoUri(uri) -> MongoSource(uri)
         Redis.isRedisUri(uri) -> RedisSource(uri, requireRedisMappings(uri, options))
         else -> error("Unknown source database: $uri")
@@ -44,7 +45,7 @@ object AdapterProvider {
         val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
         return when {
             Postgres.isPostgresUri(uri) -> PostgresDestination(
-                uri,
+                ConnectionPool(uri),
                 dataTypeMappings = dataTypeMappings.destination(PostgresDestination.BACKEND)
             )
             Mongo.isMongoUri(uri) -> MongoDestination(

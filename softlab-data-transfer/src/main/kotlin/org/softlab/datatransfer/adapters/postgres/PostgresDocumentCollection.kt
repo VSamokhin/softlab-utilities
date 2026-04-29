@@ -19,50 +19,55 @@ package org.softlab.datatransfer.adapters.postgres
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import org.softlab.dataset.jdbc.JdbcConnectionProvider
+import org.softlab.dataset.jdbc.withConnection
 import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.TransferDocument
 import org.softlab.datatransfer.util.Postgres
-import java.sql.Connection
 
 
 class PostgresDocumentCollection(
     private val schemaName: String,
     private val tableName: String,
-    private val connection: Connection
+    private val pool: JdbcConnectionProvider
 ) : DocumentCollection {
     private val logger = KotlinLogging.logger {}
 
     private val metadata: CollectionMetadata by lazy {
-        if (Postgres.tableExists(schemaName, tableName, connection)) {
-            val columns = Postgres.readColumns(schemaName, tableName, connection)
-            CollectionMetadata("$schemaName.$tableName", columns)
-        } else error("Table '$schemaName.$tableName' does not exist")
+        pool.withConnection { connection ->
+            if (Postgres.tableExists(schemaName, tableName, connection)) {
+                val columns = Postgres.readColumns(schemaName, tableName, connection)
+                CollectionMetadata("$schemaName.$tableName", columns)
+            } else error("Table '$schemaName.$tableName' does not exist")
+        }
     }
 
     override suspend fun fetchMetadata(): CollectionMetadata = metadata
 
     override fun readDocuments(): Flow<TransferDocument> = flow {
-        val sql = "SELECT * FROM $schemaName.$tableName;"
-        logger.trace { "Executing SQL: $sql" }
-        val commit = connection.autoCommit
-        connection.autoCommit = false
-        connection.prepareStatement(sql).use { stmt ->
-            stmt.fetchSize = BATCH_SIZE
-            stmt.executeQuery().use { rs ->
-                val columns = Array(rs.metaData.columnCount) {
-                    rs.metaData.getColumnName(it + 1)
-                }
-                while (rs.next()) {
-                    val row = mutableMapOf<String, Any?>()
-                    columns.forEachIndexed { i, c ->
-                        row[c] = rs.getObject(i + 1)
+        pool.withConnection { connection ->
+            val sql = "SELECT * FROM $schemaName.$tableName;"
+            logger.trace { "Executing SQL: $sql" }
+            val commit = connection.autoCommit
+            connection.autoCommit = false
+            connection.prepareStatement(sql).use { stmt ->
+                stmt.fetchSize = BATCH_SIZE
+                stmt.executeQuery().use { rs ->
+                    val columns = Array(rs.metaData.columnCount) {
+                        rs.metaData.getColumnName(it + 1)
                     }
-                    emit(row)
+                    while (rs.next()) {
+                        val row = mutableMapOf<String, Any?>()
+                        columns.forEachIndexed { i, c ->
+                            row[c] = rs.getObject(i + 1)
+                        }
+                        emit(row)
+                    }
                 }
             }
+            connection.autoCommit = commit
         }
-        connection.autoCommit = commit
     }
 }

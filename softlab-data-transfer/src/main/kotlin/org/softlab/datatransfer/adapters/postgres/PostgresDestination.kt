@@ -22,14 +22,15 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.chunked
 import kotlinx.coroutines.launch
+import org.softlab.dataset.jdbc.JdbcConnectionProvider
+import org.softlab.dataset.jdbc.withConnection
+import org.softlab.dataset.jdbc.withStatement
 import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.REPORT_ON_INSERTS
 import org.softlab.datatransfer.core.TransferDocument
 import org.softlab.datatransfer.util.Postgres
-import java.sql.Connection
-import java.sql.DriverManager
 import java.sql.PreparedStatement
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -37,27 +38,15 @@ import kotlin.concurrent.atomics.plusAssign
 
 
 class PostgresDestination(
-    private val connection: Connection,
+    private val pool: JdbcConnectionProvider,
     private val dataTypeMappings: Map<String, String>,
-    private val closeConnection: Boolean = true
+    private val closePool: Boolean = true
 ) : DatabaseDestination {
     companion object {
         const val BACKEND = "postgres"
     }
 
     private val logger = KotlinLogging.logger {}
-
-    constructor(
-        jdbcUrl: String,
-        username: String,
-        password: String,
-        dataTypeMappings: Map<String, String>
-    ) : this(DriverManager.getConnection(jdbcUrl, username, password), dataTypeMappings, true)
-
-    constructor(
-        jdbcUrl: String,
-        dataTypeMappings: Map<String, String>
-    ): this(DriverManager.getConnection(jdbcUrl), dataTypeMappings, true)
 
     override fun getBackendName(): String = BACKEND
 
@@ -67,23 +56,23 @@ class PostgresDestination(
         val columnsDef = metadata.fields.joinToString(", ") {
             "${it.name} ${mapType(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
         }
-        connection.createStatement().use {
+        pool.withStatement { stmt ->
             val createSchemaSql = "CREATE SCHEMA IF NOT EXISTS ${schemaTable.first};"
             logger.trace { "Executing SQL: $createSchemaSql" }
-            it.execute(createSchemaSql)
+            stmt.execute(createSchemaSql)
 
             val createTableSql = "CREATE TABLE ${metadata.name} ($columnsDef);"
             logger.trace { "Executing SQL: $createTableSql" }
-            it.execute(createTableSql)
+            stmt.execute(createTableSql)
         }
     }
 
     override suspend fun dropCollection(collectionName: String) {
         logger.debug { "Dropping table '$collectionName'" }
         val sql = "DROP TABLE IF EXISTS $collectionName;"
-        connection.createStatement().use {
+        pool.withStatement { stmt ->
             logger.trace { "Executing SQL: $sql" }
-            it.execute(sql)
+            stmt.execute(sql)
         }
     }
 
@@ -97,7 +86,9 @@ class PostgresDestination(
         logger.debug { "Inserting documents into '$collectionName'" }
 
         val schemaTable = Postgres.getSchemaTable(collectionName)
-        val fields = Postgres.readColumns(schemaTable.first, schemaTable.second, connection)
+        val fields = pool.withConnection {
+            Postgres.readColumns(schemaTable.first, schemaTable.second, it)
+        }
         val fieldsLowerCase = fields.map { it.name.lowercase() }
         val columns = fields.map { it.name }.joinToString(", ") { it }
         val placeholders = fields.joinToString(", ") { "?" }
@@ -108,17 +99,18 @@ class PostgresDestination(
         coroutineScope {
             documents.chunked(BATCH_SIZE).collect { docs ->
                 launch {
-                    val saved = connection.prepareStatement(sql).use { stmt ->
-                        saveBatch(stmt, docs, collectionName, fieldsLowerCase)
+                    total += pool.withConnection {
+                        it.prepareStatement(sql).use { stmt ->
+                            saveBatch(stmt, docs, collectionName, fieldsLowerCase)
+                        }
                     }
-                    total += saved
                     if (total.load() % REPORT_ON_INSERTS == 0) {
-                        logger.info { "Inserted ${total.load()} rows into '$collectionName'" }
+                        logger.info { "Inserted $total rows into '$collectionName'" }
                     }
                 }
             }
         }
-        logger.info { "Total of ${total.load()} rows inserted into '$collectionName'" }
+        logger.info { "Total of $total rows inserted into '$collectionName'" }
     }
 
     private fun saveBatch(
@@ -144,6 +136,6 @@ class PostgresDestination(
     }
 
     override fun close() {
-        if (closeConnection) connection.close()
+        if (closePool) pool.close()
     }
 }

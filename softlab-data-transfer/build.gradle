@@ -14,6 +14,8 @@ dependencies {
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:_'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:_'
     implementation 'org.postgresql:postgresql:_'
+    implementation 'org.apache.commons:commons-dbcp2:_'
+    implementation 'org.apache.commons:commons-pool2:_'
     implementation 'org.mongodb:mongodb-driver-kotlin-coroutine'
     implementation 'io.lettuce:lettuce-core:_'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
