@@ -62,10 +62,12 @@ class MongoDestination(
 
         logger.debug { "Creating collection '$metadata.name'" }
         if (metadata.fields.isNotEmpty()) {
+            val validator = buildValidator(metadata)
             val options = CreateCollectionOptions()
                 .validationOptions(
-                    ValidationOptions().validator(buildValidator(metadata))
+                    ValidationOptions().validator(validator)
                 )
+            logger.trace { "Collection validator:\n${validator.toJson()}" }
             db.createCollection(metadata.name, options)
         } else {
             db.createCollection(metadata.name)
@@ -118,12 +120,12 @@ class MongoDestination(
                     collection.insertMany(docs)
                     total += docs.size
                     if (total.load() % REPORT_ON_INSERTS == 0) {
-                        logger.info { "Inserted ${total.load()} documents into '$collectionName'" }
+                        logger.info { "Inserted $total documents into '$collectionName'" }
                     }
                 }
             }
         }
-        logger.info { "Total of ${total.load()} documents inserted into '$collectionName'" }
+        logger.info { "Total of $total documents inserted into '$collectionName'" }
     }
 
     override fun close() {
