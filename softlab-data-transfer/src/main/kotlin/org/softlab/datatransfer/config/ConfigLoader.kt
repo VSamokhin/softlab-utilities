@@ -45,6 +45,11 @@ class ConfigLoader {
 
     fun getDataTypeMappings(): DataTypeMappingsConfig =
         DataTypeMappingsConfig(
+            sourceMappings = root.dataTransfer.dataTypeMappings.source
+                .mapKeys { (backendName, _) -> backendName.lowercase() }
+                .mapValues { (_, targetMappings) ->
+                    toSourceLookup(targetMappings)
+                },
             destinationMappings = root.dataTransfer.dataTypeMappings.destination
                 .mapKeys { (backendName, _) -> backendName.lowercase() }
                 .mapValues { (_, targetMappings) ->
@@ -101,5 +106,6 @@ private data class DataTransferSection(
 )
 
 private data class DataTypeMappingsSection(
+    val source: Map<String, Map<String, List<String>>> = emptyMap(),
     val destination: Map<String, Map<String, List<String>>> = emptyMap()
 )

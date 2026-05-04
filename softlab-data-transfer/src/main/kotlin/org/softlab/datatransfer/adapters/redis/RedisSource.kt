@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.flow
 import org.softlab.dataset.redis.RedisMappingTemplate
 import org.softlab.dataset.redis.RedisMappingsLoader
 import org.softlab.dataset.redis.RedisTableMappings
+import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.DocumentCollection
 
@@ -32,7 +33,10 @@ class RedisSource(
     mappingsFile: String,
     private val mappings: RedisTableMappings = RedisMappingsLoader.load(mappingsFile),
     private val client: RedisClient = RedisClient.create(uri),
-    private val connection: StatefulRedisConnection<String, String> = client.connect()
+    private val connection: StatefulRedisConnection<String, String> = client.connect(),
+    private val dataTypeMappings: Map<String, String> = ConfigProvider.config
+        .getDataTypeMappings()
+        .source(BACKEND)
 ) : DatabaseSource {
     companion object {
         const val BACKEND = "redis"
@@ -48,7 +52,7 @@ class RedisSource(
 
     override fun listCollections(): Flow<DocumentCollection> = flow {
         mappings.tables.forEach { table ->
-            emit(RedisDocumentCollection(table, commands))
+            emit(RedisDocumentCollection(table, commands, dataTypeMappings))
         }
     }
 

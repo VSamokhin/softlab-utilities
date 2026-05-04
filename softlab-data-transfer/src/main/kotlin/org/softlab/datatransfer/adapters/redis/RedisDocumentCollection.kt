@@ -16,7 +16,6 @@
 
 package org.softlab.datatransfer.adapters.redis
 
-import io.lettuce.core.KeyScanCursor
 import io.lettuce.core.RedisFuture
 import io.lettuce.core.api.async.RedisAsyncCommands
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -46,7 +45,8 @@ import kotlin.uuid.ExperimentalUuidApi
 
 class RedisDocumentCollection(
     private val table: RedisTableMapping,
-    private val commands: RedisAsyncCommands<String, String>
+    private val commands: RedisAsyncCommands<String, String>,
+    private val dataTypeMappings: Map<String, String>
 ) : DocumentCollection {
     private val metadata: CollectionMetadata by lazy {
         CollectionMetadata(table.table, table.fields)
@@ -188,21 +188,23 @@ class RedisDocumentCollection(
     }
 
     @OptIn(ExperimentalUuidApi::class)
-    private fun convertValue(value: String, field: FieldDefinition): Any =
-        when (field.type.lowercase()) {
-            "smallint", "short", "int16" -> value.toShort()
-            "integer", "int", "int32" -> value.toInt()
-            "bigint", "long", "int64", "timestamp" -> value.toLong()
-            "real", "float" -> value.toFloat()
-            "double", "double precision", "decimal", "decimal128" -> value.toDouble()
-            "boolean", "bool" -> value.toBooleanStrict()
-            "timestamp with time zone", "timestamp without time zone",
-            "timestamp with timezone", "timestamptz", "date" -> timestampValue(value)
-            "time", "time with time zone", "time without time zone" -> timeValue(value)
-            "bytea", "blob", "bindata" -> Base64.getDecoder().decode(value)
+    private fun convertValue(value: String, field: FieldDefinition): Any {
+        val mappedType = dataTypeMappings[field.type.lowercase()] ?: field.type.lowercase()
+        return when (mappedType) {
+            "short" -> value.toShort()
+            "int" -> value.toInt()
+            "long" -> value.toLong()
+            "float" -> value.toFloat()
+            "double" -> value.toDouble()
+            "bool" -> value.toBooleanStrict()
+            "timestamp" -> timestampValue(value)
+            "time" -> timeValue(value)
+            "bytearray" -> Base64.getDecoder().decode(value)
             "uuid" -> UUID.fromString(value)
-            else -> value
+            "string" -> value
+            else -> error("Unknown document type: $mappedType")
         }
+    }
 
     private fun timestampValue(value: String): Any =
         runCatching { Timestamp.from(Instant.parse(value)) }
@@ -216,6 +218,4 @@ class RedisDocumentCollection(
         runCatching { Time.valueOf(value) }
             .recoverCatching { Time.valueOf(LocalTime.parse(value)) }
             .getOrThrow()
-
-    private fun KeyScanCursor<String>.keys(): List<String> = keys
 }

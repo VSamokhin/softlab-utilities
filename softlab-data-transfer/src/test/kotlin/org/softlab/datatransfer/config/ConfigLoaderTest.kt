@@ -22,6 +22,10 @@ class ConfigLoaderTest {
         assertEquals("INTEGER", mappings.destination("postgres")["int"])
         assertEquals("INTEGER", mappings.destination("postgres")["integer"])
         assertEquals("string", mappings.destination("mongo")["text"])
+        assertEquals("short", mappings.source("redis")["int16"])
+        assertEquals("timestamp", mappings.source("redis")["timestamptz"])
+        assertEquals("timestamp", mappings.source("redis")["timestamp"])
+        assertEquals("uuid", mappings.source("redis")["uuid"])
     }
 
     @ParameterizedTest
@@ -40,6 +44,9 @@ class ConfigLoaderTest {
                         NUMERIC: [int]
                       mongo:
                         text: [string]
+                    source:
+                      redis:
+                        number: [int]
                 """.trimIndent()
             )
             System.setProperty("user.dir", tempDir.toString())
@@ -47,6 +54,7 @@ class ConfigLoaderTest {
             val mappings = ConfigLoader().load(fileName).getDataTypeMappings()
             assertEquals("NUMERIC", mappings.destination("postgres")["int"])
             assertEquals("text", mappings.destination("mongo")["string"])
+            assertEquals("number", mappings.source("redis")["int"])
         } finally {
             System.setProperty("user.dir", prevUserDir)
             tempDir.toFile().deleteRecursively()
@@ -94,5 +102,11 @@ class ConfigLoaderTest {
     fun `destination() is case-insensitive`() {
         val mappings = ConfigLoader().load(ConfigProvider.CONFIG_FILE_NAME).getDataTypeMappings()
         assertTrue(mappings.destination("PoStGrEs").containsKey("int"))
+    }
+
+    @Test
+    fun `source() is case-insensitive`() {
+        val mappings = ConfigLoader().load(ConfigProvider.CONFIG_FILE_NAME).getDataTypeMappings()
+        assertTrue(mappings.source("ReDiS").containsKey("int"))
     }
 }

@@ -18,8 +18,12 @@ package org.softlab.datatransfer.config
 
 
 data class DataTypeMappingsConfig(
+    val sourceMappings: Map<String, Map<String, String>>,
     val destinationMappings: Map<String, Map<String, String>>
 ) {
+    fun source(backendName: String): Map<String, String> =
+        sourceMappings[backendName.lowercase()] ?: emptyMap()
+
     fun destination(backendName: String): Map<String, String> =
         destinationMappings[backendName.lowercase()] ?: emptyMap()
 }

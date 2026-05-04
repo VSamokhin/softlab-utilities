@@ -8,7 +8,10 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import org.hamcrest.CoreMatchers.containsString
+import org.hamcrest.MatcherAssert.assertThat
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.redis.RedisHashMapping
 import org.softlab.dataset.redis.RedisTableMapping
@@ -47,7 +50,8 @@ class RedisDocumentCollectionTest {
                 ),
                 hashes = listOf(RedisHashMapping(key = "users:\${id}"))
             ),
-            commands
+            commands,
+            dataTypeMappings = testDataTypeMappings
         )
 
         val documents = runBlocking { cut.readDocuments().toList() }
@@ -83,7 +87,8 @@ class RedisDocumentCollectionTest {
                 ),
                 hashes = listOf(RedisHashMapping(key = "users:\${id}"))
             ),
-            commands
+            commands,
+            dataTypeMappings = testDataTypeMappings
         )
 
         val documents = runBlocking { cut.readDocuments().toList() }
@@ -116,7 +121,8 @@ class RedisDocumentCollectionTest {
                     RedisHashMapping(key = "users:\${id}:meta")
                 )
             ),
-            commands
+            commands,
+            dataTypeMappings = testDataTypeMappings
         )
 
         val documents = runBlocking { cut.readDocuments().toList() }
@@ -127,8 +133,78 @@ class RedisDocumentCollectionTest {
         assertEquals("active", documents.single()["status"])
     }
 
+    @Test
+    fun `readDocuments() converts field values using configured data type mappings`() {
+        val commands = mockk<RedisAsyncCommands<String, String>>()
+        val firstPage = mockk<KeyScanCursor<String>>()
+        every { firstPage.keys } returns listOf("users:1")
+        every { firstPage.isFinished } returns true
+        every { commands.scan(any<ScanArgs>()) } returns completedRedisFuture(firstPage)
+        every { commands.hgetall("users:1") } returns completedRedisFuture(linkedMapOf("enabled" to "true"))
+
+        val cut = RedisDocumentCollection(
+            RedisTableMapping(
+                table = "users",
+                fields = listOf(
+                    FieldDefinition("id", "integer"),
+                    FieldDefinition("enabled", "truthy")
+                ),
+                hashes = listOf(RedisHashMapping(key = "users:\${id}"))
+            ),
+            commands,
+            dataTypeMappings = mapOf(
+                "integer" to "int",
+                "truthy" to "bool"
+            )
+        )
+
+        val documents = runBlocking { cut.readDocuments().toList() }
+
+        assertEquals(1, documents.single()["id"])
+        assertEquals(true, documents.single()["enabled"])
+    }
+
+    @Test
+    fun `readDocuments() throws when field type cannot be resolved to a document type`() {
+        val commands = mockk<RedisAsyncCommands<String, String>>()
+        val firstPage = mockk<KeyScanCursor<String>>()
+        every { firstPage.keys } returns listOf("users:1")
+        every { firstPage.isFinished } returns true
+        every { commands.scan(any<ScanArgs>()) } returns completedRedisFuture(firstPage)
+        every { commands.hgetall("users:1") } returns completedRedisFuture(linkedMapOf("external_id" to "1"))
+
+        val cut = RedisDocumentCollection(
+            RedisTableMapping(
+                table = "users",
+                fields = listOf(
+                    FieldDefinition("id", "integer"),
+                    FieldDefinition("external_id", "identifier")
+                ),
+                hashes = listOf(RedisHashMapping(key = "users:\${id}"))
+            ),
+            commands,
+            dataTypeMappings = mapOf("integer" to "int")
+        )
+
+        val exc = assertThrows<IllegalStateException> {
+            runBlocking { cut.readDocuments().toList() }
+        }
+
+        assertThat(exc.message, containsString("identifier"))
+    }
+
     private fun <T> completedRedisFuture(value: T): RedisFuture<T> =
         mockk {
             every { toCompletableFuture() } returns CompletableFuture.completedFuture(value)
         }
+
+    private companion object {
+        val testDataTypeMappings = mapOf(
+            "integer" to "int",
+            "text" to "string",
+            "boolean" to "bool",
+            "timestamp with time zone" to "timestamp",
+            "bytea" to "bytearray"
+        )
+    }
 }

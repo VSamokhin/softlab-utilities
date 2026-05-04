@@ -1,5 +1,18 @@
 data-transfer:
   data-type-mappings:
+    source:
+      redis:
+        short: [smallint, short, int16]
+        int: [integer, int, int32]
+        long: [bigint, long, int64]
+        float: [real, float]
+        double: [double, double precision, decimal, decimal128]
+        bool: [boolean, bool]
+        timestamp: [timestamp with time zone, timestamp without time zone, timestamp with timezone, timestamptz, date]
+        time: [time, time with time zone, time without time zone]
+        bytearray: [bytea, blob, bindata]
+        uuid: [uuid]
+        string: [text, string, varchar, character varying]
     destination:
       postgres:
         SMALLINT: [smallint, short, int16]
