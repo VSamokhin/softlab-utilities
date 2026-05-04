@@ -1,8 +1,8 @@
 package org.softlab.datatransfer.core
 
-import org.junit.jupiter.api.Assertions.assertIterableEquals
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
+import kotlin.test.assertContentEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -12,7 +12,7 @@ class StringTokenFilterTest {
     fun `from() returns normalized provided tokens when no file is specified`() {
         val filter = StringTokenFilter.from(listOf(" users ", "orders"))
 
-        assertIterableEquals(listOf("users", "orders"), filter.tokens)
+        assertContentEquals(listOf("users", "orders"), filter.tokens)
     }
 
     @Test
@@ -30,7 +30,7 @@ class StringTokenFilterTest {
 
             val filter = StringTokenFilter.from(listOf(tempFile.toString()))
 
-            assertIterableEquals(listOf("users", "orders"), filter.tokens)
+            assertContentEquals(listOf("users", "orders"), filter.tokens)
         } finally {
             Files.deleteIfExists(tempFile)
         }

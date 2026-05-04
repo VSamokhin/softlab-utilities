@@ -5,13 +5,13 @@ import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import kotlinx.coroutines.runBlocking
 import org.bson.Document
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertIterableEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.softlab.datataset.test.initiators.createMongoContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 
 
 @Testcontainers
@@ -57,6 +57,6 @@ class CoroutineMongoDatabaseIT {
         val cut = CoroutineMongoDatabase(mongoDb)
         val collections = cut.listCollections()
 
-        assertIterableEquals(listOf("users"), collections.map { it["name"] })
+        assertContentEquals(listOf("users"), collections.map { it["name"] })
     }
 }
