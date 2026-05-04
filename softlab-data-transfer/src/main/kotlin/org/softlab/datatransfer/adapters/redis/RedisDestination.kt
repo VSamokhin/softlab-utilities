@@ -29,6 +29,7 @@ import kotlinx.coroutines.future.await
 import org.softlab.dataset.redis.RedisDatasetMapper
 import org.softlab.dataset.redis.RedisMappingTemplate
 import org.softlab.dataset.redis.RedisMappingsLoader
+import org.softlab.dataset.redis.RedisSeedData
 import org.softlab.dataset.redis.RedisTableMapping
 import org.softlab.dataset.redis.RedisTableMappings
 import org.softlab.datatransfer.core.BATCH_SIZE
@@ -94,10 +95,7 @@ class RedisDestination(
         coroutineScope {
             val matchedTable = mappings.table(collectionName)
             documents.chunked(BATCH_SIZE).collect { batch ->
-                total += saveBatch(matchedTable, batch)
-                if (total.load() % REPORT_ON_INSERTS == 0) {
-                    logger.info { "Inserted $total logical rows into '$collectionName'" }
-                }
+                saveBatch(matchedTable, batch, total)
             }
         }
         logger.info { "Total of $total logical rows inserted into '$collectionName'" }
@@ -108,25 +106,32 @@ class RedisDestination(
         if (closeClient) client.shutdown()
     }
 
-    private fun saveBatch(table: RedisTableMapping, batch: List<TransferDocument>): Int {
+    @OptIn(ExperimentalAtomicApi::class)
+    private suspend fun saveBatch(
+        table: RedisTableMapping,
+        batch: List<TransferDocument>,
+        total: AtomicInt
+    ) {
         val seedData = RedisDatasetMapper.mapRows(batch, table)
-        writeSeedData(seedData.hashes, seedData.sets)
-        return batch.size
+        writeSeedData(seedData)
+        total += batch.size
+        if (total.load() % REPORT_ON_INSERTS == 0) {
+            logger.info { "Inserted $total logical rows into '${table.table}'" }
+        }
     }
 
     @OptIn(ExperimentalLettuceCoroutinesApi::class)
     @Suppress("SpreadOperator")
-    private fun writeSeedData(
-        hashes: Map<String, Map<String, String>>,
-        sets: Map<String, Set<String>>
-    ) {
-        hashes.forEach { (key, entries) ->
-            commands.hset(key, entries)
+    private suspend fun writeSeedData(seedData: RedisSeedData) {
+        val futures = mutableListOf<RedisFuture<*>>()
+        seedData.hashes.forEach { (key, entries) ->
+            futures += commands.hset(key, entries)
         }
-        sets.forEach { (key, members) ->
+        seedData.sets.forEach { (key, members) ->
             members.chunked(KEYS_CHUNK_SIZE).forEach { chunk ->
-                commands.sadd(key, *chunk.toTypedArray())
+                futures += commands.sadd(key, *chunk.toTypedArray())
             }
         }
+        futures.forEach { it.await() }
     }
 }
