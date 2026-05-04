@@ -62,7 +62,7 @@ class RedisDestination(
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
         RedisMappingGenerator.generate(metadata)?.run {
-            logger.trace { "Generated Redis mapping:\n${RedisMappingGenerator.asYaml(this)}" }
+            logger.trace { "Automatically generated Redis mapping:\n${RedisMappingGenerator.asYaml(this)}" }
         }
         // Basically, nothing to create, only a sanity check
         val matchedTable = mappings.table(metadata.name)
