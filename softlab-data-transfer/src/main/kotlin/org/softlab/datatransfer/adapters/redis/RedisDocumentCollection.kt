@@ -48,10 +48,6 @@ class RedisDocumentCollection(
     private val table: RedisTableMapping,
     private val commands: RedisAsyncCommands<String, String>
 ) : DocumentCollection {
-    companion object {
-        private const val KEYS_CHUNK_SIZE = 2000L
-    }
-
     private val metadata: CollectionMetadata by lazy {
         CollectionMetadata(table.table, table.fields)
     }

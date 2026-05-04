@@ -1,8 +1,11 @@
 package org.softlab.datatransfer.adapters.redis
 
+import io.lettuce.core.KeyScanCursor
 import io.lettuce.core.RedisClient
+import io.lettuce.core.RedisFuture
+import io.lettuce.core.ScanArgs
 import io.lettuce.core.api.StatefulRedisConnection
-import io.lettuce.core.api.sync.RedisCommands
+import io.lettuce.core.api.async.RedisAsyncCommands
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -15,15 +18,16 @@ import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.redis.RedisHashMapping
 import org.softlab.dataset.redis.RedisTableMapping
 import org.softlab.dataset.redis.RedisTableMappings
+import java.util.concurrent.CompletableFuture
 import kotlin.test.assertEquals
 
 
 class RedisSourceTest {
     @Test
     fun `constructor throws when schema fields are missing`() {
-        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
+        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
         val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.sync() } returns commands
+        every { connection.async() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
 
         val exc = assertThrows<IllegalArgumentException> {
@@ -51,9 +55,9 @@ class RedisSourceTest {
 
     @Test
     fun `constructor throws when hash key has no placeholders`() {
-        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
+        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
         val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.sync() } returns commands
+        every { connection.async() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
 
         val exc = assertThrows<IllegalStateException> {
@@ -82,9 +86,9 @@ class RedisSourceTest {
 
     @Test
     fun `constructor throws when mapping has no row-level anchor hash`() {
-        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
+        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
         val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.sync() } returns commands
+        every { connection.async() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
 
         val exc = assertThrows<IllegalStateException> {
@@ -122,9 +126,9 @@ class RedisSourceTest {
 
     @Test
     fun `listCollections() returns mapped Redis collections`() {
-        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
+        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
         val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.sync() } returns commands
+        every { connection.async() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
 
         val cut = RedisSource(
@@ -150,10 +154,11 @@ class RedisSourceTest {
 
     @Test
     fun `countDocuments() counts reconstructed Redis rows`() {
-        val commands = mockk<RedisCommands<String, String>>()
-        every { commands.keys("users:*") } returns listOf("users:1", "users:2")
+        val commands = mockk<RedisAsyncCommands<String, String>>()
+        val page = scanCursor(listOf("users:1", "users:2"), finished = true)
+        every { commands.scan(any<ScanArgs>()) } returns completedRedisFuture(page)
         val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.sync() } returns commands
+        every { connection.async() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
 
         val cut = RedisSource(
@@ -180,9 +185,9 @@ class RedisSourceTest {
 
     @Test
     fun `close() closes connection and client`() {
-        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
+        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
         val connection = mockk<StatefulRedisConnection<String, String>>(relaxed = true)
-        every { connection.sync() } returns commands
+        every { connection.async() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
 
         val cut = RedisSource(
@@ -198,4 +203,15 @@ class RedisSourceTest {
         verify(exactly = 1) { connection.close() }
         verify(exactly = 1) { client.shutdown() }
     }
+
+    private fun scanCursor(keys: List<String>, finished: Boolean): KeyScanCursor<String> =
+        mockk {
+            every { this@mockk.keys } returns keys
+            every { isFinished } returns finished
+        }
+
+    private fun <T> completedRedisFuture(value: T): RedisFuture<T> =
+        mockk {
+            every { toCompletableFuture() } returns CompletableFuture.completedFuture(value)
+        }
 }

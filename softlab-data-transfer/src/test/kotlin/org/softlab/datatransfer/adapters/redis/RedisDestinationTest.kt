@@ -1,8 +1,10 @@
 package org.softlab.datatransfer.adapters.redis
 
 import io.lettuce.core.RedisClient
+import io.lettuce.core.RedisFuture
+import io.lettuce.core.ScanArgs
 import io.lettuce.core.api.StatefulRedisConnection
-import io.lettuce.core.api.sync.RedisCommands
+import io.lettuce.core.api.async.RedisAsyncCommands
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -19,15 +21,15 @@ import org.softlab.dataset.redis.RedisSetMapping
 import org.softlab.dataset.redis.RedisTableMapping
 import org.softlab.dataset.redis.RedisTableMappings
 import org.softlab.datatransfer.core.CollectionMetadata
+import java.util.concurrent.CompletableFuture
 
 
 class RedisDestinationTest {
     @Test
     fun `createCollection() throws when mapping refers to unknown field`() {
-        val commands = mockk<RedisCommands<String, String>>()
-        every { commands.keys(any()) } returns emptyList()
+        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
         val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.sync() } returns commands
+        every { connection.async() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
         every { client.connect() } returns connection
 
@@ -62,11 +64,17 @@ class RedisDestinationTest {
 
     @Test
     fun `dropCollection() deletes all mapped keys`() {
-        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
-        every { commands.keys("users:*") } returns listOf("users:1", "users:2")
-        every { commands.keys("users") } returns listOf("users")
+        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
+        val hashPage = scanCursor(listOf("users:1", "users:2"), finished = true)
+        val setPage = scanCursor(listOf("users"), finished = true)
+        every { commands.scan(any<ScanArgs>()) } returnsMany listOf(
+            completedRedisFuture(hashPage),
+            completedRedisFuture(setPage)
+        )
+        every { commands.del("users:1", "users:2") } returns completedRedisFuture(2L)
+        every { commands.del("users") } returns completedRedisFuture(1L)
         val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.sync() } returns commands
+        every { connection.async() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
         every { client.connect() } returns connection
 
@@ -87,14 +95,17 @@ class RedisDestinationTest {
 
         runBlocking { cut.dropCollection("users") }
 
-        verify(exactly = 1) { commands.del("users:1", "users:2", "users") }
+        verify(exactly = 1) { commands.del("users:1", "users:2") }
+        verify(exactly = 1) { commands.del("users") }
     }
 
     @Test
     fun `insertDocuments() writes hashes and sets from rows`() {
-        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
+        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
+        every { commands.hset("users:1", mapOf("id" to "1", "name" to "Alice")) } returns completedRedisFuture(2L)
+        every { commands.sadd("users", "1") } returns completedRedisFuture(1L)
         val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.sync() } returns commands
+        every { connection.async() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
         every { client.connect() } returns connection
 
@@ -128,11 +139,9 @@ class RedisDestinationTest {
 
     @Test
     fun `insertDocuments() detects duplicate hash fields across batches`() {
-        val commands = mockk<RedisCommands<String, String>>(relaxed = true)
-        every { commands.hexists("users:1", "id") } returnsMany listOf(false, true)
-        every { commands.hexists("users:1", "name") } returns false
+        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
         val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.sync() } returns commands
+        every { connection.async() } returns commands
         val client = mockk<RedisClient>(relaxed = true)
         every { client.connect() } returns connection
 
@@ -162,4 +171,15 @@ class RedisDestinationTest {
         } }
         assertThat(exc.message, containsString("users:1/id"))
     }
+
+    private fun scanCursor(keys: List<String>, finished: Boolean): io.lettuce.core.KeyScanCursor<String> =
+        mockk {
+            every { this@mockk.keys } returns keys
+            every { isFinished } returns finished
+        }
+
+    private fun <T> completedRedisFuture(value: T): RedisFuture<T> =
+        mockk {
+            every { toCompletableFuture() } returns CompletableFuture.completedFuture(value)
+        }
 }
