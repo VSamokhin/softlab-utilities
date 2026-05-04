@@ -38,7 +38,7 @@ class RedisSource(
         const val BACKEND = "redis"
     }
 
-    private val commands = connection.sync()
+    private val commands = connection.async()
 
     init {
         RedisMappingValidator.validateSourceMappings(mappings)
@@ -56,8 +56,12 @@ class RedisSource(
      * This is a heavy call, avoid using it in the production
      */
     override suspend fun countDocuments(collectionName: String): Long {
+        var count = 0L
         val table = mappings.table(collectionName)
-        return commands.keys(RedisMappingTemplate.of(table).toGlob()).size.toLong()
+        commands.scanKeys(RedisMappingTemplate.of(table).toGlob()).collect {  keys ->
+            count += keys.size
+        }
+        return count
     }
 
     override fun close() {

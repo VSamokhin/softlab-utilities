@@ -19,12 +19,12 @@ package org.softlab.datatransfer.adapters.redis
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.lettuce.core.ExperimentalLettuceCoroutinesApi
 import io.lettuce.core.RedisClient
+import io.lettuce.core.RedisFuture
 import io.lettuce.core.api.StatefulRedisConnection
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.chunked
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.future.await
 import org.softlab.dataset.redis.RedisDatasetMapper
 import org.softlab.dataset.redis.RedisMappingTemplate
@@ -50,7 +50,7 @@ class RedisDestination(
 ) : DatabaseDestination {
     companion object {
         const val BACKEND = "redis"
-        private const val KEYS_CHUNK_SIZE = 200
+        private const val KEYS_CHUNK_SIZE: Int = 2000
     }
 
     private val logger = KotlinLogging.logger {}
@@ -73,24 +73,17 @@ class RedisDestination(
     override suspend fun dropCollection(collectionName: String) {
         val table = mappings.table(collectionName)
         logger.debug { "Dropping Redis keys for '$collectionName'..." }
-        mapKeys(table).chunked(KEYS_CHUNK_SIZE).collect { chunk ->
-            commands.del(*chunk.toTypedArray())
-        }
-    }
 
-    private fun mapKeys(table: RedisTableMapping): Flow<String> {
-        val keyPatterns = buildSet {
+        val futures = mutableListOf<RedisFuture<Long>>()
+        buildSet {
             table.hashes.forEach { add(RedisMappingTemplate.of(it.key ?: table.table).toGlob()) }
             table.sets.forEach { add(RedisMappingTemplate.of(it.key ?: table.table).toGlob()) }
-        }
-        return flow {
-            keyPatterns.forEach { key ->
-                commands
-                    .keys(key)
-                    .await()
-                    .forEach { emit(it) }
+        }.forEach { key ->
+            commands.scanKeys(key).collect { keys ->
+                if (keys.isNotEmpty()) futures += commands.del(*keys.toTypedArray())
             }
         }
+        futures.forEach { it.await() }
     }
 
     @OptIn(ExperimentalAtomicApi::class, ExperimentalCoroutinesApi::class)

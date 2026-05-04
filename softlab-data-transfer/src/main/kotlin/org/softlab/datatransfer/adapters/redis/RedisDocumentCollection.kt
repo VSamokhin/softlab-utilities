@@ -16,12 +16,14 @@
 
 package org.softlab.datatransfer.adapters.redis
 
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.lettuce.core.KeyScanCursor
-import io.lettuce.core.ScanArgs
-import io.lettuce.core.api.sync.RedisCommands
+import io.lettuce.core.RedisFuture
+import io.lettuce.core.api.async.RedisAsyncCommands
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapMerge
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.future.await
 import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.redis.RedisHashMapping
 import org.softlab.dataset.redis.RedisMappingTemplate
@@ -38,61 +40,71 @@ import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.util.Base64
+import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
 
 
 class RedisDocumentCollection(
     private val table: RedisTableMapping,
-    private val commands: RedisCommands<String, String>
+    private val commands: RedisAsyncCommands<String, String>
 ) : DocumentCollection {
-    private val logger = KotlinLogging.logger {}
+    companion object {
+        private const val KEYS_CHUNK_SIZE = 2000L
+    }
 
     private val metadata: CollectionMetadata by lazy {
         CollectionMetadata(table.table, table.fields)
     }
 
-    override suspend fun fetchMetadata(): CollectionMetadata = metadata
-
-    override fun readDocuments(): Flow<TransferDocument> = flow {
-        scanKeys(RedisMappingTemplate.of(table).toGlob()).forEach { key ->
-            emit(readRow(key))
-        }
+    private val fieldNames: Set<String> by lazy {
+        metadata.fields.mapTo(linkedSetOf()) { it.name }
     }
 
-    private fun readRow(anchorKey: String): TransferDocument {
+    override suspend fun fetchMetadata(): CollectionMetadata = metadata
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun readDocuments(): Flow<TransferDocument> =
+        commands.scanKeys(RedisMappingTemplate.of(table).toGlob()).flatMapMerge { keys ->
+            val futures = mutableListOf<Pair<String, RedisFuture<Map<String, String>>>>()
+            for (key in keys) {
+                futures += key to commands.hgetall(key)
+            }
+            flow {
+                for ((key, future) in futures) {
+                    val entries = future.await()
+                    emit(readRow(key, entries))
+                }
+            }
+        }
+
+    private suspend fun readRow(
+        anchorKey: String,
+        anchorEntries: Map<String, String>
+    ): TransferDocument {
         val row = linkedMapOf<String, String>()
         val anchorHash = table.anchorHash()
-        mergeHashAtKey(anchorHash, anchorKey, row)
+        mergeHashAtKey(anchorHash, anchorKey, anchorEntries, row)
 
         val remaining = table.hashes.filterNot { it == anchorHash }.toMutableList()
         while (remaining.isNotEmpty()) {
-            val resolved = remaining.filter { canResolveHashKey(it, row) }
-            check(resolved.isNotEmpty()) {
+            val futures = mutableListOf<Triple<RedisHashMapping, String, RedisFuture<Map<String, String>>>>()
+            val iterator = remaining.iterator()
+            while (iterator.hasNext()) {
+                val hash = iterator.next()
+                val key = renderHashKey(hash, row) ?: continue
+                iterator.remove()
+                futures += Triple(hash, key, commands.hgetall(key))
+            }
+            check(futures.isNotEmpty()) {
                 val unresolved = remaining.joinToString(", ") { it.key ?: table.table }
                 "Redis source mapping for table '${table.table}' cannot resolve hash keys for: $unresolved"
             }
-            resolved.forEach { hash ->
-                remaining.remove(hash)
-                renderHashKey(hash, row)?.let { mergeHashAtKey(hash, it, row) }
+            for ((hash, key, future) in futures) {
+                val entries = future.await()
+                mergeHashAtKey(hash, key, entries, row)
             }
         }
-
         return toDocument(row)
-    }
-
-    private fun canResolveHashKey(hash: RedisHashMapping, row: Map<String, String>): Boolean {
-        val keyTemplate = RedisMappingTemplate.of(hash.key ?: table.table)
-        return keyTemplate.placeholders().all { it in row }
-    }
-
-    private fun scanKeys(pattern: String): Sequence<String> = sequence {
-        var cursor = commands.scan(ScanArgs().match(pattern))
-        while (true) {
-            cursor.keys().forEach { yield(it) }
-            if (cursor.isFinished) {
-                break
-            }
-            cursor = commands.scan(cursor, ScanArgs().match(pattern))
-        }
     }
 
     private fun renderHashKey(
@@ -110,34 +122,26 @@ class RedisDocumentCollection(
     private fun mergeHashAtKey(
         hash: RedisHashMapping,
         key: String,
+        hashEntries: Map<String, String>,
         row: MutableMap<String, String>
     ) {
+        require(hashEntries.isNotEmpty()) {
+            "Expected Redis hash at key '$key' for table '${table.table}'"
+        }
+
         val keyTemplate = hash.key ?: table.table
         val keyPattern = RedisMappingTemplate.of(keyTemplate)
         val keyValues = checkNotNull(keyPattern.match(key)) {
             "Could not match Redis key '$key' against template '$keyTemplate'"
         }
         mergeValues(row, keyValues, "key '$key'")
-        mergeHashEntries(hash, key, row)
-    }
-
-    private fun mergeHashEntries(
-        hash: RedisHashMapping,
-        key: String,
-        row: MutableMap<String, String>
-    ) {
-        val hashEntries = commands.hgetall(key)
-        check(hashEntries.isNotEmpty()) {
-            "Expected Redis hash at key '$key' for table '${table.table}'"
-        }
 
         val valueTemplate = hash.value
         if (valueTemplate == null) {
             mergeValues(row, hashEntries, "hash '$key'")
-            return
+        } else {
+            mergeValueTemplateEntries(row, key, hash, valueTemplate, hashEntries)
         }
-
-        mergeValueTemplateEntries(row, key, hash, valueTemplate, hashEntries)
     }
 
     private fun mergeValueTemplateEntries(
@@ -150,15 +154,16 @@ class RedisDocumentCollection(
         val valueColumn = RedisMappingTemplate.exactPlaceholder(valueTemplate)
         val fieldTemplate = hash.field
         if (fieldTemplate == null) {
-            hashEntries[valueColumn]?.let { mergeValue(row, valueColumn, it, "hash '$key'") }
-            return
-        }
-
-        val fieldPattern = RedisMappingTemplate.of(fieldTemplate)
-        hashEntries.forEach { (fieldName, value) ->
-            val fieldValues = fieldPattern.match(fieldName) ?: return@forEach
-            mergeValues(row, fieldValues, "hash field '$key/$fieldName'")
-            mergeValue(row, valueColumn, value, "hash field '$key/$fieldName'")
+            hashEntries[valueColumn]?.let {
+                mergeValue(row, valueColumn, it, "hash '$key'")
+            }
+        } else {
+            val fieldPattern = RedisMappingTemplate.of(fieldTemplate)
+            hashEntries.forEach { (fieldName, value) ->
+                val fieldValues = fieldPattern.match(fieldName) ?: return@forEach
+                mergeValues(row, fieldValues, "hash field '$key/$fieldName'")
+                mergeValue(row, valueColumn, value, "hash field '$key/$fieldName'")
+            }
         }
     }
 
@@ -176,7 +181,6 @@ class RedisDocumentCollection(
     }
 
     private fun toDocument(row: Map<String, String>): TransferDocument {
-        val fieldNames = metadata.fields.map { it.name }.toSet()
         val unexpectedFields = row.keys - fieldNames
         check(unexpectedFields.isEmpty()) {
             "Redis source mapping for table '${table.table}' yielded fields not declared in schema: " +
@@ -187,6 +191,7 @@ class RedisDocumentCollection(
         }
     }
 
+    @OptIn(ExperimentalUuidApi::class)
     private fun convertValue(value: String, field: FieldDefinition): Any =
         when (field.type.lowercase()) {
             "smallint", "short", "int16" -> value.toShort()
@@ -199,6 +204,7 @@ class RedisDocumentCollection(
             "timestamp with timezone", "timestamptz", "date" -> timestampValue(value)
             "time", "time with time zone", "time without time zone" -> timeValue(value)
             "bytea", "blob", "bindata" -> Base64.getDecoder().decode(value)
+            "uuid" -> UUID.fromString(value)
             else -> value
         }
 

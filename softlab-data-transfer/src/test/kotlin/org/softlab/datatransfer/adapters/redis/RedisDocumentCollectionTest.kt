@@ -1,8 +1,9 @@
 package org.softlab.datatransfer.adapters.redis
 
 import io.lettuce.core.KeyScanCursor
+import io.lettuce.core.RedisFuture
 import io.lettuce.core.ScanArgs
-import io.lettuce.core.api.sync.RedisCommands
+import io.lettuce.core.api.async.RedisAsyncCommands
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.toList
@@ -12,23 +13,26 @@ import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.redis.RedisHashMapping
 import org.softlab.dataset.redis.RedisTableMapping
 import java.sql.Timestamp
+import java.util.concurrent.CompletableFuture
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
 
 class RedisDocumentCollectionTest {
     @Test
-    fun `readDocuments() reconstructs rows and restores field types via scan`() = runBlocking {
-        val commands = mockk<RedisCommands<String, String>>()
+    fun `readDocuments() reconstructs rows and restores field types via scan`() {
+        val commands = mockk<RedisAsyncCommands<String, String>>()
         val firstPage = mockk<KeyScanCursor<String>>()
         every { firstPage.keys } returns listOf("users:1")
         every { firstPage.isFinished } returns true
-        every { commands.scan(any<ScanArgs>()) } returns firstPage
-        every { commands.hgetall("users:1") } returns linkedMapOf(
-            "name" to "Alice",
-            "active" to "true",
-            "created_at" to "2024-01-01T10:15:30Z",
-            "payload" to "YWJj"
+        every { commands.scan(any<ScanArgs>()) } returns completedRedisFuture(firstPage)
+        every { commands.hgetall("users:1") } returns completedRedisFuture(
+            linkedMapOf(
+                "name" to "Alice",
+                "active" to "true",
+                "created_at" to "2024-01-01T10:15:30Z",
+                "payload" to "YWJj"
+            )
         )
 
         val cut = RedisDocumentCollection(
@@ -46,7 +50,7 @@ class RedisDocumentCollectionTest {
             commands
         )
 
-        val documents = cut.readDocuments().toList()
+        val documents = runBlocking { cut.readDocuments().toList() }
 
         assertEquals(1, documents.size)
         assertEquals(1, documents.single()["id"])
@@ -57,18 +61,18 @@ class RedisDocumentCollectionTest {
     }
 
     @Test
-    fun `readDocuments() follows scan cursor across multiple pages`() = runBlocking {
-        val commands = mockk<RedisCommands<String, String>>()
+    fun `readDocuments() follows scan cursor across multiple pages`() {
+        val commands = mockk<RedisAsyncCommands<String, String>>()
         val firstPage = mockk<KeyScanCursor<String>>()
         val secondPage = mockk<KeyScanCursor<String>>()
         every { firstPage.keys } returns listOf("users:1")
         every { firstPage.isFinished } returns false
         every { secondPage.keys } returns listOf("users:2")
         every { secondPage.isFinished } returns true
-        every { commands.scan(any<ScanArgs>()) } returns firstPage
-        every { commands.scan(firstPage, any<ScanArgs>()) } returns secondPage
-        every { commands.hgetall("users:1") } returns linkedMapOf("name" to "Alice")
-        every { commands.hgetall("users:2") } returns linkedMapOf("name" to "Bob")
+        every { commands.scan(any<ScanArgs>()) } returns completedRedisFuture(firstPage)
+        every { commands.scan(firstPage, any<ScanArgs>()) } returns completedRedisFuture(secondPage)
+        every { commands.hgetall("users:1") } returns completedRedisFuture(linkedMapOf("name" to "Alice"))
+        every { commands.hgetall("users:2") } returns completedRedisFuture(linkedMapOf("name" to "Bob"))
 
         val cut = RedisDocumentCollection(
             RedisTableMapping(
@@ -82,7 +86,7 @@ class RedisDocumentCollectionTest {
             commands
         )
 
-        val documents = cut.readDocuments().toList()
+        val documents = runBlocking { cut.readDocuments().toList() }
 
         assertEquals(2, documents.size)
         assertEquals(listOf(1, 2), documents.map { it["id"] })
@@ -90,14 +94,14 @@ class RedisDocumentCollectionTest {
     }
 
     @Test
-    fun `readDocuments() resolves additional hashes for the current row only`() = runBlocking {
-        val commands = mockk<RedisCommands<String, String>>()
+    fun `readDocuments() resolves additional hashes for the current row only`() {
+        val commands = mockk<RedisAsyncCommands<String, String>>()
         val firstPage = mockk<KeyScanCursor<String>>()
         every { firstPage.keys } returns listOf("users:1")
         every { firstPage.isFinished } returns true
-        every { commands.scan(any<ScanArgs>()) } returns firstPage
-        every { commands.hgetall("users:1") } returns linkedMapOf("name" to "Alice")
-        every { commands.hgetall("users:1:meta") } returns linkedMapOf("status" to "active")
+        every { commands.scan(any<ScanArgs>()) } returns completedRedisFuture(firstPage)
+        every { commands.hgetall("users:1") } returns completedRedisFuture(linkedMapOf("name" to "Alice"))
+        every { commands.hgetall("users:1:meta") } returns completedRedisFuture(linkedMapOf("status" to "active"))
 
         val cut = RedisDocumentCollection(
             RedisTableMapping(
@@ -115,11 +119,16 @@ class RedisDocumentCollectionTest {
             commands
         )
 
-        val documents = cut.readDocuments().toList()
+        val documents = runBlocking { cut.readDocuments().toList() }
 
         assertEquals(1, documents.size)
         assertEquals(1, documents.single()["id"])
         assertEquals("Alice", documents.single()["name"])
         assertEquals("active", documents.single()["status"])
     }
+
+    private fun <T> completedRedisFuture(value: T): RedisFuture<T> =
+        mockk {
+            every { toCompletableFuture() } returns CompletableFuture.completedFuture(value)
+        }
 }
