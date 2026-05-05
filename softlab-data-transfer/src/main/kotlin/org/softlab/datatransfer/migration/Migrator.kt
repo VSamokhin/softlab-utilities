@@ -21,15 +21,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
-import org.softlab.datatransfer.core.StringTokenFilter
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.DocumentCollection
+import org.softlab.datatransfer.core.StringTokenFilter
 
 
 class Migrator(
-    private val workerThreads: Int = Runtime.getRuntime().availableProcessors().coerceAtLeast(1),
-    private val sourceFilter: StringTokenFilter = StringTokenFilter.from(emptyList())
+    private val sourceFilter: StringTokenFilter = StringTokenFilter.from(emptyList()),
+    workerThreads: Int = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
 ) {
     private val dispatcher: CoroutineDispatcher
     init {

@@ -41,7 +41,7 @@ class StringTokenFilter private constructor(
     }
 
     /**
-     * If not tokens present, this method matches everything
+     * If no tokens present, this method matches everything
      */
     fun startsWith(value: String): Boolean =
         tokens.isEmpty() || tokens.any { token -> value.startsWith(token) }

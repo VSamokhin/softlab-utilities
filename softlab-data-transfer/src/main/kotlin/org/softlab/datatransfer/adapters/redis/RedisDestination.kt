@@ -61,10 +61,7 @@ class RedisDestination(
     override fun getBackendName(): String = BACKEND
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
-        RedisMappingGenerator.generate(metadata)?.run {
-            logger.trace { "Automatically generated Redis mapping:\n${RedisMappingGenerator.asYaml(this)}" }
-        }
-        // Basically, nothing to create, only a sanity check
+        logger.info { "Validating mapping configuration for '${metadata.name}'" }
         val matchedTable = mappings.table(metadata.name)
         RedisMappingValidator.validateDestinationMapping(matchedTable, metadata)
     }
@@ -73,7 +70,7 @@ class RedisDestination(
     @Suppress("SpreadOperator")
     override suspend fun dropCollection(collectionName: String) {
         val table = mappings.table(collectionName)
-        logger.debug { "Dropping Redis keys for '$collectionName'..." }
+        logger.info { "Dropping Redis keys for '$collectionName'..." }
 
         val futures = mutableListOf<RedisFuture<Long>>()
         buildSet {
@@ -89,7 +86,7 @@ class RedisDestination(
 
     @OptIn(ExperimentalAtomicApi::class, ExperimentalCoroutinesApi::class)
     override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {
-        logger.debug { "Inserting documents into '$collectionName'" }
+        logger.info { "Inserting documents into '$collectionName'" }
 
         val total = AtomicInt(0)
         coroutineScope {

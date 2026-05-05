@@ -60,7 +60,7 @@ class MongoDestination(
             "Collection '${metadata.name}' already exists, please drop it before proceeding"
         }
 
-        logger.debug { "Creating collection '$metadata.name'" }
+        logger.info { "Creating collection '$metadata.name'" }
         if (metadata.fields.isNotEmpty()) {
             val validator = buildValidator(metadata)
             val options = CreateCollectionOptions()
@@ -75,7 +75,7 @@ class MongoDestination(
     }
 
     override suspend fun dropCollection(collectionName: String) {
-        logger.debug { "Dropping collection '$collectionName'" }
+        logger.info { "Dropping collection '$collectionName'" }
         db.getCollection<Document>(collectionName).drop()
     }
 
@@ -109,7 +109,7 @@ class MongoDestination(
 
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
     override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {
-        logger.debug { "Inserting documents into '$collectionName'" }
+        logger.info { "Inserting documents into '$collectionName'" }
 
         val collection = db.getCollection<BsonDocument>(collectionName)
         val total = AtomicInt(0)

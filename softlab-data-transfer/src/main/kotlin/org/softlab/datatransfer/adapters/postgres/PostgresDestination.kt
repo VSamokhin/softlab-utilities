@@ -52,7 +52,7 @@ class PostgresDestination(
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
         val schemaTable = Postgres.getSchemaTable(metadata.name)
-        logger.debug { "Creating schema '${schemaTable.first}' if not exists and table '${schemaTable.second}'" }
+        logger.info { "Creating schema '${schemaTable.first}' if not exists and table '${schemaTable.second}'" }
         val columnsDef = metadata.fields.joinToString(", ") {
             "${it.name} ${mapType(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
         }
@@ -68,7 +68,7 @@ class PostgresDestination(
     }
 
     override suspend fun dropCollection(collectionName: String) {
-        logger.debug { "Dropping table '$collectionName'" }
+        logger.info { "Dropping table '$collectionName'" }
         val sql = "DROP TABLE IF EXISTS $collectionName;"
         pool.withStatement { stmt ->
             logger.trace { "Executing SQL: $sql" }
@@ -83,7 +83,7 @@ class PostgresDestination(
 
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
     override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {
-        logger.debug { "Inserting documents into '$collectionName'" }
+        logger.info { "Inserting documents into '$collectionName'" }
 
         val schemaTable = Postgres.getSchemaTable(collectionName)
         val fields = pool.withConnection {
