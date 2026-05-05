@@ -18,34 +18,50 @@ package org.softlab.datatransfer.adapters
 
 import org.softlab.datatransfer.adapters.mongo.MongoDestination
 import org.softlab.datatransfer.adapters.mongo.MongoSource
+import org.softlab.datatransfer.adapters.postgres.ConnectionPool
 import org.softlab.datatransfer.adapters.postgres.PostgresDestination
 import org.softlab.datatransfer.adapters.postgres.PostgresSource
+import org.softlab.datatransfer.adapters.redis.RedisDestination
+import org.softlab.datatransfer.adapters.redis.RedisSource
 import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.util.Mongo
 import org.softlab.datatransfer.util.Postgres
+import org.softlab.datatransfer.util.Redis
 
 
 object AdapterProvider {
-    fun sourceFor(uri: String): DatabaseSource = when {
-        Postgres.isPostgresUri(uri) -> PostgresSource(uri)
+    private const val MAPPING_OPTION = "mapping"
+
+    fun sourceFor(uri: String, options: Map<String, String> = emptyMap()): DatabaseSource = when {
+        Postgres.isPostgresUri(uri) -> PostgresSource(ConnectionPool(uri))
         Mongo.isMongoUri(uri) -> MongoSource(uri)
+        Redis.isRedisUri(uri) -> RedisSource(uri, requireRedisMappings(uri, options))
         else -> error("Unknown source database: $uri")
     }
 
-    fun destinationFor(uri: String): DatabaseDestination {
+    fun destinationFor(uri: String, options: Map<String, String> = emptyMap()): DatabaseDestination {
         val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
         return when {
             Postgres.isPostgresUri(uri) -> PostgresDestination(
-                uri,
+                ConnectionPool(uri),
                 dataTypeMappings = dataTypeMappings.destination(PostgresDestination.BACKEND)
             )
             Mongo.isMongoUri(uri) -> MongoDestination(
                 uri,
                 dataTypeMappings = dataTypeMappings.destination(MongoDestination.BACKEND)
             )
+            Redis.isRedisUri(uri) -> RedisDestination(
+                uri,
+                requireRedisMappings(uri, options)
+            )
             else -> error("Unknown destination database: $uri")
         }
     }
+
+    private fun requireRedisMappings(uri: String, options: Map<String, String>): String =
+        checkNotNull(options[MAPPING_OPTION]) {
+            "Redis adapter for '$uri' requires additional option '$MAPPING_OPTION'"
+        }
 }

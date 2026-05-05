@@ -92,13 +92,29 @@ It detects source/destination adapters from connection URI, reads source metadat
 You can optionally drop destination targets first and limit migrated collections/tables by name prefix.
 
 Current limitations:
-* Only MongoDB and PostgreSQL adapters are implemented.
+* Redis migrations require an explicit mapping YAML because Redis does not expose a usable relational/document schema on its own.
 * It migrates data and basic field schema/types, but not DB objects like indexes, constraints beyond inferred nullability, sequences, triggers, views, or stored procedures.
 * Mongo schema inference is best-effort when a validator is missing (falls back to sampling a document), so field typing can be incomplete/inaccurate.
 
 Configuration spots:
 * Type mapping config (embedded): `softlab-data-transfer/src/main/resources/data-transfer-config.yml` which can be overridden by a custom one
 placed in runtime working directory.
+
+Redis mapping note:
+* The existing Redis [dataset mapping format](#dbunit-dataset--redis-hashes) is reused for migration as well.
+* For Redis as a migration source, add optional `fields` metadata per table so the tool can restore typed values, for example:
+
+```yaml
+tables:
+  - table: data.various_datatypes
+    fields:
+      - {name: some_integer_id, type: integer}
+      - {name: some_timestamp_tz, type: timestamp with time zone}
+    hashes:
+      - key: data.various_datatypes:${some_integer_id}
+        field:
+        value:
+```
 
 ## _softlab-web-openapi_ – Requesting RESTful Endpoints Using OpenApi 3 Definition
 

@@ -60,12 +60,14 @@ class MongoDestination(
             "Collection '${metadata.name}' already exists, please drop it before proceeding"
         }
 
-        logger.debug { "Creating collection '$metadata.name'" }
+        logger.info { "Creating collection '$metadata.name'" }
         if (metadata.fields.isNotEmpty()) {
+            val validator = buildValidator(metadata)
             val options = CreateCollectionOptions()
                 .validationOptions(
-                    ValidationOptions().validator(buildValidator(metadata))
+                    ValidationOptions().validator(validator)
                 )
+            logger.trace { "Collection validator:\n${validator.toJson()}" }
             db.createCollection(metadata.name, options)
         } else {
             db.createCollection(metadata.name)
@@ -73,7 +75,7 @@ class MongoDestination(
     }
 
     override suspend fun dropCollection(collectionName: String) {
-        logger.debug { "Dropping collection '$collectionName'" }
+        logger.info { "Dropping collection '$collectionName'" }
         db.getCollection<Document>(collectionName).drop()
     }
 
@@ -107,7 +109,7 @@ class MongoDestination(
 
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
     override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {
-        logger.debug { "Inserting documents into '$collectionName'" }
+        logger.info { "Inserting documents into '$collectionName'" }
 
         val collection = db.getCollection<BsonDocument>(collectionName)
         val total = AtomicInt(0)
@@ -118,12 +120,12 @@ class MongoDestination(
                     collection.insertMany(docs)
                     total += docs.size
                     if (total.load() % REPORT_ON_INSERTS == 0) {
-                        logger.info { "Inserted ${total.load()} documents into '$collectionName'" }
+                        logger.info { "Inserted $total documents into '$collectionName'" }
                     }
                 }
             }
         }
-        logger.info { "Total of ${total.load()} documents inserted into '$collectionName'" }
+        logger.info { "Total of $total documents inserted into '$collectionName'" }
     }
 
     override fun close() {

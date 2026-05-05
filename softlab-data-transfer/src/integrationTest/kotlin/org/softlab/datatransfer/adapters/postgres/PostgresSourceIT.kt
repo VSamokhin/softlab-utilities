@@ -8,10 +8,10 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.ValueSource
 import org.softlab.datataset.test.initiators.JdbcInitiator
 import org.softlab.datataset.test.initiators.createPostgresContainer
+import org.softlab.datataset.test.initiators.getProvider
+import org.softlab.datataset.test.initiators.withProvider
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import kotlin.test.assertEquals
@@ -46,20 +46,20 @@ class PostgresSourceIT {
         postgresInitiator.seedData("datasets/users-products.yml")
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = [true, false])
-    fun `class closes connection when configured`(closeConnection: Boolean) = runBlocking {
-        postgresInitiator.getConnection().use { connection ->
-            PostgresSource(connection, closeConnection).use { cut ->
-                cut.countDocuments("schema1.users")
+    @Test
+    fun `class closes provider`() {
+        withProvider(postgresInitiator) { provider ->
+            PostgresSource(provider).use { cut ->
+                runBlocking { cut.countDocuments("schema1.users") }
             }
-            assertEquals(closeConnection, connection.isClosed)
+
+            assertEquals(true, provider.closed)
         }
     }
 
     @Test
     fun `countDocuments() returns correct count`() = runBlocking {
-        PostgresSource(postgresInitiator.getConnection()).use { cut ->
+        PostgresSource(getProvider(postgresInitiator)).use { cut ->
             assertEquals(2, cut.countDocuments("schema1.users"))
             assertEquals(1, cut.countDocuments("schema2.products"))
         }
@@ -67,14 +67,14 @@ class PostgresSourceIT {
 
     @Test
     fun `getBackendName() returns postgres`() {
-        PostgresSource(postgresInitiator.getConnection()).use { cut ->
+        PostgresSource(getProvider(postgresInitiator)).use { cut ->
             assertEquals("postgres", cut.getBackendName())
         }
     }
 
     @Test
     fun `listCollections() returns expected collections`() = runBlocking {
-        PostgresSource(postgresInitiator.getConnection()).use { cut ->
+        PostgresSource(getProvider(postgresInitiator)).use { cut ->
             val collections = cut.listCollections().toList()
 
             assertThat(
@@ -103,7 +103,7 @@ class PostgresSourceIT {
 
     @Test
     fun `readDocuments() returns expected documents`() = runBlocking {
-        PostgresSource(postgresInitiator.getConnection()).use { cut ->
+        PostgresSource(getProvider(postgresInitiator)).use { cut ->
             val collections = cut.listCollections().toList()
 
             val usersCollection = collections.firstOrNull { it.fetchMetadata().name == "schema1.users" }

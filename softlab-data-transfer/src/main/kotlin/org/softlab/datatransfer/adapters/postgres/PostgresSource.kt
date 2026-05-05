@@ -18,44 +18,39 @@ package org.softlab.datatransfer.adapters.postgres
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import org.softlab.dataset.jdbc.JdbcConnectionProvider
+import org.softlab.dataset.jdbc.withConnection
+import org.softlab.dataset.jdbc.withStatement
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.DocumentCollection
-import java.sql.Connection
-import java.sql.DriverManager
 
 
 class PostgresSource(
-    private val connection: Connection,
-    private val closeConnection: Boolean = true
+    private val pool: JdbcConnectionProvider,
+    private val closePool: Boolean = true
 ) : DatabaseSource {
     companion object {
         private const val BACKEND = "postgres"
     }
 
-    constructor(
-        jdbcUrl: String,
-        username: String,
-        password: String
-    ) : this(DriverManager.getConnection(jdbcUrl, username, password))
-
-    constructor(jdbcUrl: String): this(DriverManager.getConnection(jdbcUrl))
-
     override fun getBackendName(): String = BACKEND
 
     override fun listCollections(): Flow<DocumentCollection> = flow {
-        connection.metaData
-            .getTables(null, null, "%", arrayOf("TABLE"))
-            .use { rs ->
-                while (rs.next()) {
-                    val schemaName = rs.getString("TABLE_SCHEM")!!
-                    val tableName = rs.getString("TABLE_NAME")!!
-                    emit(PostgresDocumentCollection(schemaName, tableName, connection))
+        pool.withConnection { connection ->
+            connection.metaData
+                .getTables(null, null, "%", arrayOf("TABLE"))
+                .use { rs ->
+                    while (rs.next()) {
+                        val schemaName = rs.getString("TABLE_SCHEM")!!
+                        val tableName = rs.getString("TABLE_NAME")!!
+                        emit(PostgresDocumentCollection(schemaName, tableName, pool))
+                    }
                 }
-            }
+        }
     }
 
     override suspend fun countDocuments(collectionName: String): Long {
-        connection.createStatement().use { stmt ->
+        pool.withStatement { stmt ->
             stmt.executeQuery("SELECT COUNT(*) FROM $collectionName;").use { rs ->
                 return if (rs.next()) rs.getLong(1) else error("Could not count rows in $collectionName")
             }
@@ -63,6 +58,6 @@ class PostgresSource(
     }
 
     override fun close() {
-        if (closeConnection) connection.close()
+        if (closePool) pool.close()
     }
 }

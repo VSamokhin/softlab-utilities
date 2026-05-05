@@ -22,4 +22,20 @@ class AdapterProviderTest {
         }
         assertThat(exc.message, containsString("unknown://db"))
     }
+
+    @Test
+    fun `sourceFor() throws for redis URI without mapping`() {
+        val exc = assertThrows<IllegalStateException> {
+            AdapterProvider.sourceFor("redis://localhost:6379")
+        }
+        assertThat(exc.message, containsString("mapping"))
+    }
+
+    @Test
+    fun `destinationFor() throws for redis URI without mapping`() {
+        val exc = assertThrows<IllegalStateException> {
+            AdapterProvider.destinationFor("redis://localhost:6379")
+        }
+        assertThat(exc.message, containsString("mapping"))
+    }
 }

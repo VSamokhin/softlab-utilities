@@ -9,8 +9,10 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.softlab.dataset.jdbc.withConnection
 import org.softlab.datataset.test.initiators.JdbcInitiator
 import org.softlab.datataset.test.initiators.createPostgresContainer
+import org.softlab.datataset.test.initiators.withProvider
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.sql.SQLException
@@ -56,13 +58,13 @@ class PostgresDocumentCollectionIT {
     fun `readDocuments() returns expected documents`() {
         postgresInitiator.seedData("datasets/users-products.yml")
 
-        postgresInitiator.getConnection().use { connection ->
-            val usersCollection = PostgresDocumentCollection("schema1", "users", connection)
+        withProvider(postgresInitiator) { provider ->
+            val usersCollection = PostgresDocumentCollection("schema1", "users", provider)
             val users = runBlocking { usersCollection.readDocuments().toList() }
             assertThat(users.map { it["name"] }.toList(), containsInAnyOrder("Alice", "Bob"))
             assertThat(users.map { it["email"] }.toList(), containsInAnyOrder("alice@example.com", "bob@example.com"))
 
-            val productsCollection = PostgresDocumentCollection("schema2", "products", connection)
+            val productsCollection = PostgresDocumentCollection("schema2", "products", provider)
             val products = runBlocking { productsCollection.readDocuments().toList() }
             assertThat(products.map { it["title"] }.toList(), containsInAnyOrder("Gizmo"))
         }
@@ -70,8 +72,12 @@ class PostgresDocumentCollectionIT {
 
     @Test
     fun `readDocuments() throws for absent table`() {
-        postgresInitiator.getConnection().use { connection ->
-            val cut = PostgresDocumentCollection("schema1", "non_existent", connection)
+        withProvider(postgresInitiator) { provider ->
+            val cut = PostgresDocumentCollection(
+                "schema1",
+                "non_existent",
+                provider
+            )
 
             assertThrows<SQLException> { runBlocking { cut.readDocuments().toList() } }
         }
@@ -81,8 +87,8 @@ class PostgresDocumentCollectionIT {
     fun `fetchMetadata() retrieves expected metadata`() {
         postgresInitiator.seedData("datasets/users-products.yml")
 
-        postgresInitiator.getConnection().use { connection ->
-            val usersCollection = PostgresDocumentCollection("schema1", "users", connection)
+        withProvider(postgresInitiator) { provider ->
+            val usersCollection = PostgresDocumentCollection("schema1", "users", provider)
             val usersMetadata = runBlocking { usersCollection.fetchMetadata() }
             assertEquals("schema1.users", usersMetadata.name)
             assertThat(
@@ -90,7 +96,7 @@ class PostgresDocumentCollectionIT {
                 containsInAnyOrder("user_id", "name", "email")
             )
 
-            val productsCollection = PostgresDocumentCollection("schema2", "products", connection)
+            val productsCollection = PostgresDocumentCollection("schema2", "products", provider)
             val productsMetadata = runBlocking { productsCollection.fetchMetadata() }
             assertEquals("schema2.products", productsMetadata.name)
             assertThat(
@@ -102,12 +108,18 @@ class PostgresDocumentCollectionIT {
 
     @Test
     fun `fetchMetadata() retrieves nothing when no columns`() {
-        postgresInitiator.getConnection().use { connection ->
-            connection.createStatement().use { statement ->
-                statement.execute("CREATE TABLE schema1.no_columns ();")
+        withProvider(postgresInitiator) { provider ->
+            provider.withConnection { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute("CREATE TABLE schema1.no_columns ();")
+                }
             }
 
-            val cut = PostgresDocumentCollection("schema1", "no_columns", connection)
+            val cut = PostgresDocumentCollection(
+                "schema1",
+                "no_columns",
+                provider
+            )
 
             assertTrue(runBlocking { cut.fetchMetadata().fields.isEmpty() })
         }
@@ -115,8 +127,12 @@ class PostgresDocumentCollectionIT {
 
     @Test
     fun `fetchMetadata() throws for absent table`()  {
-        postgresInitiator.getConnection().use { connection ->
-            val cut = PostgresDocumentCollection("schema1", "non_existent", connection)
+        withProvider(postgresInitiator) { provider ->
+            val cut = PostgresDocumentCollection(
+                "schema1",
+                "non_existent",
+                provider
+            )
 
             val exc = assertThrows<IllegalStateException> { runBlocking { cut.fetchMetadata() } }
 

@@ -1,0 +1,92 @@
+tables:
+
+  - table: "data.empty_table"
+    fields:
+    - name: "some_id"
+      type: "integer"
+      nullable: false
+    - name: "some_bytea"
+      type: "bytea"
+      nullable: false
+    hashes:
+    - key: "data.empty_table:${some_id}"
+      field: null
+      value: null
+    sets:
+    - key: "data.empty_table"
+      member: "${some_id}"
+
+  - table: "data.table_with_data"
+    fields:
+    - name: "some_bytea"
+      type: "bytea"
+      nullable: true
+    - name: "some_uuid"
+      type: "uuid"
+      nullable: false
+    - name: "auto_id"
+      type: "integer"
+      nullable: false
+    hashes:
+    - key: "data.table_with_data:${auto_id}"
+      field: null
+      value: null
+    sets:
+    - key: "data.table_with_data"
+      member: "${auto_id}"
+
+  - table: "data.various_datatypes"
+    fields:
+    - name: "some_integer_id"
+      type: "integer"
+      nullable: false
+    - name: "some_bytea"
+      type: "bytea"
+      nullable: false
+    - name: "some_charvar_50"
+      type: "character varying"
+      nullable: false
+    - name: "some_smallint"
+      type: "smallint"
+      nullable: false
+    - name: "some_bigint"
+      type: "bigint"
+      nullable: false
+    - name: "some_real"
+      type: "real"
+      nullable: false
+    - name: "some_double"
+      type: "double precision"
+      nullable: false
+    - name: "some_boolean"
+      type: "boolean"
+      nullable: false
+    - name: "some_timestamp_tz"
+      type: "timestamp with time zone"
+      nullable: false
+    - name: "some_text_nullable"
+      type: "text"
+      nullable: true
+    hashes:
+    - key: "data.various_datatypes:${some_integer_id}"
+      field: null
+      value: null
+    sets:
+    - key: "data.various_datatypes"
+      member: "${some_integer_id}"
+
+  - table: "data.version_info"
+    fields:
+    - name: "key"
+      type: "character varying"
+      nullable: false
+    - name: "value"
+      type: "character varying"
+      nullable: false
+    hashes:
+    - key: "data.version_info:${key}"
+      field: null
+      value: null
+    sets:
+    - key: "data.version_info"
+      member: "${key}"

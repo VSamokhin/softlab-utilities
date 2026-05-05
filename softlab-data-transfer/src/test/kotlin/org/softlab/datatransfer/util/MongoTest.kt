@@ -29,7 +29,7 @@ class MongoTest {
 
     @ParameterizedTest
     @ValueSource(strings = [ "jdbc:postgresql://localhost:5432/testdb", "http://localhost/testdb" ])
-    fun `isMongoUri() returns false for postgres URI`(uri: String) {
+    fun `isMongoUri() returns false for other URIs`(uri: String) {
         assertFalse(Mongo.isMongoUri(uri))
     }
 

@@ -6,8 +6,6 @@ import org.hamcrest.CoreMatchers.allOf
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.MatcherAssert.assertThat
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertIterableEquals
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -15,6 +13,8 @@ import org.softlab.dataset.redis.lettuce.LettuceRedis
 import org.softlab.datataset.test.initiators.createRedisContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 
 
 @Testcontainers
@@ -52,7 +52,7 @@ class RedisYamlDatasetLoaderIT {
 
         val commands = redisConnection.sync()
         val mainSet = commands.smembers("test.test_table")
-        assertIterableEquals(listOf("1", "2"), mainSet.toList().sorted())
+        assertContentEquals(listOf("1", "2"), mainSet.toList().sorted())
 
         // Validate hash: test.test_table:1
         val row1 = commands.hgetall("test.test_table:1")

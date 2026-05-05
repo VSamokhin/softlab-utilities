@@ -3,6 +3,7 @@ plugins {
     id 'application'
     id 'com.gradleup.shadow'
     id 'publish-package'
+    id 'com.google.osdetector'
 }
 
 description = 'Pluggable database migration tool'
@@ -14,7 +15,13 @@ dependencies {
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:_'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:_'
     implementation 'org.postgresql:postgresql:_'
+    implementation 'org.apache.commons:commons-dbcp2:_'
+    implementation 'org.apache.commons:commons-pool2:_'
     implementation 'org.mongodb:mongodb-driver-kotlin-coroutine'
+    implementation 'io.lettuce:lettuce-core:_'
+    if (osdetector.arch == "aarch_64") {
+        runtimeOnly 'io.netty:netty-resolver-dns-native-macos:_:osx-aarch_64'
+    }
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
 
     testImplementation 'com.jayway.jsonpath:json-path-assert:_'
@@ -23,7 +30,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':softlab-dataset-loaders'))
     // Additional stuff for the test fixtures
     integrationTestRuntimeOnly 'org.liquibase:liquibase-core:_'
-    integrationTestRuntimeOnly'org.liquibase.ext:liquibase-mongodb:_'
+    integrationTestRuntimeOnly 'org.liquibase.ext:liquibase-mongodb:_'
     integrationTestRuntimeOnly 'org.mongodb:mongodb-driver-sync'
     integrationTestRuntimeOnly 'org.mongodb:mongodb-driver-kotlin-coroutine'
     integrationTestRuntimeOnly 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
@@ -33,6 +40,7 @@ dependencies {
     integrationTestImplementation platform('org.testcontainers:testcontainers-bom:_')
     integrationTestImplementation 'org.testcontainers:testcontainers-postgresql'
     integrationTestImplementation 'org.testcontainers:testcontainers-mongodb'
+    integrationTestImplementation 'com.redis:testcontainers-redis:_'
     integrationTestImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 }
 
@@ -58,5 +66,5 @@ startScripts {
 }
 
 jacocoTestCoverageVerification {
-    jacocoVerification(it, 0.8, 3)
+    jacocoVerification(it, 0.86, 3)
 }

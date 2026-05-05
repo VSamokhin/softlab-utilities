@@ -4,10 +4,13 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.softlab.datataset.test.initiators.createMongoContainer
 import org.softlab.datataset.test.initiators.createPostgresContainer
+import org.softlab.datataset.test.initiators.createRedisContainer
 import org.softlab.datatransfer.adapters.mongo.MongoDestination
 import org.softlab.datatransfer.adapters.mongo.MongoSource
 import org.softlab.datatransfer.adapters.postgres.PostgresDestination
 import org.softlab.datatransfer.adapters.postgres.PostgresSource
+import org.softlab.datatransfer.adapters.redis.RedisDestination
+import org.softlab.datatransfer.adapters.redis.RedisSource
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import kotlin.test.assertIs
@@ -24,14 +27,22 @@ class AdapterProviderIT {
         @JvmStatic
         private val mongo = createMongoContainer()
 
+        @Container
+        @JvmStatic
+        private val redis = createRedisContainer()
+
         private lateinit var postgresUri: String
         private lateinit var mongoUri: String
+        private lateinit var redisUri: String
+
+        private const val REDIS_MAPPING = "mappings/various_datatypes-redis.yml"
 
         @BeforeAll
         @JvmStatic
         fun setup() {
             postgresUri = "${postgres.jdbcUrl}&user=${postgres.username}&password=${postgres.password}"
             mongoUri = "${mongo.connectionString}/testdb"
+            redisUri = redis.redisURI
         }
     }
 
@@ -60,6 +71,20 @@ class AdapterProviderIT {
     fun `destinationFor() returns mongo destination for mongo URI`() {
         AdapterProvider.destinationFor(mongoUri).use { destination ->
             assertIs<MongoDestination>(destination)
+        }
+    }
+
+    @Test
+    fun `sourceFor() returns redis source for redis URI with mapping`() {
+        AdapterProvider.sourceFor(redisUri, mapOf("mapping" to REDIS_MAPPING)).use { source ->
+            assertIs<RedisSource>(source)
+        }
+    }
+
+    @Test
+    fun `destinationFor() returns redis destination for redis URI with mapping`() {
+        AdapterProvider.destinationFor(redisUri, mapOf("mapping" to REDIS_MAPPING)).use { destination ->
+            assertIs<RedisDestination>(destination)
         }
     }
 }

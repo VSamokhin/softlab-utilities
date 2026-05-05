@@ -28,6 +28,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
+import org.softlab.datatransfer.adapters.KeyValues
 import org.softlab.datatransfer.adapters.AdapterProvider
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
@@ -49,12 +50,18 @@ class Main : CliktCommand() {
     private val sourceFilter by option()
         .help("Source name prefixes or a file containing one prefix per line")
         .multiple()
+    private val sourceOptions by option()
+        .help("Additional source adapter options as comma-separated key=value pairs")
+    private val destOptions by option()
+        .help("Additional destination adapter options as comma-separated key=value pairs")
 
     override fun run() {
         val sourceNameFilter = StringTokenFilter.from(sourceFilter)
+        val parsedSourceOptions = KeyValues.parse(sourceOptions)
+        val parsedDestOptions = KeyValues.parse(destOptions)
 
-        val sourceAdapter: DatabaseSource = AdapterProvider.sourceFor(source)
-        val destAdapter: DatabaseDestination = AdapterProvider.destinationFor(dest)
+        val sourceAdapter: DatabaseSource = AdapterProvider.sourceFor(source, parsedSourceOptions)
+        val destAdapter: DatabaseDestination = AdapterProvider.destinationFor(dest, parsedDestOptions)
 
         val timer = StopWatch().start()
         try {
