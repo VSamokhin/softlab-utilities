@@ -6,9 +6,11 @@
   * If using WireMock in tests, then place the WireMock stubs under `src/test/resources/__files` and the mappings under `src/test/resources/mappings` of a corresponding subproject.
   * To define mocks in tests, use `io.mockk:mockk` library, but if adding it as a dependency, exclude all its transient dependencies to all modules of `org.junit.jupiter`.
   * The project uses `detekt` for static code analysis, and its configuration is located in `etc/detekt/detekt-config.yml`.
+  * After adding a new dependency, don't change `versions.properties` file directly, but instead execute `./gradlew build` to allow `refershVersions` plugin to update it with the new dependency version.
 
-* Creating a new source file, always add a trailing empty line to it and add a header in the beginning
-with correct year, name and e-mail, with the following content:
+* Creating a new source file or changing an existing one:
+  * Ensure there is a single trailing empty line
+  * Add or update a header in the beginning of it and with correct year or range of years, name and e-mail, with the following content:
 ```kotlin
 /**
  * Copyright (C) 2026, Viktor Samokhin (wowyupiyo@gmail.com)
@@ -29,9 +31,10 @@ with correct year, name and e-mail, with the following content:
 
 * Please follow these guidelines in regard to tests: 
   * When writing new code or changing existing code, always add unit tests for it, and if possible, add integration tests as well.
+  * Keep corresponding tests and test classes up to date when changing the code or renaming source code modules.
   * For test modules a file header is not needed.
   * Writing source code, assume a possibility of direct mocking in tests, without the need to apply global mocks, or mock hooks, or static mocks.
-  * Avoid putting all method's content into a `runBlocking` block, but instead use `runBlocking` only for the part of the code that is actually using suspending functions.
+  * Do not wrap entire test body with `runBlocking`, but instead use `runBlocking` only on particular suspend call sites.
   * For assertion of iterables, use `kotlin.test.assertContentEquals`
   * Don't provide an error message to assertion functions as most of the time it's excessive.
 

@@ -25,48 +25,50 @@ import kotlin.test.assertEquals
 class RedisSourceTest {
     @Test
     fun `constructor throws when schema fields are missing`() {
-        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
-        val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.async() } returns commands
-        val client = mockk<RedisClient>(relaxed = true)
+        val commands = mockk<RedisAsyncCommands<String, String>>()
+        val connection = mockk<StatefulRedisConnection<String, String>>(relaxed = true) {
+            every { async() } returns commands
+        }
+        val client = mockk<RedisClient>(relaxed = true) {
+            every {connect() } returns connection
+        }
 
         val exc = assertThrows<IllegalArgumentException> {
             RedisSource(
-                uri = "redis://localhost:6379/0",
-                mappingsFile = "unused",
                 client = client,
-                connection = connection,
-                mappings = RedisTableMappings(
+                tableMappings = RedisTableMappings(
                     tables = listOf(
                         RedisTableMapping(
                             table = "users",
                             hashes = listOf(RedisHashMapping(key = "users:\${id}"))
                         )
                     )
-                )
+                ),
+                dataTypeMappings = mapOf(),
+                closeClient = true
             )
         }
 
         assertEquals(
-            "Redis source mapping for table 'users' must define fields because Redis has no schema",
+            "Redis source mapping for table 'users' must define fields (because Redis has no schema)",
             exc.message
         )
     }
 
     @Test
     fun `constructor throws when hash key has no placeholders`() {
-        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
-        val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.async() } returns commands
-        val client = mockk<RedisClient>(relaxed = true)
+        val commands = mockk<RedisAsyncCommands<String, String>>()
+        val connection = mockk<StatefulRedisConnection<String, String>>(relaxed = true) {
+            every { async() } returns commands
+        }
+        val client = mockk<RedisClient>(relaxed = true) {
+            every {connect() } returns connection
+        }
 
         val exc = assertThrows<IllegalStateException> {
             RedisSource(
-                uri = "redis://localhost:6379/0",
-                mappingsFile = "unused",
                 client = client,
-                connection = connection,
-                mappings = RedisTableMappings(
+                tableMappings = RedisTableMappings(
                     tables = listOf(
                         RedisTableMapping(
                             table = "users",
@@ -74,7 +76,9 @@ class RedisSourceTest {
                             hashes = listOf(RedisHashMapping(key = "users"))
                         )
                     )
-                )
+                ),
+                dataTypeMappings = mapOf(),
+                closeClient = true
             )
         }
 
@@ -86,18 +90,18 @@ class RedisSourceTest {
 
     @Test
     fun `constructor throws when mapping has no row-level anchor hash`() {
-        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
-        val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.async() } returns commands
-        val client = mockk<RedisClient>(relaxed = true)
+        val commands = mockk<RedisAsyncCommands<String, String>>()
+        val connection = mockk<StatefulRedisConnection<String, String>>(relaxed = true) {
+            every { async() } returns commands
+        }
+        val client = mockk<RedisClient>(relaxed = true) {
+            every {connect() } returns connection
+        }
 
         val exc = assertThrows<IllegalStateException> {
             RedisSource(
-                uri = "redis://localhost:6379/0",
-                mappingsFile = "unused",
                 client = client,
-                connection = connection,
-                mappings = RedisTableMappings(
+                tableMappings = RedisTableMappings(
                     tables = listOf(
                         RedisTableMapping(
                             table = "users",
@@ -114,7 +118,9 @@ class RedisSourceTest {
                             )
                         )
                     )
-                )
+                ),
+                dataTypeMappings = mapOf(),
+                closeClient = true
             )
         }
 
@@ -126,17 +132,17 @@ class RedisSourceTest {
 
     @Test
     fun `listCollections() returns mapped Redis collections`() {
-        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
-        val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.async() } returns commands
-        val client = mockk<RedisClient>(relaxed = true)
+        val commands = mockk<RedisAsyncCommands<String, String>>()
+        val connection = mockk<StatefulRedisConnection<String, String>>(relaxed = true) {
+            every { async() } returns commands
+        }
+        val client = mockk<RedisClient>(relaxed = true) {
+            every {connect() } returns connection
+        }
 
         val cut = RedisSource(
-            uri = "redis://localhost:6379/0",
-            mappingsFile = "unused",
             client = client,
-            connection = connection,
-            mappings = RedisTableMappings(
+            tableMappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
                         table = "users",
@@ -144,7 +150,9 @@ class RedisSourceTest {
                         hashes = listOf(RedisHashMapping(key = "users:\${id}"))
                     )
                 )
-            )
+            ),
+            dataTypeMappings = mapOf(),
+            closeClient = true
         )
 
         val collections = runBlocking { cut.listCollections().map { it.fetchMetadata().name }.toList() }
@@ -157,16 +165,16 @@ class RedisSourceTest {
         val commands = mockk<RedisAsyncCommands<String, String>>()
         val page = scanCursor(listOf("users:1", "users:2"), finished = true)
         every { commands.scan(any<ScanArgs>()) } returns completedRedisFuture(page)
-        val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.async() } returns commands
-        val client = mockk<RedisClient>(relaxed = true)
+        val connection = mockk<StatefulRedisConnection<String, String>>(relaxed = true) {
+            every { async() } returns commands
+        }
+        val client = mockk<RedisClient>(relaxed = true) {
+            every {connect() } returns connection
+        }
 
         val cut = RedisSource(
-            uri = "redis://localhost:6379/0",
-            mappingsFile = "unused",
             client = client,
-            connection = connection,
-            mappings = RedisTableMappings(
+            tableMappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
                         table = "users",
@@ -177,7 +185,9 @@ class RedisSourceTest {
                         hashes = listOf(RedisHashMapping(key = "users:\${id}"))
                     )
                 )
-            )
+            ),
+            dataTypeMappings = mapOf(),
+            closeClient = true
         )
 
         assertEquals(2L, runBlocking { cut.countDocuments("users") })
@@ -185,17 +195,19 @@ class RedisSourceTest {
 
     @Test
     fun `close() closes connection and client`() {
-        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
-        val connection = mockk<StatefulRedisConnection<String, String>>(relaxed = true)
-        every { connection.async() } returns commands
-        val client = mockk<RedisClient>(relaxed = true)
+        val commands = mockk<RedisAsyncCommands<String, String>>()
+        val connection = mockk<StatefulRedisConnection<String, String>>(relaxed = true) {
+            every { async() } returns commands
+        }
+        val client = mockk<RedisClient>(relaxed = true) {
+            every {connect() } returns connection
+        }
 
         val cut = RedisSource(
-            uri = "redis://localhost:6379/0",
-            mappingsFile = "unused",
             client = client,
-            connection = connection,
-            mappings = RedisTableMappings()
+            tableMappings = RedisTableMappings(),
+            dataTypeMappings = mapOf(),
+            closeClient = true
         )
 
         cut.close()

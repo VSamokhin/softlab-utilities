@@ -3,8 +3,8 @@ package org.softlab.datatransfer
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import org.hamcrest.MatcherAssert
-import org.hamcrest.collection.IsIterableContainingInOrder
+import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.collection.IsIterableContainingInOrder.contains
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
@@ -33,6 +33,8 @@ import kotlin.test.assertEquals
  */
 @Testcontainers
 class MainIT {
+    private data class TestParams(val srcUri: String, val dstUri: String, val options: Map<String, String>)
+
     companion object {
         private const val EXPECTED_RECORDS = 100L
         private const val COLLECTION_NAME = "data.various_datatypes"
@@ -41,7 +43,7 @@ class MainIT {
         private const val POSTGRES_CHANGELOG = "liquibase/changelog-various_datatypes-postgres.yaml"
         private const val MONGO_CHANGELOG = "liquibase/changelog-various_datatypes-mongo.yaml"
         private const val DATASET = "datasets/various_datatypes.yml"
-        private const val REDIS_MAPPING = "mappings/various_datatypes-redis.yml"
+        private const val REDIS_MAPPING = "mappings/MainIT-AdapterProviderIT-various_datatypes.yml"
 
         @Container
         @JvmStatic
@@ -90,8 +92,8 @@ class MainIT {
 
             redisSourceUri = redis.redisURI
             redisDestUri = redisDbUri(1)
-            redisSource = RedisInitiator(redisSourceUri, REDIS_MAPPING)
-            redisDest = RedisInitiator(redisDestUri, REDIS_MAPPING)
+            redisSource = RedisInitiator(redis.redisURI, REDIS_MAPPING)
+            redisDest = RedisInitiator(redis.redisURI, REDIS_MAPPING)
         }
 
         @AfterAll
@@ -128,7 +130,7 @@ class MainIT {
             Arguments.of(
                 postgresSourceUri,
                 mongoDest.dbUrl,
-                AdapterProvider.sourceFor(mongoDest.dbUrl)
+                emptyMap<String, String>()
             ),
             Arguments.of(
                 mongoSource.dbUrl,
@@ -219,7 +221,7 @@ class MainIT {
                 .map { it.fetchMetadata().name }
                 .toList()
         }
-        MatcherAssert.assertThat(targetCollections, IsIterableContainingInOrder.contains(COLLECTION_NAME))
+        assertThat(targetCollections, contains(COLLECTION_NAME))
 
         val targetCount = runBlocking { destDb.countDocuments(COLLECTION_NAME) }
         assertEquals(EXPECTED_RECORDS, targetCount)

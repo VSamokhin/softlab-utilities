@@ -14,7 +14,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.postgresql.util.PSQLException
 import org.softlab.dataset.core.FieldDefinition
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
 import org.softlab.dataset.jdbc.withConnection
 import org.softlab.dataset.jdbc.withStatement
 import org.softlab.datataset.test.initiators.createPostgresContainer
@@ -36,18 +35,16 @@ class PostgresDestinationIT {
         @JvmStatic
         private val postgres = createPostgresContainer()
 
-        private val dataTypeMappings = ConfigProvider.config
-            .getDataTypeMappings()
-            .destination(PostgresDestination.BACKEND)
+        private val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
 
-        private fun getPool(): JdbcConnectionProvider =
-            ConnectionPool(
+        private fun getPool(): PostgresConnectionPool =
+            PostgresConnectionPool(
                 postgres.jdbcUrl,
                 postgres.username,
                 postgres.password
             )
 
-        private inline fun <T> withPool(block: (JdbcConnectionProvider) -> T): T =
+        private inline fun <T> withPool(block: (PostgresConnectionPool) -> T): T =
             getPool().use(block)
     }
 
@@ -132,7 +129,12 @@ class PostgresDestinationIT {
     @Test
     fun `createCollection() uses provided data type mappings`()  {
         withPool { pool ->
-            PostgresDestination(pool, mapOf("custom_type" to "TEXT"), false).use { destination ->
+            PostgresDestination(
+                pool,
+                PostgresDialect(),
+                mapOf("custom_type" to "TEXT"),
+                false
+            ).use { destination ->
                 runBlocking {
                     destination.createCollection(
                         CollectionMetadata(
@@ -167,7 +169,7 @@ class PostgresDestinationIT {
     @Test
     fun `createCollection() works when no columns`() {
         withPool { pool ->
-            PostgresDestination(pool, dataTypeMappings, closePool = false).use { destination ->
+            PostgresDestination(pool, dataTypeMappings, false).use { destination ->
                 runBlocking {
                     destination.createCollection(
                         CollectionMetadata("public.no_columns", emptyList())
@@ -185,7 +187,7 @@ class PostgresDestinationIT {
     @Test
     fun `createCollection() creates missing schema automatically`() {
         withPool { pool ->
-            PostgresDestination(pool, dataTypeMappings, closePool = false).use { destination ->
+            PostgresDestination(pool, dataTypeMappings, false).use { destination ->
                 runBlocking {
                     destination.createCollection(
                         CollectionMetadata(
@@ -242,16 +244,16 @@ class PostgresDestinationIT {
     }
 
     @Test
-    fun `dropCollection() doesn't fail if table not exists`() = runBlocking {
+    fun `dropCollection() doesn't fail if table not exists`() {
         PostgresDestination(getPool(), dataTypeMappings).use { destination ->
-            assertDoesNotThrow {  destination.dropCollection("public.something") }
+            assertDoesNotThrow { runBlocking { destination.dropCollection("public.something") } }
         }
     }
 
     @Test
     fun `insertDocuments() writes expected data`() {
         withPool { pool ->
-            PostgresDestination(pool, dataTypeMappings, closePool = false).use { destination ->
+            PostgresDestination(pool, dataTypeMappings, false).use { destination ->
                 runBlocking {
                     destination.createCollection(
                         CollectionMetadata(

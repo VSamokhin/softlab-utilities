@@ -24,6 +24,11 @@ data-transfer:
         BOOLEAN: [boolean, bool]
         BYTEA: [blob, bytea, binData]
         TIMESTAMP WITH TIME ZONE: [date]
+      sqlite:
+        INTEGER: [smallint, short, int16, int, integer, int32, long, bigint, int64, boolean, bool]
+        REAL: [float, real, double, double precision, decimal, decimal128]
+        TEXT: [text, string, varchar, character varying, uuid, timestamp, timestamptz, timestamp with time zone, timestamp without time zone, date, time, time with time zone, time without time zone]
+        BLOB: [blob, bytea, binData]
       mongo:
         double: [float, real, double precision]
         string: [text, varchar, character varying, symbol, objectid, uuid]

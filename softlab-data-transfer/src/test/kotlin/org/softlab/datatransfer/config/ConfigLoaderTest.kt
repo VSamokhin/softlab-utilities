@@ -21,6 +21,8 @@ class ConfigLoaderTest {
         val mappings = ConfigLoader().load(ConfigProvider.CONFIG_FILE_NAME).getDataTypeMappings()
         assertEquals("INTEGER", mappings.destination("postgres")["int"])
         assertEquals("INTEGER", mappings.destination("postgres")["integer"])
+        assertEquals("INTEGER", mappings.destination("sqlite")["int"])
+        assertEquals("TEXT", mappings.destination("sqlite")["string"])
         assertEquals("string", mappings.destination("mongo")["text"])
         assertEquals("short", mappings.source("redis")["int16"])
         assertEquals("timestamp", mappings.source("redis")["timestamptz"])

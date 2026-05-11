@@ -14,34 +14,20 @@
  * limitations under the License.
  */
 
-package org.softlab.datatransfer.adapters.postgres
+package org.softlab.datatransfer.adapters.sqlite
 
 import org.apache.commons.dbcp2.BasicDataSource
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
-import java.sql.Connection
+import org.softlab.datatransfer.adapters.jdbc.JdbcConnectionPool
 
 
-class ConnectionPool(
+class SqliteConnectionPool(
     jdbcUrl: String,
-    username: String? = null,
-    password: String? = null,
-    maxTotal: Int = 10,
+    maxTotal: Int = 1,
     source: BasicDataSource = BasicDataSource()
-) : JdbcConnectionProvider {
+) : JdbcConnectionPool(
+    jdbcUrl = jdbcUrl,
+    driverClassName = "org.sqlite.JDBC",
+    maxTotal = maxTotal,
+    source = source
+)
 
-    private val dataSource: BasicDataSource = source.apply {
-        driverClassName = "org.postgresql.Driver"
-        url = jdbcUrl
-        this.username = username
-        this.password = password
-        this.maxTotal = maxTotal
-    }
-
-    override fun openConnection(): Connection = dataSource.connection
-
-    override val closed: Boolean get() = dataSource.isClosed
-
-    override fun close() {
-        dataSource.close()
-    }
-}

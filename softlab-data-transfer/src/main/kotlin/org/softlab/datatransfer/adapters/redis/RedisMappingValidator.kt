@@ -29,7 +29,7 @@ object RedisMappingValidator {
 
     fun validateSourceMapping(table: RedisTableMapping) {
         require(table.fields.isNotEmpty()) {
-            "Redis source mapping for table '${table.table}' must define fields because Redis has no schema"
+            "Redis source mapping for table '${table.table}' must define fields (because Redis has no schema)"
         }
         require(table.hashes.isNotEmpty()) {
             "Redis source mapping for table '${table.table}' must define at least one hash mapping"

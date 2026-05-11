@@ -18,43 +18,62 @@ package org.softlab.datatransfer.adapters
 
 import org.softlab.datatransfer.adapters.mongo.MongoDestination
 import org.softlab.datatransfer.adapters.mongo.MongoSource
-import org.softlab.datatransfer.adapters.postgres.ConnectionPool
+import org.softlab.datatransfer.adapters.postgres.PostgresConnectionPool
 import org.softlab.datatransfer.adapters.postgres.PostgresDestination
 import org.softlab.datatransfer.adapters.postgres.PostgresSource
 import org.softlab.datatransfer.adapters.redis.RedisDestination
 import org.softlab.datatransfer.adapters.redis.RedisSource
+import org.softlab.datatransfer.adapters.sqlite.SqliteConnectionPool
+import org.softlab.datatransfer.adapters.sqlite.SqliteDestination
+import org.softlab.datatransfer.adapters.sqlite.SqliteSource
 import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.util.Mongo
 import org.softlab.datatransfer.util.Postgres
 import org.softlab.datatransfer.util.Redis
+import org.softlab.datatransfer.util.Sqlite
 
 
 object AdapterProvider {
     private const val MAPPING_OPTION = "mapping"
 
+    private val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
+
     fun sourceFor(uri: String, options: Map<String, String> = emptyMap()): DatabaseSource = when {
-        Postgres.isPostgresUri(uri) -> PostgresSource(ConnectionPool(uri))
-        Mongo.isMongoUri(uri) -> MongoSource(uri)
-        Redis.isRedisUri(uri) -> RedisSource(uri, requireRedisMappings(uri, options))
+        Postgres.isPostgresUri(uri) -> PostgresSource(
+            pool = PostgresConnectionPool(uri)
+        )
+        Sqlite.isSqliteUri(uri) -> SqliteSource(
+            pool = SqliteConnectionPool(uri)
+        )
+        Mongo.isMongoUri(uri) -> MongoSource(
+            uri = uri
+        )
+        Redis.isRedisUri(uri) -> RedisSource(
+            uri = uri,
+            tableMappingsFile = requireRedisMappings(uri, options),
+            typeMappingsConfig = dataTypeMappings)
         else -> error("Unknown source database: $uri")
     }
 
     fun destinationFor(uri: String, options: Map<String, String> = emptyMap()): DatabaseDestination {
-        val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
         return when {
             Postgres.isPostgresUri(uri) -> PostgresDestination(
-                ConnectionPool(uri),
-                dataTypeMappings = dataTypeMappings.destination(PostgresDestination.BACKEND)
+                pool = PostgresConnectionPool(uri),
+                typeMappingsConfig = dataTypeMappings
+            )
+            Sqlite.isSqliteUri(uri) -> SqliteDestination(
+                pool = SqliteConnectionPool(uri),
+                typeMappingsConfig = dataTypeMappings
             )
             Mongo.isMongoUri(uri) -> MongoDestination(
-                uri,
-                dataTypeMappings = dataTypeMappings.destination(MongoDestination.BACKEND)
+                uri = uri,
+                typeMappingsConfig = dataTypeMappings
             )
             Redis.isRedisUri(uri) -> RedisDestination(
-                uri,
-                requireRedisMappings(uri, options)
+                uri = uri,
+                tableMappingsFile = requireRedisMappings(uri, options)
             )
             else -> error("Unknown destination database: $uri")
         }

@@ -17,6 +17,7 @@
 package org.softlab.datatransfer.adapters.mongo
 
 import com.mongodb.client.model.Projections
+import com.mongodb.kotlin.client.coroutine.MongoDatabase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.any
@@ -35,12 +36,11 @@ import org.softlab.datatransfer.core.DocumentCollection
 
 class MongoDocumentCollection(
     private val collectionName: String,
-    private val source: MongoSource
+    private val mongoDb: MongoDatabase
 ) : DocumentCollection {
     private val logger = KotlinLogging.logger {}
 
     private val metadata: CollectionMetadata by lazy {
-        val mongoDb = source.getClient().getDatabase(source.databaseName)
         val colInfo = runBlocking {
             mongoDb.listCollections()
                 .first { it["name"] == collectionName }
@@ -50,9 +50,7 @@ class MongoDocumentCollection(
         val types = MongoTypesMapper.listValidatorTypes(colInfo)
             ?: runBlocking {
                 // Well, I have slim chances to get proper types from a sample document
-                source.getClient()
-                    .getDatabase(source.databaseName)
-                    .getCollection<BsonDocument>(collectionName)
+                mongoDb.getCollection<BsonDocument>(collectionName)
                     .find()
                     .firstOrNull()
             }?.let {
@@ -78,9 +76,8 @@ class MongoDocumentCollection(
     override suspend fun fetchMetadata(): CollectionMetadata = metadata
 
     override fun readDocuments(): Flow<org.softlab.datatransfer.core.TransferDocument> = flow {
-        val mongoDb = source.getClient().getDatabase(source.databaseName)
         if (!mongoDb.listCollectionNames().any { it == collectionName })
-            error("Collection '$collectionName' does not exist in database '${source.databaseName}'")
+            error("Collection '$collectionName' does not exist in database '${mongoDb.name}'")
         mongoDb.getCollection<Document>(collectionName)
             .find().projection(Projections.excludeId()).collect { doc ->
                 emit(doc.asNormalizedMap())

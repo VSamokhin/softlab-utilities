@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.softlab.datatransfer.adapters.postgres
+package org.softlab.datatransfer.adapters.jdbc
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
@@ -25,22 +25,21 @@ import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.TransferDocument
-import org.softlab.datatransfer.util.Postgres
 
 
-class PostgresDocumentCollection(
-    private val schemaName: String,
-    private val tableName: String,
-    private val pool: JdbcConnectionProvider
+open class JdbcDocumentCollection(
+    private val tableName: JdbcTableName,
+    private val pool: JdbcConnectionProvider,
+    private val dialect: JdbcDialect
 ) : DocumentCollection {
     private val logger = KotlinLogging.logger {}
 
     private val metadata: CollectionMetadata by lazy {
         pool.withConnection { connection ->
-            if (Postgres.tableExists(schemaName, tableName, connection)) {
-                val columns = Postgres.readColumns(schemaName, tableName, connection)
-                CollectionMetadata("$schemaName.$tableName", columns)
-            } else error("Table '$schemaName.$tableName' does not exist")
+            if (dialect.tableExists(tableName, connection)) {
+                val columns = dialect.listColumns(tableName, connection)
+                CollectionMetadata(tableName.toString(), columns)
+            } else error("Table '$tableName' does not exist")
         }
     }
 
@@ -48,7 +47,7 @@ class PostgresDocumentCollection(
 
     override fun readDocuments(): Flow<TransferDocument> = flow {
         pool.withConnection { connection ->
-            val sql = "SELECT * FROM $schemaName.$tableName;"
+            val sql = "SELECT * FROM $tableName;"
             logger.trace { "Executing SQL: $sql" }
             val commit = connection.autoCommit
             connection.autoCommit = false

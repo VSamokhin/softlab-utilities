@@ -58,10 +58,10 @@ class PostgresSourceIT {
     }
 
     @Test
-    fun `countDocuments() returns correct count`() = runBlocking {
+    fun `countDocuments() returns correct count`() {
         PostgresSource(getProvider(postgresInitiator)).use { cut ->
-            assertEquals(2, cut.countDocuments("schema1.users"))
-            assertEquals(1, cut.countDocuments("schema2.products"))
+            assertEquals(2, runBlocking { cut.countDocuments("schema1.users") })
+            assertEquals(1, runBlocking { cut.countDocuments("schema2.products") })
         }
     }
 
@@ -73,12 +73,12 @@ class PostgresSourceIT {
     }
 
     @Test
-    fun `listCollections() returns expected collections`() = runBlocking {
+    fun `listCollections() returns expected collections`() {
         PostgresSource(getProvider(postgresInitiator)).use { cut ->
-            val collections = cut.listCollections().toList()
+            val collections = runBlocking { cut.listCollections().toList() }
 
             assertThat(
-                collections.map { it.fetchMetadata().name },
+                collections.map { runBlocking { it.fetchMetadata() }.name },
                 containsInAnyOrder(
                     "schema1.users",
                     "schema2.products",
@@ -87,28 +87,33 @@ class PostgresSourceIT {
                 )
             )
 
-            val usersCollection = collections.first { it.fetchMetadata().name == "schema1.users" }
+            val usersCollection = collections.first { runBlocking { it.fetchMetadata() }.name == "schema1.users" }
+            val usersMetadata = runBlocking { usersCollection.fetchMetadata() }
             assertThat(
-                usersCollection.fetchMetadata().fields.map { it.name }.toList(),
+                usersMetadata.fields.map { it.name }.toList(),
                 containsInAnyOrder("user_id", "name", "email")
             )
-
-            val productsCollection = collections.first { it.fetchMetadata().name == "schema2.products" }
             assertThat(
-                productsCollection.fetchMetadata().fields.map { it.name }.toSet(),
+                usersMetadata.fields.map { it.type }.toList(),
+                containsInAnyOrder("integer", "character varying", "character varying")
+            )
+
+            val productsCollection = collections.first { runBlocking { it.fetchMetadata() }.name == "schema2.products" }
+            assertThat(
+                runBlocking { productsCollection.fetchMetadata() }.fields.map { it.name }.toSet(),
                 containsInAnyOrder("product_id", "title")
             )
         }
     }
 
     @Test
-    fun `readDocuments() returns expected documents`() = runBlocking {
+    fun `readDocuments() returns expected documents`() {
         PostgresSource(getProvider(postgresInitiator)).use { cut ->
-            val collections = cut.listCollections().toList()
+            val collections = runBlocking { cut.listCollections().toList() }
 
-            val usersCollection = collections.firstOrNull { it.fetchMetadata().name == "schema1.users" }
+            val usersCollection = collections.firstOrNull { runBlocking { it.fetchMetadata() }.name == "schema1.users" }
             assertNotNull(usersCollection)
-            val users = usersCollection.readDocuments().toList()
+            val users = runBlocking { usersCollection.readDocuments().toList() }
             assertThat(
                 users.map { it["name"] }.toList(),
                 containsInAnyOrder("Alice", "Bob")
@@ -118,9 +123,11 @@ class PostgresSourceIT {
                 containsInAnyOrder("alice@example.com", "bob@example.com")
             )
 
-            val productsCollection = collections.firstOrNull { it.fetchMetadata().name == "schema2.products" }
+            val productsCollection = collections.firstOrNull {
+                runBlocking { it.fetchMetadata() }.name == "schema2.products"
+            }
             assertNotNull(productsCollection)
-            val products = productsCollection.readDocuments().toList()
+            val products = runBlocking { productsCollection.readDocuments().toList() }
             assertThat(products.map { it["title"] }.toList(), containsInAnyOrder("Gizmo"))
         }
     }

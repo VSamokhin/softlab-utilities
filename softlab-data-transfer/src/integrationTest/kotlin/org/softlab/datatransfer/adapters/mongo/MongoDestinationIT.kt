@@ -41,7 +41,7 @@ class MongoDestinationIT {
 
         private lateinit var mongoInitiator: MongoInitiator
 
-        private val dataTypeMappings = ConfigProvider.config.getDataTypeMappings().destination(MongoDestination.BACKEND)
+        private val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
 
         @BeforeAll
         @JvmStatic
@@ -107,7 +107,7 @@ class MongoDestinationIT {
         assertTrue(existingOptions.isEmpty())
     }
 
-        @Test
+    @Test
     fun `createCollection() forms expected validator descriptor`() = runBlocking {
         MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
             destination.createCollection(

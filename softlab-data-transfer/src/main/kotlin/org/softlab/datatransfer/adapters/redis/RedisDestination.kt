@@ -43,14 +43,20 @@ import kotlin.concurrent.atomics.plusAssign
 
 
 class RedisDestination(
-    uri: String,
-    mappingsFile: String,
-    private val client: RedisClient = RedisClient.create(uri),
-    private val mappings: RedisTableMappings = RedisMappingsLoader.load(mappingsFile),
-    private val closeClient: Boolean = true
+    private val client: RedisClient,
+    private val tableMappings: RedisTableMappings,
+    private val closeClient: Boolean
 ) : DatabaseDestination {
+    constructor(
+        uri: String,
+        tableMappingsFile: String
+    ) : this(
+        RedisClient.create(uri),
+        RedisMappingsLoader.load(tableMappingsFile),
+        true
+    )
     companion object {
-        const val BACKEND = "redis"
+        private const val BACKEND = "redis"
         private const val KEYS_CHUNK_SIZE: Int = 2000
     }
 
@@ -62,14 +68,14 @@ class RedisDestination(
 
     override suspend fun createCollection(metadata: CollectionMetadata) {
         logger.info { "Validating mapping configuration for '${metadata.name}'" }
-        val matchedTable = mappings.table(metadata.name)
+        val matchedTable = tableMappings.table(metadata.name)
         RedisMappingValidator.validateDestinationMapping(matchedTable, metadata)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Suppress("SpreadOperator")
     override suspend fun dropCollection(collectionName: String) {
-        val table = mappings.table(collectionName)
+        val table = tableMappings.table(collectionName)
         logger.info { "Dropping Redis keys for '$collectionName'..." }
 
         val futures = mutableListOf<RedisFuture<Long>>()
@@ -90,7 +96,7 @@ class RedisDestination(
 
         val total = AtomicInt(0)
         coroutineScope {
-            val matchedTable = mappings.table(collectionName)
+            val matchedTable = tableMappings.table(collectionName)
             documents.chunked(BATCH_SIZE).collect { batch ->
                 saveBatch(matchedTable, batch, total)
             }

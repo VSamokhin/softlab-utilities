@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 import org.bson.BsonDocument
 import org.bson.Document
 import org.softlab.dataset.mongo.MongoTypesMapper.asBsonDocument
+import org.softlab.datatransfer.config.DataTypeMappingsConfig
 import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
@@ -41,16 +42,26 @@ import kotlin.concurrent.atomics.plusAssign
 
 
 class MongoDestination(
-    private val uri: String,
+    private val client: MongoClient,
+    databaseName: String,
     private val dataTypeMappings: Map<String, String>,
-    private val databaseName: String = Mongo.getDatabaseName(uri)
+    private val closeClient: Boolean
 ) : DatabaseDestination {
+    constructor(
+        uri: String,
+        typeMappingsConfig: DataTypeMappingsConfig
+    ) : this(
+        MongoClient.create(uri),
+        Mongo.getDatabaseName(uri),
+        typeMappingsConfig.destination(BACKEND),
+        true
+    )
+
     companion object {
-        const val BACKEND = "mongo"
+        private const val BACKEND = "mongo"
     }
 
     private val logger = KotlinLogging.logger {}
-    private val client: MongoClient = MongoClient.create(uri)
     private val db = client.getDatabase(databaseName)
 
     override fun getBackendName(): String = BACKEND
@@ -129,6 +140,6 @@ class MongoDestination(
     }
 
     override fun close() {
-        client.close()
+        if (closeClient) client.close()
     }
 }

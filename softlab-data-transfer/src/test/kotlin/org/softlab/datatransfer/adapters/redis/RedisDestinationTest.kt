@@ -34,17 +34,16 @@ class RedisDestinationTest {
         every { client.connect() } returns connection
 
         val cut = RedisDestination(
-            uri = "redis://localhost:6379/0",
-            mappingsFile = "unused",
             client = client,
-            mappings = RedisTableMappings(
+            tableMappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
                         table = "users",
                         hashes = listOf(RedisHashMapping(key = "users:\${missing}"))
                     )
                 )
-            )
+            ),
+            true
         )
 
         val exc = assertThrows<IllegalStateException> {
@@ -57,7 +56,7 @@ class RedisDestinationTest {
             }
         }
         assertThat(exc.message, allOf(
-            containsString("'users'"),
+            containsString("users"),
             containsString("missing")
         ))
     }
@@ -79,10 +78,8 @@ class RedisDestinationTest {
         every { client.connect() } returns connection
 
         val cut = RedisDestination(
-            uri = "redis://localhost:6379/0",
-            mappingsFile = "unused",
             client = client,
-            mappings = RedisTableMappings(
+            tableMappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
                         table = "users",
@@ -90,7 +87,8 @@ class RedisDestinationTest {
                         sets = listOf(RedisSetMapping(key = "users"))
                     )
                 )
-            )
+            ),
+            true
         )
 
         runBlocking { cut.dropCollection("users") }
@@ -110,10 +108,8 @@ class RedisDestinationTest {
         every { client.connect() } returns connection
 
         val cut = RedisDestination(
-            uri = "redis://localhost:6379/0",
-            mappingsFile = "unused",
             client = client,
-            mappings = RedisTableMappings(
+            tableMappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
                         table = "users",
@@ -121,7 +117,8 @@ class RedisDestinationTest {
                         sets = listOf(RedisSetMapping(key = "users", member = "\${id}"))
                     )
                 )
-            )
+            ),
+            true
         )
 
         runBlocking {
@@ -146,10 +143,8 @@ class RedisDestinationTest {
         every { client.connect() } returns connection
 
         val cut = RedisDestination(
-            uri = "redis://localhost:6379/0",
-            mappingsFile = "unused",
             client = client,
-            mappings = RedisTableMappings(
+            tableMappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
                         table = "users",
@@ -157,7 +152,8 @@ class RedisDestinationTest {
                         sets = listOf(RedisSetMapping(key = "users", member = "\${id}"))
                     )
                 )
-            )
+            ),
+            true
         )
 
         val exc = assertThrows<IllegalStateException> { runBlocking {

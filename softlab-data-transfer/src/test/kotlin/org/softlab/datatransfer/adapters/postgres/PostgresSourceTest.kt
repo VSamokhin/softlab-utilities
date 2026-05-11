@@ -14,7 +14,7 @@ class PostgresSourceTest {
         val exc = assertThrows<SQLException> {
             runBlocking {
                 PostgresSource(
-                    ConnectionPool(
+                    PostgresConnectionPool(
                         "invalid://connection:string",
                         "user",
                         "pass"
