@@ -43,6 +43,7 @@ dependencies {
     integrationTestImplementation 'org.testcontainers:testcontainers-mongodb'
     integrationTestImplementation 'com.redis:testcontainers-redis:_'
     integrationTestImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    integrationTestImplementation 'org.dbunit:dbunit:_'
 }
 
 application {

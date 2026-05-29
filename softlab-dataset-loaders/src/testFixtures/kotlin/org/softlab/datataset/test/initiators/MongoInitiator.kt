@@ -34,8 +34,8 @@ fun createMongoContainer(container: String = MONGO_CONTAINER): MongoDBContainer 
     MongoDBContainer(container)
 
 class MongoInitiator(override val dbUrl: String) : DatabaseInitiator<MongoDatabase> {
-    val mongoClient: MongoClient = MongoClient.create(dbUrl)
-    val mongoDb: MongoDatabase
+    private val mongoClient: MongoClient = MongoClient.create(dbUrl)
+    private val mongoDb: MongoDatabase
     private val mongoFacade: MongoDatabaseFacade
 
     init {
@@ -73,4 +73,6 @@ class MongoInitiator(override val dbUrl: String) : DatabaseInitiator<MongoDataba
     override fun close() {
         mongoClient.close()
     }
+
+    override fun getConnection(): MongoDatabase = mongoDb
 }

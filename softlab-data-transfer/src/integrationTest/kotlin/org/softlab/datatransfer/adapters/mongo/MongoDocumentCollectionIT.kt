@@ -53,19 +53,19 @@ class MongoDocumentCollectionIT {
         mongoInitiator.initSchema("liquibase/changelog-source-mongo.yaml")
         mongoInitiator.seedData("datasets/users-products.yml")
 
-        val cutUsers = MongoDocumentCollection("schema1.users", mongoInitiator.mongoDb)
+        val cutUsers = MongoDocumentCollection("schema1.users", mongoInitiator.getConnection())
         val users = runBlocking { cutUsers.readDocuments().toList() }
         assertThat(users.map { it["name"] }, containsInAnyOrder("Alice", "Bob"))
         assertThat(users.map { it["email"] }, containsInAnyOrder("alice@example.com", "bob@example.com"))
 
-        val cutProducts = MongoDocumentCollection("schema2.products", mongoInitiator.mongoDb)
+        val cutProducts = MongoDocumentCollection("schema2.products", mongoInitiator.getConnection())
         val products = runBlocking { cutProducts.readDocuments().toList() }
         assertThat(products.map { it["title"] }, containsInAnyOrder("Gizmo"))
     }
 
     @Test
     fun `readDocuments() throws for absent table`() {
-        val cut = MongoDocumentCollection("schema1.non_existent", mongoInitiator.mongoDb)
+        val cut = MongoDocumentCollection("schema1.non_existent", mongoInitiator.getConnection())
 
         val exc = assertThrows<IllegalStateException> { runBlocking { cut.readDocuments().toList() } }
         assertThat(exc.message, containsString("schema1.non_existent"))
@@ -76,7 +76,7 @@ class MongoDocumentCollectionIT {
         mongoInitiator.initSchema("liquibase/changelog-source-mongo.yaml")
         mongoInitiator.seedData("datasets/users-products.yml")
 
-        val cut = MongoDocumentCollection("schema1.users", mongoInitiator.mongoDb)
+        val cut = MongoDocumentCollection("schema1.users", mongoInitiator.getConnection())
 
         runBlocking {
             assertThat(
@@ -92,15 +92,15 @@ class MongoDocumentCollectionIT {
 
     @Test
     fun `fetchMetadata() retrieves metadata from a sample doc`() = runBlocking {
-        mongoInitiator.mongoDb.createCollection("no_validator")
-        mongoInitiator.mongoDb.getCollection<Document>("no_validator")
+        mongoInitiator.getConnection().createCollection("no_validator")
+        mongoInitiator.getConnection().getCollection<Document>("no_validator")
             .insertMany(
                 listOf(
                     Document(mapOf("some_id" to 1.0, "some_field" to "whatever1")),
                     Document(mapOf("some_id" to 2.0, "some_field" to "whatever2", "some_another_field" to true))
                 )
             )
-        val cut = MongoDocumentCollection("no_validator", mongoInitiator.mongoDb)
+        val cut = MongoDocumentCollection("no_validator", mongoInitiator.getConnection())
 
         assertThat(
             cut.fetchMetadata().fields.map { it.name },
@@ -114,15 +114,15 @@ class MongoDocumentCollectionIT {
 
     @Test
     fun `fetchMetadata() retrieves nothing when no validator and no docs`() = runBlocking {
-        mongoInitiator.mongoDb.createCollection("no_validator")
-        val cut = MongoDocumentCollection("no_validator", mongoInitiator.mongoDb)
+        mongoInitiator.getConnection().createCollection("no_validator")
+        val cut = MongoDocumentCollection("no_validator", mongoInitiator.getConnection())
 
         assertTrue(cut.fetchMetadata().fields.isEmpty())
     }
 
     @Test
-    fun `fetchMetadata() throws when collection absent`()  {
-        val cut = MongoDocumentCollection("non_existent", mongoInitiator.mongoDb)
+    fun `fetchMetadata() throws when collection absent`() {
+        val cut = MongoDocumentCollection("non_existent", mongoInitiator.getConnection())
 
         assertThrows<NoSuchElementException> { runBlocking { cut.fetchMetadata() } }
     }

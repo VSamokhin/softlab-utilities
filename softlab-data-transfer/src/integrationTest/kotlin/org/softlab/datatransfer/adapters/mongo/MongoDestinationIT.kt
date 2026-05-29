@@ -58,10 +58,10 @@ class MongoDestinationIT {
 
     @BeforeEach
     fun seedData() = runBlocking {
-        mongoInitiator.mongoDb.listCollections()
+        mongoInitiator.getConnection().listCollections()
             .map { it.getString("name") }
             .collect { collection ->
-                mongoInitiator.mongoDb
+                mongoInitiator.getConnection()
                     .getCollection<Document>(collection)
                     .drop()
             }
@@ -83,7 +83,7 @@ class MongoDestinationIT {
         }
 
         assertThat(
-            mongoInitiator.mongoDb.listCollections().map { it["name"] }.toList(),
+            mongoInitiator.getConnection().listCollections().map { it["name"] }.toList(),
             containsInAnyOrder(
                 "existing", "new_collection"
             )
@@ -99,7 +99,7 @@ class MongoDestinationIT {
             newProperties.get("nickname", Document::class.java).getList("bsonType", String::class.java)
         )
 
-        val existingCollection = mongoInitiator.mongoDb.listCollections()
+        val existingCollection = mongoInitiator.getConnection().listCollections()
             .toList()
             .first { it.getString("name") == "existing" }
         val existingOptions = existingCollection.get("options", Document::class.java)
@@ -231,7 +231,7 @@ class MongoDestinationIT {
             destination.dropCollection("users")
         }
 
-        val collectionNames = mongoInitiator.mongoDb.listCollections()
+        val collectionNames = mongoInitiator.getConnection().listCollections()
             .map { it.getString("name") }
             .toList()
         assertTrue("users" !in collectionNames)
@@ -257,7 +257,7 @@ class MongoDestinationIT {
             )
         }
 
-        val docs = mongoInitiator.mongoDb
+        val docs = mongoInitiator.getConnection()
             .getCollection<BsonDocument>("users")
             .find()
             .toList()
@@ -273,7 +273,7 @@ class MongoDestinationIT {
     }
 
     private suspend fun getJsonSchemaValidator(collectionName: String): Document {
-        val collectionInfo = mongoInitiator.mongoDb.listCollections()
+        val collectionInfo = mongoInitiator.getConnection().listCollections()
             .toList()
             .first { it.getString("name") == collectionName }
         return collectionInfo

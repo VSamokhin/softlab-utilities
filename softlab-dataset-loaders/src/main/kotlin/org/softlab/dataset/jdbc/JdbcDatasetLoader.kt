@@ -30,7 +30,10 @@ import java.sql.Connection
  * This is a wrapper which allows to load DBUnit datasets with DBRider in environments where standard DBRider
  * annotations will not work, e.g. while using SpringBoot + Cucumber
  */
-class JdbcDatasetLoader(connection: Connection) : DatasetLoader {
+class JdbcDatasetLoader(
+    connection: Connection,
+    dbUnitProperties: Map<String, Any> = emptyMap()
+) : DatasetLoader {
     private val logger = KotlinLogging.logger {}
 
     private val executor = DataSetExecutorImpl.instance(ConnectionHolderImpl(connection)).apply {
@@ -38,6 +41,9 @@ class JdbcDatasetLoader(connection: Connection) : DatasetLoader {
             .cacheConnection(false)
             .addDBUnitProperty("caseSensitiveTableNames", true)
             .addDBUnitProperty("qualifiedTableNames", true)
+        dbUnitProperties.forEach {
+            dbUnitConfig.addDBUnitProperty(it.key, it.value)
+        }
     }
 
     override fun load(datasetPath: String, cleanBefore: Boolean) {
@@ -50,7 +56,7 @@ class JdbcDatasetLoader(connection: Connection) : DatasetLoader {
     }
 
     fun compare(datasetPath: String, vararg ignoreCols: String) {
-        logger.info { "Checking expected dataset with DBRider: (ignoreCols=$ignoreCols) $datasetPath" }
+        logger.info { "Checking expected dataset with DBRider: (ignoreCols=${ignoreCols.contentToString()}) $datasetPath" }
 
         val expectedDatasetConfig = DataSetConfig(datasetPath)
         executor.compareCurrentDataSetWith(expectedDatasetConfig, ignoreCols)

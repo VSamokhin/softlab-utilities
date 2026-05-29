@@ -36,8 +36,8 @@ class RedisInitiator(
     override val dbUrl: String,
     private val mappingPath: String
 ) : DatabaseInitiator<StatefulRedisConnection<String, String>> {
-    val redisClient: RedisClient = RedisClient.create(dbUrl)
-    val redisConnection: StatefulRedisConnection<String, String> = redisClient.connect()
+    private val redisClient: RedisClient = RedisClient.create(dbUrl)
+    private val redisConnection: StatefulRedisConnection<String, String> = redisClient.connect()
 
     override fun cleanup(additionalSteps: (StatefulRedisConnection<String, String>) -> Unit) {
         redisConnection.sync().flushdb()
@@ -62,4 +62,6 @@ class RedisInitiator(
         redisConnection.close()
         redisClient.shutdown()
     }
+
+    override fun getConnection(): StatefulRedisConnection<String, String> = redisClient.connect()
 }

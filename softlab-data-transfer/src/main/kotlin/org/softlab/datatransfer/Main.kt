@@ -28,10 +28,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
-import org.softlab.datatransfer.adapters.KeyValues
 import org.softlab.datatransfer.adapters.AdapterProvider
-import org.softlab.datatransfer.core.DatabaseDestination
-import org.softlab.datatransfer.core.DatabaseSource
+import org.softlab.datatransfer.adapters.KeyValues
 import org.softlab.datatransfer.core.StringTokenFilter
 import org.softlab.datatransfer.migration.Migrator
 import org.softlab.datatransfer.util.StopWatch
@@ -60,27 +58,24 @@ class Main : CliktCommand() {
         val parsedSourceOptions = KeyValues.parse(sourceOptions)
         val parsedDestOptions = KeyValues.parse(destOptions)
 
-        val sourceAdapter: DatabaseSource = AdapterProvider.sourceFor(source, parsedSourceOptions)
-        val destAdapter: DatabaseDestination = AdapterProvider.destinationFor(dest, parsedDestOptions)
 
-        val timer = StopWatch().start()
-        try {
-            runBlocking {
-                if (dropTargets) {
-                    logger.info { "First drop target collections" }
-                    sourceAdapter.listCollections()
-                        .map { it.fetchMetadata().name }
-                        .filter { sourceNameFilter.startsWith(it) }
-                        .collect { destAdapter.dropCollection(it) }
+        AdapterProvider.sourceFor(source, parsedSourceOptions).use { sourceAdapter ->
+            AdapterProvider.destinationFor(dest, parsedDestOptions).use { destAdapter ->
+                val timer = StopWatch().start()
+                runBlocking {
+                    if (dropTargets) {
+                        logger.info { "First drop target collections" }
+                        sourceAdapter.listCollections()
+                            .map { it.fetchMetadata().name }
+                            .filter { sourceNameFilter.startsWith(it) }
+                            .collect { destAdapter.dropCollection(it) }
+                    }
+                    logger.info { "Now migrate data" }
+                    Migrator(sourceFilter = sourceNameFilter).migrate(sourceAdapter, destAdapter)
                 }
-                logger.info { "Now migrate data" }
-                Migrator(sourceFilter = sourceNameFilter).migrate(sourceAdapter, destAdapter)
+                logger.info { "Job done in ${timer.stopAndGetTimeStr()}" }
             }
-        } finally {
-            sourceAdapter.close()
-            destAdapter.close()
         }
-        logger.info { "Job done in ${timer.stopAndGetTimeStr()}" }
     }
 }
 
