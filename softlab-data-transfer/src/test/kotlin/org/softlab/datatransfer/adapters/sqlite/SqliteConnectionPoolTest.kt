@@ -7,17 +7,28 @@ import io.mockk.mockk
 import io.mockk.verify
 import org.apache.commons.dbcp2.BasicDataSource
 import org.junit.jupiter.api.Test
+import java.sql.Connection
+import java.sql.Statement
 
 
 class SqliteConnectionPoolTest {
     @Test
     fun `constructor configures SQLite data source`() {
+        val stmt = mockk<Statement> {
+            every { execute(any()) } returns true
+            every { close() } just Runs
+        }
+        val conn = mockk<Connection> {
+            every { createStatement() } returns stmt
+            every { close() } just Runs
+        }
         val dataSource = mockk<BasicDataSource> {
             every { driverClassName = any() } just Runs
             every { url = any() } just Runs
             every { username = any() } just Runs
             every { password = any() } just Runs
             every { maxTotal = any() } just Runs
+            every { connection } returns conn
         }
 
         SqliteConnectionPool(
@@ -31,6 +42,10 @@ class SqliteConnectionPoolTest {
         verify(exactly = 1) { dataSource.username = null }
         verify(exactly = 1) { dataSource.password = null }
         verify(exactly = 1) { dataSource.maxTotal = 3 }
+        verify(exactly = 1) { stmt.execute("PRAGMA synchronous = OFF;") }
+        verify(exactly = 1) { stmt.execute("PRAGMA journal_mode = MEMORY;") }
+        verify(exactly = 1) { stmt.close() }
+        verify(exactly = 1) { conn.close() }
     }
 
     @Test
@@ -41,6 +56,13 @@ class SqliteConnectionPoolTest {
             every { username = any() } just Runs
             every { password = any() } just Runs
             every { maxTotal = any() } just Runs
+            every { connection } returns mockk<Connection> {
+                every { createStatement() } returns mockk<Statement> {
+                    every { execute(any()) } returns true
+                    every { close() } just Runs
+                }
+                every { close() } just Runs
+            }
         }
 
         SqliteConnectionPool("jdbc:sqlite:/tmp/test.db", source = dataSource)

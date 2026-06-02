@@ -29,5 +29,15 @@ class SqliteConnectionPool(
     driverClassName = "org.sqlite.JDBC",
     maxTotal = maxTotal,
     source = source
-)
+) {
+    init {
+        // Let's speed up writing
+        openConnection().use { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.execute("PRAGMA synchronous = OFF;")
+                stmt.execute("PRAGMA journal_mode = MEMORY;")
+            }
+        }
+    }
+}
 
