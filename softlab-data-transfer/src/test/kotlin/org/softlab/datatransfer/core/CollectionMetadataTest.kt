@@ -6,7 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 
 
-class DocumentCollectionMetadataTest {
+class CollectionMetadataTest {
     @Test
     fun `test collection metadata equality`() {
         val metadata1 = CollectionMetadata(

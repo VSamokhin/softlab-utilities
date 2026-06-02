@@ -7,6 +7,7 @@ import org.hamcrest.Matchers.containsString
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.jdbc.withConnection
+import org.softlab.datataset.test.initiators.withTestPool
 import java.sql.SQLException
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -16,9 +17,9 @@ import kotlin.test.assertTrue
 class JdbcSourceTest {
     @Test
     fun `getBackendName() returns dialect backend name`() {
-        TestJdbcProvider.create().use { provider ->
+        withTestPool { pool ->
             val source = JdbcSource(
-                provider,
+                pool,
                 TestJdbcDialect(backendName = "test-backend"),
                 closePool = false
             )
@@ -29,15 +30,15 @@ class JdbcSourceTest {
 
     @Test
     fun `listCollections() returns collections from dialect tables`() {
-        TestJdbcProvider.create().use { provider ->
-            provider.withConnection { connection ->
+        withTestPool { pool ->
+            pool.withConnection { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute("CREATE TABLE users (id INTEGER);")
                     statement.execute("CREATE TABLE products (id INTEGER);")
                 }
             }
 
-            val collections = JdbcSource(provider, TestJdbcDialect(), closePool = false)
+            val collections = JdbcSource(pool, TestJdbcDialect(), closePool = false)
                 .listCollections()
                 .let { flow -> runBlocking { flow.toList() } }
 
@@ -50,20 +51,20 @@ class JdbcSourceTest {
 
     @Test
     fun `listCollections() uses provided collection factory`() {
-        TestJdbcProvider.create().use { provider ->
-            provider.withConnection { connection ->
+        withTestPool { pool ->
+            pool.withConnection { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute("CREATE TABLE users (id INTEGER);")
                 }
             }
             val tableNames = mutableListOf<JdbcTableName>()
             val source = JdbcSource(
-                provider,
+                pool,
                 TestJdbcDialect(),
                 closePool = false
-            ) { tableName ->
+            ) { tableName, pool, dialect ->
                 tableNames += tableName
-                JdbcDocumentCollection(tableName, provider, TestJdbcDialect())
+                JdbcDocumentCollection(tableName, pool, dialect)
             }
 
             runBlocking { source.listCollections().toList() }
@@ -74,8 +75,8 @@ class JdbcSourceTest {
 
     @Test
     fun `countDocuments() returns table row count`() {
-        TestJdbcProvider.create().use { provider ->
-            provider.withConnection { connection ->
+        withTestPool { pool ->
+            pool.withConnection { connection ->
                 connection.createStatement().use { statement ->
                     statement.execute("CREATE TABLE users (id INTEGER);")
                     statement.execute("INSERT INTO users (id) VALUES (1), (2);")
@@ -84,7 +85,7 @@ class JdbcSourceTest {
 
             val count = runBlocking {
                 JdbcSource(
-                    provider,
+                    pool,
                     TestJdbcDialect(),
                     closePool = false
                 ).countDocuments("users")
@@ -95,32 +96,32 @@ class JdbcSourceTest {
     }
 
     @Test
-    fun `close() closes provider when configured`() {
-        TestJdbcProvider.create().use { provider ->
-            JdbcSource(provider, TestJdbcDialect(), closePool = true).close()
+    fun `close() closes pool when configured`() {
+        withTestPool { pool ->
+            JdbcSource(pool, TestJdbcDialect(), closePool = true).close()
 
-            assertTrue(provider.closed)
+            assertTrue(pool.closed)
         }
     }
 
     @Test
-    fun `close() leaves provider open when configured`() {
-        TestJdbcProvider.create().use { provider ->
-            JdbcSource(provider, TestJdbcDialect(), closePool = false).close()
+    fun `close() leaves pool open when configured`() {
+        withTestPool { pool ->
+            JdbcSource(pool, TestJdbcDialect(), closePool = false).close()
 
-            assertEquals(false, provider.closed)
+            assertEquals(false, pool.closed)
         }
     }
 
     @Test
     fun `countDocuments() throws for absent table`() {
-        TestJdbcProvider.create().use { provider ->
+        withTestPool { pool ->
             val exc = assertThrows<SQLException> {
                 runBlocking {
                     JdbcSource(
-                        provider,
+                        pool,
                         TestJdbcDialect(),
-                         false
+                        false
                     ).countDocuments("missing_table")
                 }
             }

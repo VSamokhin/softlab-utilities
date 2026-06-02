@@ -36,7 +36,10 @@ class MongoInitiatorIT {
             cut.seedData(DATASET)
 
             val docs = runBlocking {
-                cut.mongoDb.getCollection<Document>("test.test_table").find().toList()
+                cut.getConnection()
+                    .getCollection<Document>("test.test_table")
+                    .find()
+                    .toList()
             }
             assertEquals(2, docs.size)
             assertTrue(callbackInvoked)

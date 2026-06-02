@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 import org.bson.BsonDocument
 import org.bson.Document
 import org.softlab.dataset.mongo.MongoTypesMapper.asBsonDocument
+import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.config.DataTypeMappingsConfig
 import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
@@ -44,7 +45,7 @@ import kotlin.concurrent.atomics.plusAssign
 class MongoDestination(
     private val client: MongoClient,
     databaseName: String,
-    private val dataTypeMappings: Map<String, String>,
+    private val dataTypeMappings: DataTypeMappings,
     private val closeClient: Boolean
 ) : DatabaseDestination {
     constructor(
@@ -109,8 +110,7 @@ class MongoDestination(
     }
 
     private fun bsonTypeFor(type: String, nullable: Boolean): Any {
-        val normalizedType = type.lowercase()
-        val bsonType = dataTypeMappings[normalizedType] ?: normalizedType
+        val bsonType = dataTypeMappings.map(type)
         return if (nullable) {
             listOf(bsonType, "null")
         } else {

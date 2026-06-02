@@ -17,22 +17,22 @@
 package org.softlab.datatransfer.adapters.jdbc
 
 import org.apache.commons.dbcp2.BasicDataSource
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
+import org.softlab.dataset.jdbc.JdbcConnectionPool
 import java.sql.Connection
 
 
-open class JdbcConnectionPool(
+open class BasicJdbcConnectionPool(
     jdbcUrl: String,
     driverClassName: String,
     username: String? = null,
     password: String? = null,
     maxTotal: Int = 10,
     source: BasicDataSource = BasicDataSource()
-) : JdbcConnectionProvider {
+) : JdbcConnectionPool {
 
     private val dataSource: BasicDataSource = source.apply {
         this.driverClassName = driverClassName
-        url = jdbcUrl
+        this.url = jdbcUrl
         this.username = username
         this.password = password
         this.maxTotal = maxTotal

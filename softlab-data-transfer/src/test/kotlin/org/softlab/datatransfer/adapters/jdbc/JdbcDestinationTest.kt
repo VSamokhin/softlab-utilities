@@ -1,5 +1,8 @@
 package org.softlab.datatransfer.adapters.jdbc
 
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
@@ -10,9 +13,15 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.core.FieldDefinition
+import org.softlab.dataset.jdbc.JdbcConnectionPool
 import org.softlab.dataset.jdbc.withConnection
 import org.softlab.dataset.jdbc.withStatement
+import org.softlab.datataset.test.initiators.TestJdbcPool
+import org.softlab.datataset.test.initiators.withTestPool
+import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.core.CollectionMetadata
+import java.sql.Connection
+import java.sql.PreparedStatement
 import java.sql.SQLException
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -23,8 +32,8 @@ import kotlin.test.assertTrue
 class JdbcDestinationTest {
     @Test
     fun `getBackendName() returns dialect backend name`() {
-        TestJdbcProvider.create().use { provider ->
-            val destination = JdbcDestination(provider, TestJdbcDialect("test-backend"), emptyMap(), false)
+        withTestPool { pool ->
+            val destination = JdbcDestination(pool, TestJdbcDialect("test-backend"), DataTypeMappings(), false)
 
             assertEquals("test-backend", destination.getBackendName())
         }
@@ -32,11 +41,11 @@ class JdbcDestinationTest {
 
     @Test
     fun `createCollection() creates table with mapped field types and nullability`() {
-        TestJdbcProvider.create().use { provider ->
+        withTestPool { pool ->
             val dialect = TestJdbcDialect()
 
             runBlocking {
-                JdbcDestination(provider, dialect, mapOf("string" to "TEXT"), false).createCollection(
+                JdbcDestination(pool, dialect, DataTypeMappings(mapOf("string" to "TEXT")), false).createCollection(
                     CollectionMetadata(
                         "users",
                         listOf(
@@ -47,22 +56,27 @@ class JdbcDestinationTest {
                 )
             }
 
-            provider.withConnection { connection ->
+            pool.withConnection { connection ->
                 assertTrue(dialect.tableExists(JdbcTableName(null, "users"), connection))
                 val columns = dialect.listColumns(JdbcTableName(null, "users"), connection)
                 assertContentEquals(listOf("int", "text"), columns.map { it.type })
                 assertFalse(columns.first { it.name == "id" }.nullable)
                 assertTrue(columns.first { it.name == "name" }.nullable)
             }
-            assertContentEquals(listOf(JdbcTableName(null, "users")), dialect.beforeCreateTableCalls)
+            assertContentEquals(
+                listOf(JdbcTableName(null, "users")), dialect.beforeCreateTableCalls
+            )
         }
     }
 
     @Test
     fun `createCollection() throws when table exists`() {
-        TestJdbcProvider.create().use { provider ->
-            val destination = JdbcDestination(provider, TestJdbcDialect(), emptyMap(), false)
-            val metadata = CollectionMetadata("users", listOf(FieldDefinition("id", "int")))
+        withTestPool { pool ->
+            val destination = JdbcDestination(pool, TestJdbcDialect(), DataTypeMappings(), false)
+            val metadata = CollectionMetadata(
+                "users",
+                listOf(FieldDefinition("id", "int"))
+            )
 
             runBlocking { destination.createCollection(metadata) }
 
@@ -75,15 +89,23 @@ class JdbcDestinationTest {
 
     @Test
     fun `dropCollection() drops table and ignores absent table`() {
-        TestJdbcProvider.create().use { provider ->
-            val destination = JdbcDestination(provider, TestJdbcDialect(), emptyMap(), false)
+        withTestPool { pool ->
+            val destination = JdbcDestination(pool, TestJdbcDialect(), DataTypeMappings(), false)
             runBlocking {
-                destination.createCollection(CollectionMetadata("users", listOf(FieldDefinition("id", "int"))))
+                destination.createCollection(
+                    CollectionMetadata(
+                        "users",
+                        listOf(FieldDefinition("id", "int")))
+                )
                 destination.dropCollection("users")
             }
 
-            provider.withConnection { connection ->
-                assertFalse(TestJdbcDialect().tableExists(JdbcTableName(null, "users"), connection))
+            pool.withConnection { connection ->
+                assertFalse(
+                    TestJdbcDialect().tableExists(
+                        JdbcTableName(null, "users"), connection
+                    )
+                )
             }
             assertDoesNotThrow { runBlocking { destination.dropCollection("users") } }
         }
@@ -91,13 +113,21 @@ class JdbcDestinationTest {
 
     @Test
     fun `insertDocuments() writes data using table column order`() {
-        TestJdbcProvider.create().use { provider ->
-            val destination = JdbcDestination(provider, TestJdbcDialect(), mapOf("string" to "TEXT"), false)
+        withTestPool { pool ->
+            val destination = JdbcDestination(
+                pool,
+                TestJdbcDialect(),
+                DataTypeMappings(mapOf("string" to "TEXT")),
+                false
+            )
             runBlocking {
                 destination.createCollection(
                     CollectionMetadata(
                         "users",
-                        listOf(FieldDefinition("id", "int"), FieldDefinition("name", "string", true))
+                        listOf(
+                            FieldDefinition("id", "int"),
+                            FieldDefinition("name", "string", true)
+                        )
                     )
                 )
 
@@ -110,7 +140,7 @@ class JdbcDestinationTest {
                 )
             }
 
-            provider.withStatement { statement ->
+            pool.withStatement { statement ->
                 statement.executeQuery("SELECT id, name FROM users ORDER BY id;").use { rs ->
                     assertTrue(rs.next())
                     assertEquals(1, rs.getInt("id"))
@@ -126,20 +156,28 @@ class JdbcDestinationTest {
 
     @Test
     fun `insertDocuments() writes null for missing fields`() {
-        TestJdbcProvider.create().use { provider ->
-            val destination = JdbcDestination(provider, TestJdbcDialect(), mapOf("string" to "TEXT"), false)
+        withTestPool { pool ->
+            val destination = JdbcDestination(
+                pool,
+                TestJdbcDialect(),
+                DataTypeMappings(mapOf("string" to "TEXT")),
+                false
+            )
             runBlocking {
                 destination.createCollection(
                     CollectionMetadata(
                         "users",
-                        listOf(FieldDefinition("id", "int"), FieldDefinition("name", "string", true))
+                        listOf(
+                            FieldDefinition("id", "int"),
+                            FieldDefinition("name", "string", true)
+                        )
                     )
                 )
 
                 destination.insertDocuments("users", flowOf(mapOf("id" to 1)))
             }
 
-            provider.withStatement { statement ->
+            pool.withStatement { statement ->
                 statement.executeQuery("SELECT id, name FROM users;").use { rs ->
                     assertTrue(rs.next())
                     assertEquals(1, rs.getInt("id"))
@@ -150,12 +188,52 @@ class JdbcDestinationTest {
     }
 
     @Test
+    fun `insertDocuments() casts integer values to booleans for boolean target columns`() {
+        val connection = mockk<Connection>(relaxed = true)
+        val statement = mockk<PreparedStatement>(relaxed = true)
+        val pool = object : JdbcConnectionPool {
+            override fun openConnection(): Connection = connection
+            override val closed: Boolean get() = false
+            override fun close() = Unit
+        }
+        val dialect = object : JdbcDialect("jdbc-test", supportsConcurrentInserts = false) {
+            override fun parseTableName(tableName: String): JdbcTableName = JdbcTableName(null, tableName)
+
+            override fun listColumns(tableName: JdbcTableName, connection: Connection): List<FieldDefinition> =
+                listOf(
+                    FieldDefinition("id", "integer"),
+                    FieldDefinition("active", "boolean")
+                )
+        }
+        every { connection.prepareStatement(any()) } returns statement
+        every { statement.executeBatch() } returns intArrayOf(1, 1)
+
+        val destination = object : JdbcDestination(pool, dialect, DataTypeMappings(), false) {
+            override fun castValue(type: String, value: Any?): Any? =
+                if (type == "boolean" && value is Int) value != 0 else value
+        }
+
+        runBlocking {
+            destination.insertDocuments(
+                "users",
+                flowOf(
+                    mapOf("id" to 1, "active" to 1),
+                    mapOf("id" to 2, "active" to 0)
+                )
+            )
+        }
+
+        verify { statement.setObject(2, true) }
+        verify { statement.setObject(2, false) }
+    }
+
+    @Test
     fun `insertDocuments() throws when document has more fields than table`() {
-        TestJdbcProvider.create().use { provider ->
+        TestJdbcPool.create().use { pool ->
             val destination = JdbcDestination(
-                provider,
+                pool,
                 TestJdbcDialect(),
-                emptyMap(),
+                DataTypeMappings(),
                 false
             )
             runBlocking {
@@ -186,11 +264,11 @@ class JdbcDestinationTest {
 
     @Test
     fun `insertDocuments() writes non-concurrent batches when dialect disallows concurrent inserts`() {
-        TestJdbcProvider.create().use { provider ->
+        TestJdbcPool.create().use { pool ->
             val destination = JdbcDestination(
-                provider,
+                pool,
                 TestJdbcDialect(supportsConcurrentInserts = false),
-                emptyMap(),
+                DataTypeMappings(),
                 false
             )
             runBlocking {
@@ -208,7 +286,7 @@ class JdbcDestinationTest {
                     }
                 )
                 val count = JdbcSource(
-                    provider,
+                    pool,
                     TestJdbcDialect(),
                     false
                 ).countDocuments("users")
@@ -218,12 +296,12 @@ class JdbcDestinationTest {
     }
 
     @Test
-    fun `close() closes provider only when configured`() {
-        TestJdbcProvider.create().use { provider ->
-            JdbcDestination(provider, TestJdbcDialect(), emptyMap(), false).close()
-            assertFalse(provider.closed)
-            JdbcDestination(provider, TestJdbcDialect(), emptyMap(), true).close()
-            assertTrue(provider.closed)
+    fun `close() closes pool only when configured`() {
+        TestJdbcPool.create().use { pool ->
+            JdbcDestination(pool, TestJdbcDialect(), DataTypeMappings(), false).close()
+            assertFalse(pool.closed)
+            JdbcDestination(pool, TestJdbcDialect(), DataTypeMappings(), true).close()
+            assertTrue(pool.closed)
         }
     }
 }

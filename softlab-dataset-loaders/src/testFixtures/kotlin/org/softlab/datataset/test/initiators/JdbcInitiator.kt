@@ -20,7 +20,6 @@ import liquibase.Liquibase
 import liquibase.database.DatabaseFactory
 import liquibase.database.jvm.JdbcConnection
 import liquibase.resource.ClassLoaderResourceAccessor
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
 import org.softlab.dataset.jdbc.JdbcDatasetLoader
 import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.postgresql.PostgreSQLContainer
@@ -35,24 +34,6 @@ fun createPostgresContainer(container: String = POSTGRES_CONTAINER): PostgreSQLC
     PostgreSQLContainer(DockerImageName.parse(container))
         // Workaround for Rancher Desktop on Mac, somehow postgres container is not ready while the tests start
         .waitingFor(Wait.forListeningPorts(5432))
-
-fun getProvider(initiator: JdbcInitiator): JdbcConnectionProvider = object : JdbcConnectionProvider {
-        var closedFlag = false
-
-        override fun openConnection() = initiator.getConnection()
-
-        override val closed get() = closedFlag
-
-        override fun close() {
-            closedFlag = true
-        }
-    }
-
-/**
- * Convenient method to work with a closable JDBC provider wrapper in tests
- */
-inline fun <T> withProvider(initiator: JdbcInitiator, block: (JdbcConnectionProvider) -> T): T =
-    getProvider(initiator).use(block)
 
 class JdbcInitiator(
     override val dbUrl: String,

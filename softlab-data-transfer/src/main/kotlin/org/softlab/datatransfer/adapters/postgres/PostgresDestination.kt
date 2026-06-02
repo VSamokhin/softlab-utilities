@@ -17,13 +17,14 @@
 package org.softlab.datatransfer.adapters.postgres
 
 import org.softlab.datatransfer.adapters.jdbc.JdbcDestination
+import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.config.DataTypeMappingsConfig
 
 
 class PostgresDestination(
     pool: PostgresConnectionPool,
     dialect: PostgresDialect,
-    dataTypeMappings: Map<String, String>,
+    dataTypeMappings: DataTypeMappings,
     closePool: Boolean
 ) : JdbcDestination(
     pool = pool,
@@ -43,4 +44,19 @@ class PostgresDestination(
         typeMappingsConfig: DataTypeMappingsConfig,
         closePool: Boolean = true
     ) : this(pool, PostgresDialect(), typeMappingsConfig.destination(dialect.backendName), closePool)
+
+    override fun castValue(type: String, value: Any?): Any? =
+        if (type.isBoolean()) {
+            when (value) {
+                is Byte -> value.toLong() != 0L
+                is Short -> value.toLong() != 0L
+                is Int -> value.toLong() != 0L
+                is Long -> value != 0L
+                else -> value
+            }
+        } else {
+            value
+        }
+
+    private fun String.isBoolean(): Boolean = this in setOf("boolean", "bool")
 }

@@ -17,13 +17,14 @@
 package org.softlab.datatransfer.adapters.sqlite
 
 import org.softlab.datatransfer.adapters.jdbc.JdbcDestination
+import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.config.DataTypeMappingsConfig
 
 
 class SqliteDestination(
     pool: SqliteConnectionPool,
     dialect: SqliteDialect,
-    dataTypeMappings: Map<String, String>,
+    dataTypeMappings: DataTypeMappings,
     closePool: Boolean
 ) : JdbcDestination(
     pool = pool,

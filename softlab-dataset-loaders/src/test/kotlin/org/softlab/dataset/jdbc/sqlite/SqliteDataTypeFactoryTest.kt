@@ -13,4 +13,11 @@ class SqliteDataTypeFactoryTest {
         assertSame(DataType.BLOB, cut.createDataType(Types.OTHER, "BloB"))
         assertSame(DataType.BOOLEAN, cut.createDataType(Types.OTHER, "BooLean"))
     }
+
+    @Test
+    fun `createDataType() falls back to default DBUnit type factory`() {
+        val cut = SqliteDataTypeFactory()
+
+        assertSame(DataType.INTEGER, cut.createDataType(Types.INTEGER, "integer"))
+    }
 }

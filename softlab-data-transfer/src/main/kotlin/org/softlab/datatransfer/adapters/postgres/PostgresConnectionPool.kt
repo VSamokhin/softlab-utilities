@@ -17,7 +17,7 @@
 package org.softlab.datatransfer.adapters.postgres
 
 import org.apache.commons.dbcp2.BasicDataSource
-import org.softlab.datatransfer.adapters.jdbc.JdbcConnectionPool
+import org.softlab.datatransfer.adapters.jdbc.BasicJdbcConnectionPool
 
 
 class PostgresConnectionPool(
@@ -26,7 +26,7 @@ class PostgresConnectionPool(
     password: String? = null,
     maxTotal: Int = 10,
     source: BasicDataSource = BasicDataSource()
-) : JdbcConnectionPool(
+) : BasicJdbcConnectionPool(
     jdbcUrl = jdbcUrl,
     driverClassName = "org.postgresql.Driver",
     username = username,

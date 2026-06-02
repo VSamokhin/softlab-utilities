@@ -22,9 +22,11 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.chunked
 import kotlinx.coroutines.launch
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
+import org.softlab.dataset.core.FieldDefinition
+import org.softlab.dataset.jdbc.JdbcConnectionPool
 import org.softlab.dataset.jdbc.withConnection
 import org.softlab.dataset.jdbc.withStatement
+import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
@@ -37,9 +39,9 @@ import kotlin.concurrent.atomics.plusAssign
 
 
 open class JdbcDestination(
-    private val pool: JdbcConnectionProvider,
+    private val pool: JdbcConnectionPool,
     private val dialect: JdbcDialect,
-    private val dataTypeMappings: Map<String, String>,
+    private val dataTypeMappings: DataTypeMappings,
     private val closePool: Boolean
 ) : DatabaseDestination {
     private val logger = KotlinLogging.logger {}
@@ -50,7 +52,7 @@ open class JdbcDestination(
         val tableName = dialect.parseTableName(metadata.name)
         logger.info { "Creating table '$tableName'" }
         val columnsDef = metadata.fields.joinToString(", ") {
-            "${it.name} ${mapType(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
+            "${it.name} ${dataTypeMappings.map(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
         }
         pool.withConnection { connection ->
             dialect.beforeCreateTable(tableName, connection)
@@ -73,22 +75,18 @@ open class JdbcDestination(
         }
     }
 
-    private fun mapType(type: String): String {
-        val normalizedType = type.lowercase()
-        return dataTypeMappings[normalizedType] ?: normalizedType
-    }
-
     @OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
     override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {
         val tableName = dialect.parseTableName(collectionName)
         logger.info { "Inserting documents into '$tableName'" }
 
-        val fields = pool.withConnection {
-            dialect.listColumns(tableName, it)
+        val fields = pool.withConnection { conn ->
+            dialect
+                .listColumns(tableName, conn)
+                .associateBy { it.name.lowercase() }
         }
-        val fieldsLowerCase = fields.map { it.name.lowercase() }
-        val columns = fields.map { it.name }.joinToString(", ") { it }
-        val placeholders = fields.joinToString(", ") { "?" }
+        val columns = fields.values.map { it.name }.joinToString(separator = ", ") { it }
+        val placeholders = fields.values.joinToString(separator = ", ") { "?" }
 
         val total = AtomicInt(0)
         val sql = "INSERT INTO $tableName ($columns) VALUES ($placeholders);"
@@ -96,7 +94,7 @@ open class JdbcDestination(
         coroutineScope {
             documents.chunked(BATCH_SIZE).collect { docs ->
                 val batch = launch {
-                    saveBatchAndReport(total, sql, docs, tableName.toString(), fieldsLowerCase)
+                    saveBatchAndReport(total, sql, docs, tableName.toString(), fields)
                 }
                 if (!dialect.supportsConcurrentInserts) batch.join()
             }
@@ -110,7 +108,7 @@ open class JdbcDestination(
         sql: String,
         docs: List<TransferDocument>,
         tableName: String,
-        fields: List<String>
+        fields: Map<String, FieldDefinition>
     ) {
         total += pool.withConnection {
             it.prepareStatement(sql).use { stmt ->
@@ -126,23 +124,26 @@ open class JdbcDestination(
         stmt: PreparedStatement,
         docs: List<TransferDocument>,
         tableName: String,
-        fields: List<String>
+        fields: Map<String, FieldDefinition>
     ): Int {
         for (doc in docs) {
             check(doc.keys.size <= fields.size) {
                 "Table '${tableName}' has less columns than row:\n" +
-                    "table=${fields.joinToString(", ") { it }}\n" +
+                    "table=${fields.values.joinToString(", ") { it.name }}\n" +
                     "row=${doc.keys.joinToString(", ") { it }}"
             }
             val values =
                 doc.entries.associate { it.key.lowercase() to it.value } // I don't really like this
-            fields.forEachIndexed { i, field ->
-                stmt.setObject(i + 1, values[field])
+            var i = 1
+            fields.forEach { field ->
+                stmt.setObject(i++, castValue(field.value.type, values[field.key]))
             }
             stmt.addBatch()
         }
         return stmt.executeBatch().size
     }
+
+    internal open fun castValue(type: String, value: Any?): Any? = value
 
     override fun close() {
         if (closePool) pool.close()

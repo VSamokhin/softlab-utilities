@@ -25,6 +25,7 @@ dependencies {
     }
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
 
+    testImplementation testFixtures(project(':softlab-dataset-loaders'))
     testImplementation 'com.jayway.jsonpath:json-path-assert:_'
 
     integrationTestImplementation project(':softlab-dataset-loaders')
@@ -68,5 +69,5 @@ startScripts {
 }
 
 jacocoTestCoverageVerification {
-    jacocoVerification(it, 0.88, 3)
+    jacocoVerification(it, 0.92, 3)
 }

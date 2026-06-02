@@ -17,9 +17,10 @@ import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.jdbc.withConnection
 import org.softlab.dataset.jdbc.withStatement
 import org.softlab.datataset.test.initiators.createPostgresContainer
+import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
 import org.softlab.datatransfer.config.ConfigProvider
+import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.core.CollectionMetadata
-import org.softlab.datatransfer.util.Postgres
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.sql.SQLException
@@ -93,14 +94,14 @@ class PostgresDestinationIT {
                 }
 
                 val columns = pool.withConnection {
-                    Postgres.readColumns("public", "users", it)
+                    PostgresDialect().listColumns(JdbcTableName("public", "users"), it)
                 }
 
                 assertThat(
                     columns, contains(
-                        FieldDefinition("id", "integer", false),
+                        FieldDefinition("id", "int4", false),
                         FieldDefinition("name", "text"),
-                        FieldDefinition("active", "boolean", false)
+                        FieldDefinition("active", "bool", false)
                     )
                 )
             }
@@ -132,7 +133,7 @@ class PostgresDestinationIT {
             PostgresDestination(
                 pool,
                 PostgresDialect(),
-                mapOf("custom_type" to "TEXT"),
+                DataTypeMappings(mapOf("custom_type" to "TEXT")),
                 false
             ).use { destination ->
                 runBlocking {
@@ -146,7 +147,7 @@ class PostgresDestinationIT {
             }
 
             val columns = pool.withConnection {
-                Postgres.readColumns("public", "users", it)
+                PostgresDialect().listColumns(JdbcTableName("public", "users"), it)
             }
             assertThat(columns, contains(FieldDefinition("notes", "text")))
         }
@@ -177,9 +178,14 @@ class PostgresDestinationIT {
                 }
             }
 
+            val dialect = PostgresDialect()
             pool.withConnection { conn ->
-                assertTrue(Postgres.tableExists("public", "no_columns", conn))
-                assertTrue(Postgres.readColumns("public", "no_columns", conn).isEmpty())
+                assertTrue(dialect.tableExists(
+                    JdbcTableName("public", "no_columns"), conn
+                ))
+                assertTrue(dialect.listColumns(
+                    JdbcTableName("public", "no_columns"), conn
+                ).isEmpty())
             }
         }
     }
@@ -199,7 +205,7 @@ class PostgresDestinationIT {
             }
 
             pool.withConnection { conn ->
-                assertTrue(Postgres.tableExists("custom", "users", conn))
+                assertTrue(PostgresDialect().tableExists(JdbcTableName("custom", "users"), conn))
             }
         }
     }
@@ -237,7 +243,7 @@ class PostgresDestinationIT {
                 }
 
                 pool.withConnection { conn ->
-                    assertFalse(Postgres.tableExists("public", "users", conn))
+                    assertFalse(PostgresDialect().tableExists(JdbcTableName("public", "users"), conn))
                 }
             }
         }
@@ -286,6 +292,47 @@ class PostgresDestinationIT {
                     assertTrue(rs.next())
                     assertEquals(2, rs.getInt("id"))
                     assertEquals("Bob", rs.getString("name"))
+                    assertEquals(false, rs.getBoolean("active"))
+
+                    assertFalse(rs.next())
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `insertDocuments() casts integer values to booleans for boolean columns`() {
+        withPool { pool ->
+            PostgresDestination(pool, dataTypeMappings, false).use { destination ->
+                runBlocking {
+                    destination.createCollection(
+                        CollectionMetadata(
+                            name = "public.users",
+                            fields = listOf(
+                                FieldDefinition("id", "int"),
+                                FieldDefinition("active", "boolean")
+                            )
+                        )
+                    )
+
+                    destination.insertDocuments(
+                        "public.users",
+                        flowOf(
+                            mapOf("id" to 1, "active" to 1),
+                            mapOf("id" to 2, "active" to 0)
+                        )
+                    )
+                }
+            }
+
+            pool.withStatement { stmt ->
+                stmt.executeQuery("SELECT id, active FROM public.users ORDER BY id;").use { rs ->
+                    assertTrue(rs.next())
+                    assertEquals(1, rs.getInt("id"))
+                    assertEquals(true, rs.getBoolean("active"))
+
+                    assertTrue(rs.next())
+                    assertEquals(2, rs.getInt("id"))
                     assertEquals(false, rs.getBoolean("active"))
 
                     assertFalse(rs.next())

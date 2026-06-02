@@ -17,14 +17,14 @@
 package org.softlab.datatransfer.adapters.sqlite
 
 import org.apache.commons.dbcp2.BasicDataSource
-import org.softlab.datatransfer.adapters.jdbc.JdbcConnectionPool
+import org.softlab.datatransfer.adapters.jdbc.BasicJdbcConnectionPool
 
 
 class SqliteConnectionPool(
     jdbcUrl: String,
     maxTotal: Int = 1,
     source: BasicDataSource = BasicDataSource()
-) : JdbcConnectionPool(
+) : BasicJdbcConnectionPool(
     jdbcUrl = jdbcUrl,
     driverClassName = "org.sqlite.JDBC",
     maxTotal = maxTotal,

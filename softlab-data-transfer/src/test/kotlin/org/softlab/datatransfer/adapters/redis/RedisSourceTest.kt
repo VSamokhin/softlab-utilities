@@ -18,6 +18,7 @@ import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.redis.RedisHashMapping
 import org.softlab.dataset.redis.RedisTableMapping
 import org.softlab.dataset.redis.RedisTableMappings
+import org.softlab.datatransfer.config.DataTypeMappings
 import java.util.concurrent.CompletableFuture
 import kotlin.test.assertEquals
 
@@ -44,7 +45,7 @@ class RedisSourceTest {
                         )
                     )
                 ),
-                dataTypeMappings = mapOf(),
+                dataTypeMappings = DataTypeMappings(),
                 closeClient = true
             )
         }
@@ -77,7 +78,7 @@ class RedisSourceTest {
                         )
                     )
                 ),
-                dataTypeMappings = mapOf(),
+                dataTypeMappings = DataTypeMappings(),
                 closeClient = true
             )
         }
@@ -119,7 +120,7 @@ class RedisSourceTest {
                         )
                     )
                 ),
-                dataTypeMappings = mapOf(),
+                dataTypeMappings = DataTypeMappings(),
                 closeClient = true
             )
         }
@@ -151,7 +152,7 @@ class RedisSourceTest {
                     )
                 )
             ),
-            dataTypeMappings = mapOf(),
+            dataTypeMappings = DataTypeMappings(),
             closeClient = true
         )
 
@@ -186,7 +187,7 @@ class RedisSourceTest {
                     )
                 )
             ),
-            dataTypeMappings = mapOf(),
+            dataTypeMappings = DataTypeMappings(),
             closeClient = true
         )
 
@@ -206,7 +207,7 @@ class RedisSourceTest {
         val cut = RedisSource(
             client = client,
             tableMappings = RedisTableMappings(),
-            dataTypeMappings = mapOf(),
+            dataTypeMappings = DataTypeMappings(),
             closeClient = true
         )
 

@@ -17,12 +17,12 @@
 package org.softlab.dataset.jdbc.sqlite
 
 import java.sql.Connection
+import java.sql.DatabaseMetaData
 
 
 fun Connection.sqliteAttach(dbFile: String, alias: String): Connection {
-    require(metaData.driverName == "SQLite JDBC") {
-        "Not an SQLite database connection: ${metaData.driverName}"
-    }
+    assertSqlite(metaData)
+
     createStatement().use { stmt ->
         stmt.execute("ATTACH DATABASE '${dbFile.replace("\\", "/")}' AS $alias;")
     }
@@ -33,9 +33,10 @@ fun Connection.sqliteAttach(dbFile: String, alias: String): Connection {
  * Return pairs of database alias — database source strings,
  * where the source can be null e.g. for in-memory databases
  */
-fun Connection.sqliteListDbs(): Map<String, String?> {
-    if (metaData.driverName != "SQLite JDBC") return emptyMap()
-    val dbs = linkedMapOf<String, String?>()
+fun Connection.sqliteListDbs(): Map<String, String> {
+    assertSqlite(metaData)
+
+    val dbs = linkedMapOf<String, String>()
     createStatement().use { stmt ->
         stmt.executeQuery("PRAGMA database_list;").use { rs ->
             while (rs.next()) {
@@ -44,4 +45,10 @@ fun Connection.sqliteListDbs(): Map<String, String?> {
         }
     }
     return dbs
+}
+
+private fun assertSqlite(metaData: DatabaseMetaData) {
+    require(metaData.driverName == "SQLite JDBC") {
+        "Not an SQLite database connection: ${metaData.driverName}"
+    }
 }

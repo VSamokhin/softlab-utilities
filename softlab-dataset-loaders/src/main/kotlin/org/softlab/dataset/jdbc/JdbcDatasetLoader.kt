@@ -56,7 +56,9 @@ class JdbcDatasetLoader(
     }
 
     fun compare(datasetPath: String, vararg ignoreCols: String) {
-        logger.info { "Checking expected dataset with DBRider: (ignoreCols=${ignoreCols.contentToString()}) $datasetPath" }
+        logger.info {
+            "Checking expected dataset with DBRider: (ignoreCols=${ignoreCols.contentToString()}) $datasetPath"
+        }
 
         val expectedDatasetConfig = DataSetConfig(datasetPath)
         executor.compareCurrentDataSetWith(expectedDatasetConfig, ignoreCols)

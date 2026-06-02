@@ -32,16 +32,19 @@ class SqliteMetadataHandler(
     override fun getColumns(databaseMetaData: DatabaseMetaData, schemaName: String?, tableName: String?): ResultSet =
         super.getColumns(databaseMetaData, sqliteSchema(schemaName), sqliteTable(tableName))
 
+    @Suppress("NestedBlockDepth")
     override fun getTables(
         metaData: DatabaseMetaData,
         schemaName: String?,
         tableTypes: Array<out String>?
     ): ResultSet {
         val connection = metaData.connection
-        val wantedTypes = tableTypes?.toSet()
 
         val rowSet = RowSetProvider.newFactory().createCachedRowSet()
         rowSet.setMetaData(tableMetadata())
+
+        val tableType = "TABLE"
+        if (tableType !in (tableTypes?.toSet() ?: setOf(tableType))) return rowSet
 
         connection.createStatement().use { stmt ->
             connection.sqliteListDbs()
@@ -60,22 +63,19 @@ class SqliteMetadataHandler(
                         """.trimIndent()
                     ).use { rs ->
                         while (rs.next()) {
-                            val tableType = "TABLE"
-                            if (wantedTypes == null || tableType in wantedTypes) {
-                                rowSet.moveToInsertRow()
-                                rowSet.updateString("TABLE_CAT", null)
-                                rowSet.updateString("TABLE_SCHEM", schema)
-                                rowSet.updateString("TABLE_NAME", rs.getString("tbl_name"))
-                                rowSet.updateString("TABLE_TYPE", tableType)
-                                rowSet.updateString("REMARKS", null)
-                                rowSet.updateString("TYPE_CAT", null)
-                                rowSet.updateString("TYPE_SCHEM", null)
-                                rowSet.updateString("TYPE_NAME", null)
-                                rowSet.updateString("SELF_REFERENCING_COL_NAME", null)
-                                rowSet.updateString("REF_GENERATION", null)
-                                rowSet.insertRow()
-                                rowSet.moveToCurrentRow()
-                            }
+                            rowSet.moveToInsertRow()
+                            rowSet.updateString("TABLE_CAT", null)
+                            rowSet.updateString("TABLE_SCHEM", schema)
+                            rowSet.updateString("TABLE_NAME", rs.getString("tbl_name"))
+                            rowSet.updateString("TABLE_TYPE", tableType)
+                            rowSet.updateString("REMARKS", null)
+                            rowSet.updateString("TYPE_CAT", null)
+                            rowSet.updateString("TYPE_SCHEM", null)
+                            rowSet.updateString("TYPE_NAME", null)
+                            rowSet.updateString("SELF_REFERENCING_COL_NAME", null)
+                            rowSet.updateString("REF_GENERATION", null)
+                            rowSet.insertRow()
+                            rowSet.moveToCurrentRow()
                         }
                     }
                 }
@@ -100,6 +100,7 @@ class SqliteMetadataHandler(
         return false
     }
 
+    @Suppress("MagicNumber")
     private fun tableMetadata(): RowSetMetaData {
         return RowSetMetaDataImpl().apply {
             columnCount = 10
@@ -128,7 +129,11 @@ class SqliteMetadataHandler(
         return "\"" + identifier.replace("\"", "\"\"") + "\""
     }
 
-    override fun getPrimaryKeys(databaseMetaData: DatabaseMetaData, schemaName: String?, tableName: String?): ResultSet =
+    override fun getPrimaryKeys(
+        databaseMetaData: DatabaseMetaData,
+        schemaName: String?,
+        tableName: String?
+    ): ResultSet =
         super.getPrimaryKeys(databaseMetaData, sqliteSchema(schemaName), sqliteTable(tableName))
 
     override fun getSchema(resultSet: ResultSet): String = schemaAlias

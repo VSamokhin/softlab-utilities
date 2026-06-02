@@ -8,6 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.nio.file.Files
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 
@@ -19,15 +20,23 @@ class ConfigLoaderTest {
     @Test
     fun `load() reads default resource config`() {
         val mappings = ConfigLoader().load(ConfigProvider.CONFIG_FILE_NAME).getDataTypeMappings()
-        assertEquals("INTEGER", mappings.destination("postgres")["int"])
-        assertEquals("INTEGER", mappings.destination("postgres")["integer"])
-        assertEquals("INTEGER", mappings.destination("sqlite")["int"])
-        assertEquals("TEXT", mappings.destination("sqlite")["string"])
-        assertEquals("string", mappings.destination("mongo")["text"])
-        assertEquals("short", mappings.source("redis")["int16"])
-        assertEquals("timestamp", mappings.source("redis")["timestamptz"])
-        assertEquals("timestamp", mappings.source("redis")["timestamp"])
-        assertEquals("uuid", mappings.source("redis")["uuid"])
+        assertEquals("INTEGER", mappings.destination("postgres").map("int"))
+        assertEquals("DECIMAL", mappings.destination("postgres").map("decimal"))
+        assertEquals("INTEGER", mappings.destination("sqlite").map("long"))
+        assertEquals("INTEGER", mappings.destination("sqlite").map("bool"))
+        assertEquals("TEXT", mappings.destination("sqlite").map("string"))
+        assertEquals("string", mappings.destination("mongo").map("text"))
+        assertEquals("int", mappings.source("redis").map("integer"))
+        assertEquals("long", mappings.source("redis").map("bigint"))
+        assertEquals("float", mappings.source("redis").map("real"))
+        assertEquals("bool", mappings.source("redis").map("boolean"))
+        assertEquals("timestamp", mappings.source("redis").map("timestamp"))
+        assertEquals("bytearray", mappings.source("redis").map("bytea"))
+        assertEquals("string", mappings.source("redis").map("text"))
+        assertEquals("uuid", mappings.source("redis").map("uuid"))
+        assertEquals("short", mappings.source("redis").map("smallint"))
+        assertFalse("object" in mappings.destination("sqlite"))
+        assertFalse("array" in mappings.destination("postgres"))
     }
 
     @ParameterizedTest
@@ -54,9 +63,9 @@ class ConfigLoaderTest {
             System.setProperty("user.dir", tempDir.toString())
 
             val mappings = ConfigLoader().load(fileName).getDataTypeMappings()
-            assertEquals("NUMERIC", mappings.destination("postgres")["int"])
-            assertEquals("text", mappings.destination("mongo")["string"])
-            assertEquals("number", mappings.source("redis")["int"])
+            assertEquals("NUMERIC", mappings.destination("postgres").map("int"))
+            assertEquals("text", mappings.destination("mongo").map("string"))
+            assertEquals("number", mappings.source("redis").map("int"))
         } finally {
             System.setProperty("user.dir", prevUserDir)
             tempDir.toFile().deleteRecursively()
@@ -93,7 +102,7 @@ class ConfigLoaderTest {
             val exc = assertThrows<IllegalStateException> {
                 ConfigLoader().load(fileName).getDataTypeMappings()
             }
-            assertThat(exc.message, containsString("'int'"))
+            assertThat(exc.message, containsString("int"))
         } finally {
             System.setProperty("user.dir", prevUserDir)
             tempDir.toFile().deleteRecursively()
@@ -103,12 +112,12 @@ class ConfigLoaderTest {
     @Test
     fun `destination() is case-insensitive`() {
         val mappings = ConfigLoader().load(ConfigProvider.CONFIG_FILE_NAME).getDataTypeMappings()
-        assertTrue(mappings.destination("PoStGrEs").containsKey("int"))
+        assertTrue("int" in mappings.destination("PoStGrEs"))
     }
 
     @Test
     fun `source() is case-insensitive`() {
         val mappings = ConfigLoader().load(ConfigProvider.CONFIG_FILE_NAME).getDataTypeMappings()
-        assertTrue(mappings.source("ReDiS").containsKey("int"))
+        assertTrue("int" in mappings.source("ReDiS"))
     }
 }

@@ -27,6 +27,7 @@ import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.redis.RedisHashMapping
 import org.softlab.dataset.redis.RedisMappingTemplate
 import org.softlab.dataset.redis.RedisTableMapping
+import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.TransferDocument
@@ -46,7 +47,7 @@ import kotlin.uuid.ExperimentalUuidApi
 class RedisDocumentCollection(
     private val table: RedisTableMapping,
     private val commands: RedisAsyncCommands<String, String>,
-    private val dataTypeMappings: Map<String, String>
+    private val dataTypeMappings: DataTypeMappings
 ) : DocumentCollection {
     private val metadata: CollectionMetadata by lazy {
         CollectionMetadata(table.table, table.fields)
@@ -189,8 +190,7 @@ class RedisDocumentCollection(
 
     @OptIn(ExperimentalUuidApi::class)
     private fun convertValue(value: String, field: FieldDefinition): Any {
-        val mappedType = dataTypeMappings[field.type.lowercase()] ?: field.type.lowercase()
-        return when (mappedType) {
+        return when (val mappedType = dataTypeMappings.map(field.type)) {
             "short" -> value.toShort()
             "int" -> value.toInt()
             "long" -> value.toLong()

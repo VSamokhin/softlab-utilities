@@ -20,8 +20,11 @@ import java.sql.Connection
 import java.sql.Statement
 
 
-interface JdbcConnectionProvider : AutoCloseable {
+fun interface JdbcConnectionProvider {
     fun openConnection(): Connection
+}
+
+interface JdbcConnectionPool : JdbcConnectionProvider, AutoCloseable {
     val closed: Boolean
 }
 

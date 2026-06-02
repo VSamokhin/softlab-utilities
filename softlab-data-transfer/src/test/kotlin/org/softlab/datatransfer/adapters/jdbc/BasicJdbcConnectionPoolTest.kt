@@ -13,7 +13,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 
-class JdbcConnectionPoolTest {
+class BasicJdbcConnectionPoolTest {
     @Test
     fun `openConnection() returns connection from data source`() {
         val conn = mockk<Connection>()
@@ -21,7 +21,7 @@ class JdbcConnectionPoolTest {
             every { connection } returns conn
         }
 
-        val result = JdbcConnectionPool("", "", source = dataSource).openConnection()
+        val result = BasicJdbcConnectionPool("", "", source = dataSource).openConnection()
 
         assertSame(conn, result)
         verify(exactly = 1) { dataSource.connection }
@@ -32,7 +32,7 @@ class JdbcConnectionPoolTest {
         val dataSource = mockk<BasicDataSource>(relaxed = true) {
             every { isClosed } returns false andThen true
         }
-        val pool = JdbcConnectionPool("", "", source = dataSource)
+        val pool = BasicJdbcConnectionPool("", "", source = dataSource)
 
         assertFalse(pool.closed)
         assertTrue(pool.closed)
@@ -45,7 +45,7 @@ class JdbcConnectionPoolTest {
             every { close() } just Runs
         }
 
-        JdbcConnectionPool("", "", source = dataSource).close()
+        BasicJdbcConnectionPool("", "", source = dataSource).close()
 
         verify(exactly = 1) { dataSource.close() }
     }

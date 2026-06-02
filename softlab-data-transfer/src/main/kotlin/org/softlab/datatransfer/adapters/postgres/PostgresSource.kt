@@ -16,11 +16,11 @@
 
 package org.softlab.datatransfer.adapters.postgres
 
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
+import org.softlab.dataset.jdbc.JdbcConnectionPool
 import org.softlab.datatransfer.adapters.jdbc.JdbcSource
 
 
 class PostgresSource(
-    pool: JdbcConnectionProvider,
+    pool: JdbcConnectionPool,
     closePool: Boolean = true
 ) : JdbcSource(pool, PostgresDialect(), closePool)

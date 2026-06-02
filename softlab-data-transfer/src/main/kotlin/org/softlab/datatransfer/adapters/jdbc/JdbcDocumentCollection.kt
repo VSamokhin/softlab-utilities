@@ -19,7 +19,7 @@ package org.softlab.datatransfer.adapters.jdbc
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
+import org.softlab.dataset.jdbc.JdbcConnectionPool
 import org.softlab.dataset.jdbc.withConnection
 import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
@@ -29,7 +29,7 @@ import org.softlab.datatransfer.core.TransferDocument
 
 open class JdbcDocumentCollection(
     private val tableName: JdbcTableName,
-    private val pool: JdbcConnectionProvider,
+    private val pool: JdbcConnectionPool,
     private val dialect: JdbcDialect
 ) : DocumentCollection {
     private val logger = KotlinLogging.logger {}
@@ -57,10 +57,11 @@ open class JdbcDocumentCollection(
                     val columns = Array(rs.metaData.columnCount) {
                         rs.metaData.getColumnName(it + 1)
                     }
+                    val fields = metadata.fields.associateBy { it.name.lowercase() }
                     while (rs.next()) {
                         val row = mutableMapOf<String, Any?>()
                         columns.forEachIndexed { i, c ->
-                            row[c] = rs.getObject(i + 1)
+                            row[c] = rs.getTypedObject(i + 1, fields[c.lowercase()]!!.type)
                         }
                         emit(row)
                     }
@@ -69,4 +70,7 @@ open class JdbcDocumentCollection(
             connection.autoCommit = commit
         }
     }
+
+    protected open fun java.sql.ResultSet.getTypedObject(columnIndex: Int, type: String): Any? =
+        getObject(columnIndex)
 }

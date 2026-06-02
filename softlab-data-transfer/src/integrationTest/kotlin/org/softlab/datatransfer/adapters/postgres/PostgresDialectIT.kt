@@ -74,7 +74,7 @@ class PostgresDialectIT {
             )
             assertThat(
                 fields.map { it.type },
-                containsInAnyOrder("integer", "character varying", "character varying")
+                containsInAnyOrder("int4", "varchar", "varchar")
             )
         }
     }

@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.dbunit.database.DatabaseConfig
 import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.hasItem
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.assertDoesNotThrow
@@ -49,7 +50,6 @@ class MainIT {
 
     data class DestinationEndpoint(
         val options: Map<String, String> = emptyMap(),
-        val collectionName: String = COLLECTION_NAME,
         val prepare: () -> String
     )
 
@@ -226,7 +226,6 @@ class MainIT {
                     }
                 ),
                 destination = DestinationEndpoint(
-                    collectionName = SQLITE_COLLECTION_NAME,
                     prepare = {
                         val destination = Files
                             .createTempFile("data-transfer-main-target", ".db")
@@ -297,7 +296,8 @@ class MainIT {
                 destinationSource.listCollections().toList()
                     .map { it.fetchMetadata().name }
             }
-            assertThat(targetCollections, hasItem(destination.collectionName))
+            val expectedCollection = source.collectionName.substringAfter(".")
+            assertThat(targetCollections, hasItem(containsString(expectedCollection)))
 
             val targetCount = runBlocking { destinationSource.countDocuments(source.collectionName) }
             assertEquals(EXPECTED_RECORDS, targetCount)

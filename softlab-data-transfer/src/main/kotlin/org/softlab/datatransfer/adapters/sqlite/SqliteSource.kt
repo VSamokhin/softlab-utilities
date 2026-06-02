@@ -16,12 +16,16 @@
 
 package org.softlab.datatransfer.adapters.sqlite
 
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
+import org.softlab.dataset.jdbc.JdbcConnectionPool
 import org.softlab.datatransfer.adapters.jdbc.JdbcSource
 
 
 class SqliteSource(
-    pool: JdbcConnectionProvider,
+    pool: JdbcConnectionPool,
     closePool: Boolean = true
-) : JdbcSource(pool, SqliteDialect(), closePool)
-
+) : JdbcSource(
+    pool = pool,
+    dialect = SqliteDialect(),
+    closePool = closePool,
+    collectionFactory = { tableName, provider, dialect -> SqliteDocumentCollection(tableName, provider, dialect) }
+)

@@ -16,10 +16,8 @@
 
 package org.softlab.datatransfer.adapters.postgres
 
-import org.softlab.dataset.core.FieldDefinition
 import org.softlab.datatransfer.adapters.jdbc.JdbcDialect
 import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
-import org.softlab.datatransfer.util.Postgres
 import java.sql.Connection
 
 
@@ -31,12 +29,6 @@ class PostgresDialect : JdbcDialect(
         schema = tableName.substringBefore(".", "public"),
         table = tableName.substringAfter(".")
     )
-
-    override fun listColumns(tableName: JdbcTableName, connection: Connection): List<FieldDefinition> =
-        Postgres.readColumns(tableName.schema!!, tableName.table, connection)
-
-    override fun tableExists(tableName: JdbcTableName, connection: Connection): Boolean =
-        Postgres.tableExists(tableName.schema!!, tableName.table, connection)
 
     override fun beforeCreateTable(tableName: JdbcTableName, connection: Connection) {
         connection.createStatement().use { stmt ->
