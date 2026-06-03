@@ -48,9 +48,9 @@ class JdbcDestinationTest {
                 JdbcDestination(pool, dialect, DataTypeMappings(mapOf("string" to "TEXT")), false).createCollection(
                     CollectionMetadata(
                         "users",
-                        listOf(
-                            FieldDefinition("id", "int", false),
-                            FieldDefinition("name", "string", true)
+                        mapOf(
+                            "id" to FieldDefinition("id", "int", false),
+                            "name" to FieldDefinition("name", "string", true)
                         )
                     )
                 )
@@ -59,9 +59,8 @@ class JdbcDestinationTest {
             pool.withConnection { connection ->
                 assertTrue(dialect.tableExists(JdbcTableName(null, "users"), connection))
                 val columns = dialect.listColumns(JdbcTableName(null, "users"), connection)
-                assertContentEquals(listOf("int", "text"), columns.map { it.type })
-                assertFalse(columns.first { it.name == "id" }.nullable)
-                assertTrue(columns.first { it.name == "name" }.nullable)
+                assertContentEquals(listOf("INT", "TEXT"), columns.map { it.value.type })
+                assertContentEquals(listOf(false, true), columns.map { it.value.nullable })
             }
             assertContentEquals(
                 listOf(JdbcTableName(null, "users")), dialect.beforeCreateTableCalls
@@ -75,7 +74,7 @@ class JdbcDestinationTest {
             val destination = JdbcDestination(pool, TestJdbcDialect(), DataTypeMappings(), false)
             val metadata = CollectionMetadata(
                 "users",
-                listOf(FieldDefinition("id", "int"))
+                mapOf("id" to FieldDefinition("id", "int"))
             )
 
             runBlocking { destination.createCollection(metadata) }
@@ -95,7 +94,7 @@ class JdbcDestinationTest {
                 destination.createCollection(
                     CollectionMetadata(
                         "users",
-                        listOf(FieldDefinition("id", "int")))
+                        mapOf("id" to FieldDefinition("id", "int")))
                 )
                 destination.dropCollection("users")
             }
@@ -124,9 +123,9 @@ class JdbcDestinationTest {
                 destination.createCollection(
                     CollectionMetadata(
                         "users",
-                        listOf(
-                            FieldDefinition("id", "int"),
-                            FieldDefinition("name", "string", true)
+                        mapOf(
+                            "id" to FieldDefinition("id", "int"),
+                            "name" to FieldDefinition("name", "string", true)
                         )
                     )
                 )
@@ -167,9 +166,9 @@ class JdbcDestinationTest {
                 destination.createCollection(
                     CollectionMetadata(
                         "users",
-                        listOf(
-                            FieldDefinition("id", "int"),
-                            FieldDefinition("name", "string", true)
+                        mapOf(
+                            "id" to FieldDefinition("id", "int"),
+                            "name" to FieldDefinition("name", "string", true)
                         )
                     )
                 )
@@ -199,10 +198,10 @@ class JdbcDestinationTest {
         val dialect = object : JdbcDialect("jdbc-test", supportsConcurrentInserts = false) {
             override fun parseTableName(tableName: String): JdbcTableName = JdbcTableName(null, tableName)
 
-            override fun listColumns(tableName: JdbcTableName, connection: Connection): List<FieldDefinition> =
-                listOf(
-                    FieldDefinition("id", "integer"),
-                    FieldDefinition("active", "boolean")
+            override fun listColumns(tableName: JdbcTableName, connection: Connection): Map<String, FieldDefinition> =
+                mapOf(
+                    "id" to FieldDefinition("id", "integer"),
+                    "active" to FieldDefinition("active", "boolean")
                 )
         }
         every { connection.prepareStatement(any()) } returns statement
@@ -240,7 +239,7 @@ class JdbcDestinationTest {
                 destination.createCollection(
                     CollectionMetadata(
                         "users",
-                        listOf(FieldDefinition("id", "int"))
+                        mapOf("id" to FieldDefinition("id", "int"))
                     )
                 )
             }
@@ -275,7 +274,7 @@ class JdbcDestinationTest {
                 destination.createCollection(
                     CollectionMetadata(
                         "users",
-                        listOf(FieldDefinition("id", "int"))
+                        mapOf("id" to FieldDefinition("id", "int"))
                     )
                 )
 

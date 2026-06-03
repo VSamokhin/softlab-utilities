@@ -50,11 +50,10 @@ class RedisDocumentCollection(
     private val dataTypeMappings: DataTypeMappings
 ) : DocumentCollection {
     private val metadata: CollectionMetadata by lazy {
-        CollectionMetadata(table.table, table.fields)
-    }
-
-    private val fieldNames: Set<String> by lazy {
-        metadata.fields.mapTo(linkedSetOf()) { it.name }
+        CollectionMetadata(
+            table.table,
+            table.fields.associateBy { it.name.lowercase() }
+        )
     }
 
     override suspend fun fetchMetadata(): CollectionMetadata = metadata
@@ -178,12 +177,12 @@ class RedisDocumentCollection(
     }
 
     private fun toDocument(row: Map<String, String>): TransferDocument {
-        val unexpectedFields = row.keys - fieldNames
+        val unexpectedFields = row.keys - metadata.fields.keys
         check(unexpectedFields.isEmpty()) {
             "Redis source mapping for table '${table.table}' yielded fields not declared in schema: " +
                 unexpectedFields.joinToString(", ")
         }
-        return metadata.fields.associate { field ->
+        return metadata.fields.values.associate { field ->
             field.name to row[field.name]?.let { convertValue(it, field) }
         }
     }

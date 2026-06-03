@@ -32,10 +32,10 @@ class JdbcDialectTest {
 
             val columns = TestJdbcDialect().listColumns(JdbcTableName(null, "users"), connection)
 
-            assertThat(columns.map { it.name }, contains("id", "name"))
-            assertThat(columns.map { it.type }, contains("integer", "text"))
-            assertFalse(columns.first { it.name == "id" }.nullable)
-            assertTrue(columns.first { it.name == "name" }.nullable)
+            assertThat(columns.keys, contains("id", "name"))
+            assertThat(columns.map { it.value.name }, contains("id", "name"))
+            assertThat(columns.map { it.value.type }, contains("INTEGER", "TEXT"))
+            assertThat(columns.map { it.value.nullable }, contains(false, true))
         }
     }
 

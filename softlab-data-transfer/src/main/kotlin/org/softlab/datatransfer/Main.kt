@@ -58,7 +58,6 @@ class Main : CliktCommand() {
         val parsedSourceOptions = KeyValues.parse(sourceOptions)
         val parsedDestOptions = KeyValues.parse(destOptions)
 
-
         AdapterProvider.sourceFor(source, parsedSourceOptions).use { sourceAdapter ->
             AdapterProvider.destinationFor(dest, parsedDestOptions).use { destAdapter ->
                 val timer = StopWatch().start()

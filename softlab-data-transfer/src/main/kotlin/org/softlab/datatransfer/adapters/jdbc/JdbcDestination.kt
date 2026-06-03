@@ -51,7 +51,7 @@ open class JdbcDestination(
     override suspend fun createCollection(metadata: CollectionMetadata) {
         val tableName = dialect.parseTableName(metadata.name)
         logger.info { "Creating table '$tableName'" }
-        val columnsDef = metadata.fields.joinToString(", ") {
+        val columnsDef = metadata.fields.values.joinToString(", ") {
             "${it.name} ${dataTypeMappings.map(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
         }
         pool.withConnection { connection ->
@@ -80,11 +80,7 @@ open class JdbcDestination(
         val tableName = dialect.parseTableName(collectionName)
         logger.info { "Inserting documents into '$tableName'" }
 
-        val fields = pool.withConnection { conn ->
-            dialect
-                .listColumns(tableName, conn)
-                .associateBy { it.name.lowercase() }
-        }
+        val fields = pool.withConnection { dialect.listColumns(tableName, it) }
         val columns = fields.values.map { it.name }.joinToString(separator = ", ") { it }
         val placeholders = fields.values.joinToString(separator = ", ") { "?" }
 

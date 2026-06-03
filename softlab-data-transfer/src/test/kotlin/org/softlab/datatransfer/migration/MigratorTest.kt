@@ -27,9 +27,9 @@ class MigratorTest {
     fun `migrate() copies data from source to destination`() {
         val testMetadata = CollectionMetadata(
             name = "users",
-            fields = listOf(
-                FieldDefinition("id", "string"),
-                FieldDefinition("name", "string")
+            fields = mapOf(
+                "id" to FieldDefinition("id", "string"),
+                "name" to FieldDefinition("name", "string")
             )
         )
 
@@ -77,11 +77,11 @@ class MigratorTest {
     fun `migrate() filters collections by source name prefixes`() {
         val includedMetadata = CollectionMetadata(
             name = "users_active",
-            fields = listOf(FieldDefinition("id", "string"))
+            fields = mapOf("id" to FieldDefinition("id", "string"))
         )
         val skippedMetadata = CollectionMetadata(
             name = "orders",
-            fields = listOf(FieldDefinition("id", "string"))
+            fields = mapOf("id" to FieldDefinition("id", "string"))
         )
         val includedDocuments = flowOf(mapOf("id" to "1"))
 
@@ -163,7 +163,7 @@ class MigratorTest {
     private fun testCollection(name: String) = object : DocumentCollection {
         override suspend fun fetchMetadata() = CollectionMetadata(
             name = name,
-            fields = listOf(FieldDefinition("id", "string"))
+            fields = mapOf("id" to FieldDefinition("id", "string"))
         )
 
         override fun readDocuments() = flowOf(mapOf("id" to name))
@@ -173,7 +173,7 @@ class MigratorTest {
     fun `migrate() handles large datasets efficiently`() {
         val testMetadata = CollectionMetadata(
             name = "public.large_table",
-            fields = listOf(FieldDefinition("id", "string"))
+            fields = mapOf("id" to FieldDefinition("id", "string"))
         )
 
         // Generate a large number of test documents

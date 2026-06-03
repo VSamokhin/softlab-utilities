@@ -70,7 +70,7 @@ class MongoDocumentCollection(
                 }
             }
 
-        CollectionMetadata(collectionName, types.values)
+        CollectionMetadata(collectionName, types)
     }
 
     override suspend fun fetchMetadata(): CollectionMetadata = metadata

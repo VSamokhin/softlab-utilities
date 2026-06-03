@@ -60,7 +60,7 @@ class ConfigLoader {
     private fun toSourceLookup(targetMappings: Map<String, List<String>>): DataTypeMappings {
         val result = mutableMapOf<String, String>()
         targetMappings.forEach { (targetType, sourceTypes) ->
-            mapSourceType(result, targetType.lowercase(), targetType)
+            mapSourceType(result, targetType, targetType)
             sourceTypes.forEach { sourceType ->
                 mapSourceType(result, sourceType.lowercase(), targetType)
             }

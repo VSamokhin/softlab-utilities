@@ -39,7 +39,7 @@ class SqliteDestinationIT {
             SqliteDestination(pool, dataTypeMappings).use { destination ->
                 runBlocking {
                     destination.createCollection(
-                        CollectionMetadata("users", listOf(FieldDefinition("id", "int")))
+                        CollectionMetadata("users", mapOf("id" to FieldDefinition("id", "int")))
                     )
                 }
             }
@@ -55,11 +55,11 @@ class SqliteDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "users",
-                            fields = listOf(
-                                FieldDefinition("id", "int", false),
-                                FieldDefinition("name", "string"),
-                                FieldDefinition("active", "boolean", false),
-                                FieldDefinition("payload", "blob")
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int", false),
+                                "name" to FieldDefinition("name", "string"),
+                                "active" to FieldDefinition("active", "boolean", false),
+                                "payload" to FieldDefinition("payload", "blob")
                             )
                         )
                     )
@@ -71,13 +71,12 @@ class SqliteDestinationIT {
                 dialect.listColumns(dialect.parseTableName("users"), it)
             }
 
-            assertThat(
-                columns,
+            assertThat(columns.values,
                 contains(
-                    FieldDefinition("id", "integer", false),
-                    FieldDefinition("name", "text"),
-                    FieldDefinition("active", "integer", false),
-                    FieldDefinition("payload", "blob")
+                    FieldDefinition("id", "INT8", false),
+                    FieldDefinition("name", "TEXT"),
+                    FieldDefinition("active", "INT8", false),
+                    FieldDefinition("payload", "BLOB")
                 )
             )
         }
@@ -87,7 +86,7 @@ class SqliteDestinationIT {
     fun `createCollection() throws when table already exists`() {
         withPool { pool ->
             SqliteDestination(pool, dataTypeMappings, false).use { destination ->
-                val metadata = CollectionMetadata("users", listOf(FieldDefinition("id", "int")))
+                val metadata = CollectionMetadata("users", mapOf("id" to FieldDefinition("id", "int")))
 
                 runBlocking {
                     destination.createCollection(metadata)
@@ -109,9 +108,9 @@ class SqliteDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "users",
-                            fields = listOf(
-                                FieldDefinition("id", "int"),
-                                FieldDefinition("name", "string")
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int"),
+                                "name" to FieldDefinition("name", "string")
                             )
                         )
                     )
@@ -151,10 +150,10 @@ class SqliteDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "users",
-                            fields = listOf(
-                                FieldDefinition("id", "int"),
-                                FieldDefinition("name", "string"),
-                                FieldDefinition("active", "boolean")
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int"),
+                                "name" to FieldDefinition("name", "string"),
+                                "active" to FieldDefinition("active", "boolean")
                             )
                         )
                     )
@@ -193,7 +192,7 @@ class SqliteDestinationIT {
             SqliteDestination(pool, dataTypeMappings, false).use { destination ->
                 runBlocking {
                     destination.createCollection(
-                        CollectionMetadata("users", listOf(FieldDefinition("id", "int")))
+                        CollectionMetadata("users", mapOf("id" to FieldDefinition("id", "int")))
                     )
 
                     val exc = assertThrows<IllegalStateException> {

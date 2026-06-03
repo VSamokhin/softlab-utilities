@@ -3,6 +3,7 @@ package org.softlab.datatransfer.adapters.postgres
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.contains
 import org.hamcrest.Matchers.containsInAnyOrder
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -90,17 +91,17 @@ class PostgresSourceIT {
             val usersCollection = collections.first { runBlocking { it.fetchMetadata() }.name == "schema1.users" }
             val usersMetadata = runBlocking { usersCollection.fetchMetadata() }
             assertThat(
-                usersMetadata.fields.map { it.name }.toList(),
-                containsInAnyOrder("user_id", "name", "email")
+                usersMetadata.fields.keys,
+                contains("user_id", "name", "email")
             )
             assertThat(
-                usersMetadata.fields.map { it.type }.toList(),
+                usersMetadata.fields.map { it.value.type },
                 containsInAnyOrder("int4", "varchar", "varchar")
             )
 
             val productsCollection = collections.first { runBlocking { it.fetchMetadata() }.name == "schema2.products" }
             assertThat(
-                runBlocking { productsCollection.fetchMetadata() }.fields.map { it.name }.toSet(),
+                runBlocking { productsCollection.fetchMetadata() }.fields.keys,
                 containsInAnyOrder("product_id", "title")
             )
         }

@@ -67,7 +67,7 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(FieldDefinition("id", "int"))
+                            fields = mapOf("id" to FieldDefinition("id", "int"))
                         )
                     )
                 }
@@ -84,10 +84,10 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(
-                                FieldDefinition("id", "int", false),
-                                FieldDefinition("name", "string"),
-                                FieldDefinition("active", "boolean", false)
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int", false),
+                                "name" to FieldDefinition("name", "string"),
+                                "active" to FieldDefinition("active", "boolean", false)
                             )
                         )
                     )
@@ -97,8 +97,7 @@ class PostgresDestinationIT {
                     PostgresDialect().listColumns(JdbcTableName("public", "users"), it)
                 }
 
-                assertThat(
-                    columns, contains(
+                assertThat(columns.values, contains(
                         FieldDefinition("id", "int4", false),
                         FieldDefinition("name", "text"),
                         FieldDefinition("active", "bool", false)
@@ -113,7 +112,7 @@ class PostgresDestinationIT {
         PostgresDestination(getPool(), dataTypeMappings).use { destination ->
             val metadata = CollectionMetadata(
                 name = "public.users",
-                fields = listOf(FieldDefinition("id", "int"))
+                fields = mapOf("id" to FieldDefinition("id", "int"))
             )
 
             runBlocking {
@@ -140,7 +139,7 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(FieldDefinition("notes", "custom_type"))
+                            fields = mapOf("notes" to FieldDefinition("notes", "custom_type"))
                         )
                     )
                 }
@@ -149,7 +148,7 @@ class PostgresDestinationIT {
             val columns = pool.withConnection {
                 PostgresDialect().listColumns(JdbcTableName("public", "users"), it)
             }
-            assertThat(columns, contains(FieldDefinition("notes", "text")))
+            assertThat(columns.values, contains(FieldDefinition("notes", "text")))
         }
     }
 
@@ -157,7 +156,7 @@ class PostgresDestinationIT {
     fun `createCollection() causes postgres to throw for unknow field type`() {
         PostgresDestination(getPool(), dataTypeMappings).use { destination ->
             val col = CollectionMetadata("public.users",
-                listOf(FieldDefinition("notes", "custom"))
+                mapOf("notes" to FieldDefinition("notes", "custom"))
             )
 
             val exc = assertThrows<PSQLException> {
@@ -173,7 +172,7 @@ class PostgresDestinationIT {
             PostgresDestination(pool, dataTypeMappings, false).use { destination ->
                 runBlocking {
                     destination.createCollection(
-                        CollectionMetadata("public.no_columns", emptyList())
+                        CollectionMetadata("public.no_columns", emptyMap())
                     )
                 }
             }
@@ -198,14 +197,16 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "custom.users",
-                            fields = listOf(FieldDefinition("id", "int"))
+                            fields = mapOf("id" to FieldDefinition("id", "int"))
                         )
                     )
                 }
             }
 
             pool.withConnection { conn ->
-                assertTrue(PostgresDialect().tableExists(JdbcTableName("custom", "users"), conn))
+                assertTrue(PostgresDialect().tableExists(
+                    JdbcTableName("custom", "users"), conn)
+                )
             }
         }
     }
@@ -225,9 +226,9 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(
-                                FieldDefinition("id", "int"),
-                                FieldDefinition("name", "string")
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int"),
+                                "name" to FieldDefinition("name", "string")
                             )
                         )
                     )
@@ -264,10 +265,10 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(
-                                FieldDefinition("id", "int"),
-                                FieldDefinition("name", "string"),
-                                FieldDefinition("active", "boolean")
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int"),
+                                "name" to FieldDefinition("name", "string"),
+                                "active" to FieldDefinition("active", "boolean")
                             )
                         )
                     )
@@ -308,9 +309,9 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(
-                                FieldDefinition("id", "int"),
-                                FieldDefinition("active", "boolean")
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int"),
+                                "active" to FieldDefinition("active", "boolean")
                             )
                         )
                     )
@@ -349,10 +350,10 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(
-                                FieldDefinition("id", "int", false),
-                                FieldDefinition("name", "string", true),
-                                FieldDefinition("active", "boolean", true)
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int", false),
+                                "name" to FieldDefinition("name", "string", true),
+                                "active" to FieldDefinition("active", "boolean", true)
                             )
                         )
                     )
@@ -387,7 +388,7 @@ class PostgresDestinationIT {
                 destination.createCollection(
                     CollectionMetadata(
                         name = "public.users",
-                        fields = listOf(FieldDefinition("id", "int"))
+                        fields = mapOf("id" to FieldDefinition("id", "int"))
                     )
                 )
 

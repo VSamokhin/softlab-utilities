@@ -17,6 +17,7 @@
 package org.softlab.datatransfer.migration
 
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -38,7 +39,7 @@ class Migrator(
     }
 
     suspend fun migrate(source: DatabaseSource, destination: DatabaseDestination) = withContext(dispatcher) {
-        val tasks = mutableListOf<kotlinx.coroutines.Deferred<Unit>>()
+        val tasks = mutableListOf<Deferred<Unit>>()
         source.listCollections().collect { collection ->
             tasks += async {
                 migrateCollection(collection, destination)

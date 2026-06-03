@@ -26,35 +26,37 @@ abstract class JdbcDialect(
 ) {
     abstract fun parseTableName(tableName: String): JdbcTableName
 
-    open fun listTables(connection: Connection): Sequence<JdbcTableName> = sequence {
-        connection.metaData.getTables(null, null, "%", arrayOf("TABLE")).use { rs ->
-            while (rs.next()) {
-                yield(
-                    JdbcTableName(
-                        schema = rs.getString("TABLE_SCHEM"),
-                        table = rs.getString("TABLE_NAME")
-                    )
-                )
+    open fun listTables(connection: Connection): List<JdbcTableName> {
+        val results = mutableListOf<JdbcTableName>()
+        connection.metaData
+            .getTables(null, null, "%", arrayOf("TABLE")).use { rs ->
+                while (rs.next()) {
+                    results +=
+                        JdbcTableName(
+                            schema = rs.getString("TABLE_SCHEM"),
+                            table = rs.getString("TABLE_NAME")
+                        )
+                }
             }
-        }
+        return results
     }
 
-    open fun listColumns(tableName: JdbcTableName, connection: Connection): List<FieldDefinition> {
+    open fun listColumns(tableName: JdbcTableName, connection: Connection): Map<String, FieldDefinition> {
+        val results = mutableMapOf<String, FieldDefinition>()
         connection.metaData
             .getColumns(null, tableName.schema, tableName.table, "%")
             .use { rs ->
-                val result = mutableListOf<FieldDefinition>()
                 while (rs.next()) {
-                    result.add(
-                        FieldDefinition(
-                            rs.getString("COLUMN_NAME"),
-                            rs.getString("TYPE_NAME").lowercase(),
-                            rs.getInt("NULLABLE") != java.sql.DatabaseMetaData.columnNoNulls
+                    val columnName = rs.getString("COLUMN_NAME")
+                    results +=
+                        columnName.lowercase() to FieldDefinition(
+                            name = columnName,
+                            type = rs.getString("TYPE_NAME"),
+                            nullable = rs.getInt("NULLABLE") != java.sql.DatabaseMetaData.columnNoNulls
                         )
-                    )
                 }
-                return result
             }
+        return results
     }
 
     open fun tableExists(tableName: JdbcTableName, connection: Connection): Boolean =

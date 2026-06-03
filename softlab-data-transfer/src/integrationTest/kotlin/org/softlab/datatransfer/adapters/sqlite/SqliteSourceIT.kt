@@ -58,7 +58,7 @@ class SqliteSourceIT {
 
             val usersCollection = collections.first { runBlocking { it.fetchMetadata() }.name == "users" }
             assertThat(
-                runBlocking { usersCollection.fetchMetadata() }.fields.map { it.name }.toList(),
+                runBlocking { usersCollection.fetchMetadata() }.fields.keys,
                 contains("id", "name", "email")
             )
         }

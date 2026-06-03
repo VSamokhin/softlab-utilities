@@ -16,15 +16,29 @@
 
 package org.softlab.dataset.redis
 
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.deser.std.StdDeserializer
+import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import org.softlab.dataset.core.FileLoader
 
 
+/**
+ * Read redis mappings from file, all values will be converted to lower case
+ */
 object RedisMappingsLoader {
-    private val yamlMapper: ObjectMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
+    private val yamlMapper: ObjectMapper = ObjectMapper(YAMLFactory())
+        .registerModule(SimpleModule().addDeserializer(String::class.java,
+            object: StdDeserializer<String>(String::class.java) {
+                override fun deserialize(p: JsonParser, ctxt: DeserializationContext): String? {
+                    return p.text?.lowercase()
+                }
+            }
+        )).registerKotlinModule()
 
     fun load(pathOrResource: String): RedisTableMappings {
         val content = FileLoader.readText(pathOrResource)

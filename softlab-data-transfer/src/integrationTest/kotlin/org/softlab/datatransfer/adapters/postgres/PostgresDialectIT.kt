@@ -1,7 +1,7 @@
 package org.softlab.datatransfer.adapters.postgres
 
 import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.containsInAnyOrder
+import org.hamcrest.Matchers.contains
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
@@ -69,12 +69,12 @@ class PostgresDialectIT {
                 .listColumns(JdbcTableName("schema1", "users"), connection)
 
             assertThat(
-                fields.map { it.name },
-                containsInAnyOrder("user_id", "name", "email")
+                fields.keys,
+                contains("user_id", "name", "email")
             )
             assertThat(
-                fields.map { it.type },
-                containsInAnyOrder("int4", "varchar", "varchar")
+                fields.map { it.value.type },
+                contains("int4", "varchar", "varchar")
             )
         }
     }

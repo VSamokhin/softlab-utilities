@@ -24,11 +24,16 @@ import org.softlab.dataset.core.FieldDefinition
  * Represents metadata for a collection (table)
  */
 data class CollectionMetadata(
+    /**
+     * Collection name
+     */
     val name: String,
     /**
-     * Can be an empty list if schema is not known
+     * Field name (in lower case!) to field definition mappings.
+     *
+     * Can be an empty list if schema is not known.
      */
-    val fields: Collection<FieldDefinition>
+    val fields: Map<String, FieldDefinition>
 )
 
 /**

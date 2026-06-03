@@ -50,7 +50,7 @@ class RedisDestinationTest {
             runBlocking {
                 cut.createCollection(
                     CollectionMetadata(
-                        "users", listOf(FieldDefinition("id", "integer"))
+                        "users", mapOf("id" to FieldDefinition("id", "integer"))
                     )
                 )
             }

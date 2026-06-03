@@ -92,12 +92,12 @@ class MongoDestination(
     }
 
     private fun buildValidator(metadata: CollectionMetadata): Document {
-        val properties = metadata.fields.associate { field ->
+        val properties = metadata.fields.values.associate { field ->
             field.name to Document(mapOf(
                 "bsonType" to bsonTypeFor(field.type, field.nullable)
             ))
         }
-        val required = metadata.fields
+        val required = metadata.fields.values
             .filterNot { it.nullable }
             .map { it.name }
         val jsonSchema = Document(mapOf(

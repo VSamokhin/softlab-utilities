@@ -35,11 +35,10 @@ open class JdbcSource(
     override fun getBackendName(): String = dialect.backendName
 
     override fun listCollections(): Flow<DocumentCollection> = flow {
-        pool.withConnection { connection ->
-            dialect.listTables(connection).forEach { table ->
+        pool.withConnection { dialect.listTables(it) }
+            .forEach { table ->
                 emit(collectionFactory(table, pool, dialect))
             }
-        }
     }
 
     override suspend fun countDocuments(collectionName: String): Long {

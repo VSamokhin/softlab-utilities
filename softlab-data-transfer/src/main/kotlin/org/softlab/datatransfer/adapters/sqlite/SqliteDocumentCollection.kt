@@ -34,8 +34,8 @@ class SqliteDocumentCollection(
 ) {
     override fun ResultSet.getTypedObject(columnIndex: Int, type: String): Any? =
         when (type.lowercase()) {
-            "bigint", "int8", "long", "int64" -> getLong(columnIndex).takeUnless { wasNull() }
-            "boolean", "bool", "bit" -> getBoolean(columnIndex).takeUnless { wasNull() }
+            "bigint", "int8", "long", "int64" -> getLong(columnIndex)
+            "boolean", "bool", "bit" -> getBoolean(columnIndex)
             else -> getObject(columnIndex)
         }
 }

@@ -3,6 +3,7 @@ package org.softlab.datatransfer.adapters.mongo
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.contains
 import org.hamcrest.Matchers.containsInAnyOrder
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -77,14 +78,14 @@ class MongoSourceIT {
 
             val usersCollection = collections.first { it.fetchMetadata().name == "schema1.users" }
             assertThat(
-                usersCollection.fetchMetadata().fields.map { it.name }.toList(),
-                containsInAnyOrder("user_id", "name", "email")
+                usersCollection.fetchMetadata().fields.keys,
+                contains("user_id", "name", "email")
             )
 
             val productsCollection = collections.first { it.fetchMetadata().name == "schema2.products" }
             assertThat(
-                productsCollection.fetchMetadata().fields.map { it.name }.toSet(),
-                containsInAnyOrder("product_id", "title")
+                productsCollection.fetchMetadata().fields.keys,
+                contains("product_id", "title")
             )
         }
     }

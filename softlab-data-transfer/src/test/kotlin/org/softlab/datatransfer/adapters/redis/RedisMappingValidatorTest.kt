@@ -68,7 +68,7 @@ class RedisMappingValidatorTest {
                     hashes = listOf(RedisHashMapping(key = "users:\${missing}")),
                     sets = listOf(RedisSetMapping(key = "users:\${missing}", member = "\${missing}"))
                 ),
-                CollectionMetadata("users", emptyList())
+                CollectionMetadata("users", emptyMap())
             )
         }
     }
@@ -193,10 +193,10 @@ class RedisMappingValidatorTest {
     private fun usersMetadata(): CollectionMetadata =
         CollectionMetadata(
             "users",
-            listOf(
-                FieldDefinition("id", "integer"),
-                FieldDefinition("name", "text"),
-                FieldDefinition("status", "text")
+            mapOf(
+                "id" to FieldDefinition("id", "integer"),
+                "name" to FieldDefinition("name", "text"),
+                "status" to FieldDefinition("status", "text")
             )
         )
 }

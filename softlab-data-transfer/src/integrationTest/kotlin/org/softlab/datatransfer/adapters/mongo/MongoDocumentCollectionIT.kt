@@ -4,7 +4,6 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.bson.Document
 import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.containsInAnyOrder
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.collection.IsIterableContainingInOrder.contains
 import org.junit.jupiter.api.AfterAll
@@ -16,6 +15,7 @@ import org.softlab.datataset.test.initiators.MongoInitiator
 import org.softlab.datataset.test.initiators.createMongoContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 
@@ -55,12 +55,12 @@ class MongoDocumentCollectionIT {
 
         val cutUsers = MongoDocumentCollection("schema1.users", mongoInitiator.getConnection())
         val users = runBlocking { cutUsers.readDocuments().toList() }
-        assertThat(users.map { it["name"] }, containsInAnyOrder("Alice", "Bob"))
-        assertThat(users.map { it["email"] }, containsInAnyOrder("alice@example.com", "bob@example.com"))
+        assertThat(users.map { it["name"] }, contains("Alice", "Bob"))
+        assertThat(users.map { it["email"] }, contains("alice@example.com", "bob@example.com"))
 
         val cutProducts = MongoDocumentCollection("schema2.products", mongoInitiator.getConnection())
         val products = runBlocking { cutProducts.readDocuments().toList() }
-        assertThat(products.map { it["title"] }, containsInAnyOrder("Gizmo"))
+        assertThat(products.map { it["title"] }, contains("Gizmo"))
     }
 
     @Test
@@ -78,16 +78,20 @@ class MongoDocumentCollectionIT {
 
         val cut = MongoDocumentCollection("schema1.users", mongoInitiator.getConnection())
 
-        runBlocking {
-            assertThat(
-                cut.fetchMetadata().fields.map { it.name },
-                contains("user_id", "name", "email")
-            )
-            assertThat(
-                cut.fetchMetadata().fields.map { it.type },
-                contains("long", "string", "string")
-            )
-        }
+        val metadata = runBlocking { cut.fetchMetadata() }
+        assertThat(
+            metadata.fields.keys,
+            contains("user_id", "name", "email")
+        )
+        assertThat(
+            metadata.fields.map { it.value.name },
+            contains("user_id", "name", "email")
+        )
+        assertThat(
+            metadata.fields.map { it.value.type },
+            contains("long", "string", "string")
+        )
+        assertEquals(metadata, runBlocking { cut.fetchMetadata() })
     }
 
     @Test
@@ -103,11 +107,11 @@ class MongoDocumentCollectionIT {
         val cut = MongoDocumentCollection("no_validator", mongoInitiator.getConnection())
 
         assertThat(
-            cut.fetchMetadata().fields.map { it.name },
+            cut.fetchMetadata().fields.keys,
             contains("_id", "some_id", "some_field") // Only the first document is sampled
         )
         assertThat(
-            cut.fetchMetadata().fields.map { it.type },
+            cut.fetchMetadata().fields.map { it.value.type },
             contains("string", "double", "string")
         )
     }

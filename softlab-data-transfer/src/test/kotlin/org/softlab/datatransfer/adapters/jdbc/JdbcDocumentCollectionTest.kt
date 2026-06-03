@@ -34,7 +34,7 @@ class JdbcDocumentCollectionTest {
             }
 
             assertEquals("users", metadata.name)
-            assertThat(metadata.fields.map { it.name }, contains("id", "name"))
+            assertThat(metadata.fields.keys, contains("id", "name"))
         }
     }
 

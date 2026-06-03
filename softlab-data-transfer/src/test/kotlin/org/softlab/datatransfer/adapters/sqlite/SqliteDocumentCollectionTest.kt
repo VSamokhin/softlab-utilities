@@ -29,7 +29,7 @@ class SqliteDocumentCollectionTest {
                 ).readDocuments().toList().single()
             }
 
-            assertEquals(1, document["id"])
+            assertEquals(1L, document["id"])
             assertIs<Long>(document["amount"])
             assertEquals(1234567890123L, document["amount"])
             assertIs<Boolean>(document["active"])

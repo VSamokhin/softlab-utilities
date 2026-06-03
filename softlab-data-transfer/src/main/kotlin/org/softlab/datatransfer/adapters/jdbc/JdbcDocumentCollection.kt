@@ -25,6 +25,7 @@ import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.TransferDocument
+import java.sql.ResultSet
 
 
 open class JdbcDocumentCollection(
@@ -55,13 +56,12 @@ open class JdbcDocumentCollection(
                 stmt.fetchSize = BATCH_SIZE
                 stmt.executeQuery().use { rs ->
                     val columns = Array(rs.metaData.columnCount) {
-                        rs.metaData.getColumnName(it + 1)
+                        rs.metaData.getColumnName(it + 1).lowercase()
                     }
-                    val fields = metadata.fields.associateBy { it.name.lowercase() }
                     while (rs.next()) {
                         val row = mutableMapOf<String, Any?>()
                         columns.forEachIndexed { i, c ->
-                            row[c] = rs.getTypedObject(i + 1, fields[c.lowercase()]!!.type)
+                            row[c] = rs.getTypedObject(i + 1, metadata.fields[c]!!.type)
                         }
                         emit(row)
                     }
@@ -71,6 +71,6 @@ open class JdbcDocumentCollection(
         }
     }
 
-    protected open fun java.sql.ResultSet.getTypedObject(columnIndex: Int, type: String): Any? =
+    protected open fun ResultSet.getTypedObject(columnIndex: Int, type: String): Any? =
         getObject(columnIndex)
 }
