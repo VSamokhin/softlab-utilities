@@ -1,6 +1,6 @@
 tables:
 
-  - table: "data.empty_table"
+  - table: "empty_table"
     fields:
     - name: "some_id"
       type: "integer"
@@ -9,14 +9,14 @@ tables:
       type: "bytea"
       nullable: false
     hashes:
-    - key: "data.empty_table:${some_id}"
+    - key: "empty_table:${some_id}"
       field: null
       value: null
     sets:
-    - key: "data.empty_table"
+    - key: "empty_table"
       member: "${some_id}"
 
-  - table: "data.table_with_data"
+  - table: "table_with_data"
     fields:
     - name: "some_bytea"
       type: "bytea"
@@ -28,14 +28,14 @@ tables:
       type: "integer"
       nullable: false
     hashes:
-    - key: "data.table_with_data:${auto_id}"
+    - key: "table_with_data:${auto_id}"
       field: null
       value: null
     sets:
-    - key: "data.table_with_data"
+    - key: "table_with_data"
       member: "${auto_id}"
 
-  - table: "data.various_datatypes"
+  - table: "various_datatypes"
     fields:
     - name: "some_integer_id"
       type: "integer"
@@ -68,14 +68,14 @@ tables:
       type: "text"
       nullable: true
     hashes:
-    - key: "data.various_datatypes:${some_integer_id}"
+    - key: "various_datatypes:${some_integer_id}"
       field: null
       value: null
     sets:
-    - key: "data.various_datatypes"
+    - key: "various_datatypes"
       member: "${some_integer_id}"
 
-  - table: "data.version_info"
+  - table: "version_info"
     fields:
     - name: "key"
       type: "character varying"
@@ -84,9 +84,9 @@ tables:
       type: "character varying"
       nullable: false
     hashes:
-    - key: "data.version_info:${key}"
+    - key: "version_info:${key}"
       field: null
       value: null
     sets:
-    - key: "data.version_info"
+    - key: "version_info"
       member: "${key}"

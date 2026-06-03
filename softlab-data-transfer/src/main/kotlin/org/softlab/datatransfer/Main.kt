@@ -20,10 +20,12 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.help
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.types.int
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -37,6 +39,8 @@ import org.softlab.datatransfer.util.StopWatch
 
 class Main : CliktCommand() {
     private val logger = KotlinLogging.logger {}
+
+    private val defaultThreads: Int = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
 
     private val source by argument()
         .help("Source DB connection string (URL)")
@@ -52,11 +56,19 @@ class Main : CliktCommand() {
         .help("Additional source adapter options as comma-separated key=value pairs")
     private val destOptions by option()
         .help("Additional destination adapter options as comma-separated key=value pairs")
+    private val threads by option()
+        .help("Set count of worker threads for migration (default: $defaultThreads)")
+        .int()
+        .default(defaultThreads)
 
     override fun run() {
         val sourceNameFilter = StringTokenFilter.from(sourceFilter)
-        val parsedSourceOptions = KeyValues.parse(sourceOptions)
-        val parsedDestOptions = KeyValues.parse(destOptions)
+        val parsedSourceOptions = KeyValues.parse(sourceOptions).apply {
+            put(AdapterProvider.THREADS_HINT, threads.toString())
+        }
+        val parsedDestOptions = KeyValues.parse(destOptions).apply {
+            put(AdapterProvider.THREADS_HINT, threads.toString())
+        }
 
         AdapterProvider.sourceFor(source, parsedSourceOptions).use { sourceAdapter ->
             AdapterProvider.destinationFor(dest, parsedDestOptions).use { destAdapter ->
@@ -70,7 +82,8 @@ class Main : CliktCommand() {
                             .collect { destAdapter.dropCollection(it) }
                     }
                     logger.info { "Now migrate data" }
-                    Migrator(sourceFilter = sourceNameFilter).migrate(sourceAdapter, destAdapter)
+                    Migrator(sourceNameFilter,threads)
+                        .migrate(sourceAdapter, destAdapter)
                 }
                 logger.info { "Job done in ${timer.stopAndGetTimeStr()}" }
             }

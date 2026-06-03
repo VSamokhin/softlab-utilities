@@ -36,16 +36,23 @@ import org.softlab.datatransfer.util.Sqlite
 
 
 object AdapterProvider {
+    const val THREADS_HINT = "threads"
     private const val MAPPING_OPTION = "mapping"
 
     private val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
 
     fun sourceFor(uri: String, options: Map<String, String> = emptyMap()): DatabaseSource = when {
         Postgres.isPostgresUri(uri) -> PostgresSource(
-            pool = PostgresConnectionPool(uri)
+            pool = PostgresConnectionPool(
+                jdbcUrl = uri,
+                maxTotal = requireThreadsHint(options)
+            )
         )
         Sqlite.isSqliteUri(uri) -> SqliteSource(
-            pool = SqliteConnectionPool(uri)
+            pool = SqliteConnectionPool(
+                jdbcUrl = uri,
+                maxTotal = requireThreadsHint(options)
+            )
         )
         Mongo.isMongoUri(uri) -> MongoSource(
             uri = uri
@@ -60,7 +67,10 @@ object AdapterProvider {
     fun destinationFor(uri: String, options: Map<String, String> = emptyMap()): DatabaseDestination {
         return when {
             Postgres.isPostgresUri(uri) -> PostgresDestination(
-                pool = PostgresConnectionPool(uri),
+                pool = PostgresConnectionPool(
+                    jdbcUrl = uri,
+                    maxTotal = requireThreadsHint(options)
+                ),
                 typeMappingsConfig = dataTypeMappings
             )
             Sqlite.isSqliteUri(uri) -> SqliteDestination(
@@ -83,4 +93,7 @@ object AdapterProvider {
         checkNotNull(options[MAPPING_OPTION]) {
             "Redis adapter for '$uri' requires additional option '$MAPPING_OPTION'"
         }
+
+    private fun requireThreadsHint(options: Map<String, String>): Int =
+        checkNotNull(options[THREADS_HINT]).toInt()
 }

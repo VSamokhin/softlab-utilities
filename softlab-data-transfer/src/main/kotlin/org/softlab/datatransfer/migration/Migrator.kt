@@ -30,7 +30,7 @@ import org.softlab.datatransfer.core.StringTokenFilter
 
 class Migrator(
     private val sourceFilter: StringTokenFilter = StringTokenFilter.from(emptyList()),
-    workerThreads: Int = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+    workerThreads: Int = 1
 ) {
     private val dispatcher: CoroutineDispatcher
     init {
