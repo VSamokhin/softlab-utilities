@@ -21,7 +21,7 @@ class BasicJdbcConnectionPoolTest {
             every { connection } returns conn
         }
 
-        val result = BasicJdbcConnectionPool("", "", source = dataSource).openConnection()
+        val result = BasicJdbcConnectionPool("", "", dataSource = dataSource).openConnection()
 
         assertSame(conn, result)
         verify(exactly = 1) { dataSource.connection }
@@ -32,7 +32,7 @@ class BasicJdbcConnectionPoolTest {
         val dataSource = mockk<BasicDataSource>(relaxed = true) {
             every { isClosed } returns false andThen true
         }
-        val pool = BasicJdbcConnectionPool("", "", source = dataSource)
+        val pool = BasicJdbcConnectionPool("", "", dataSource = dataSource)
 
         assertFalse(pool.closed)
         assertTrue(pool.closed)
@@ -45,7 +45,7 @@ class BasicJdbcConnectionPoolTest {
             every { close() } just Runs
         }
 
-        BasicJdbcConnectionPool("", "", source = dataSource).close()
+        BasicJdbcConnectionPool("", "", dataSource = dataSource).close()
 
         verify(exactly = 1) { dataSource.close() }
     }

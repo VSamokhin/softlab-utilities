@@ -28,7 +28,7 @@ class SqliteConnectionPool(
     jdbcUrl = jdbcUrl,
     driverClassName = "org.sqlite.JDBC",
     maxTotal = maxTotal,
-    source = source
+    dataSource = source
 ) {
     init {
         // Let's speed up writing

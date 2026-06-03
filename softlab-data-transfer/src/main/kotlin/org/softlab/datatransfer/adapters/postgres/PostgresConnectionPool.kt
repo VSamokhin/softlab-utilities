@@ -32,6 +32,6 @@ class PostgresConnectionPool(
     username = username,
     password = password,
     maxTotal = maxTotal,
-    source = source
+    dataSource = source
 )
 

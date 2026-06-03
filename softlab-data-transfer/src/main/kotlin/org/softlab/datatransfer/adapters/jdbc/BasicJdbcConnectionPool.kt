@@ -27,15 +27,17 @@ open class BasicJdbcConnectionPool(
     username: String? = null,
     password: String? = null,
     maxTotal: Int = 10,
-    source: BasicDataSource = BasicDataSource()
+    protected val dataSource: BasicDataSource = BasicDataSource()
 ) : JdbcConnectionPool {
 
-    private val dataSource: BasicDataSource = source.apply {
-        this.driverClassName = driverClassName
-        this.url = jdbcUrl
-        this.username = username
-        this.password = password
-        this.maxTotal = maxTotal
+    init {
+        dataSource.apply {
+            this.driverClassName = driverClassName
+            this.url = jdbcUrl
+            this.username = username
+            this.password = password
+            this.maxTotal = maxTotal
+        }
     }
 
     override fun openConnection(): Connection = dataSource.connection

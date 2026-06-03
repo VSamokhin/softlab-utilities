@@ -37,7 +37,7 @@ import org.softlab.datatransfer.util.Sqlite
 
 object AdapterProvider {
     const val THREADS_HINT = "threads"
-    private const val MAPPING_OPTION = "mapping"
+    const val REDIS_SOURCE_MAPPING = "mapping"
 
     private val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
 
@@ -90,8 +90,8 @@ object AdapterProvider {
     }
 
     private fun requireRedisMappings(uri: String, options: Map<String, String>): String =
-        checkNotNull(options[MAPPING_OPTION]) {
-            "Redis adapter for '$uri' requires additional option '$MAPPING_OPTION'"
+        checkNotNull(options[REDIS_SOURCE_MAPPING]) {
+            "Redis adapter for '$uri' requires additional option '$REDIS_SOURCE_MAPPING'"
         }
 
     private fun requireThreadsHint(options: Map<String, String>): Int =
