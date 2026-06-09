@@ -45,13 +45,13 @@ object AdapterProvider {
         Postgres.isPostgresUri(uri) -> PostgresSource(
             pool = PostgresConnectionPool(
                 jdbcUrl = uri,
-                maxTotal = requireThreadsHint(options)
+                maxTotal = requireThreadsHint(uri, options)
             )
         )
         Sqlite.isSqliteUri(uri) -> SqliteSource(
             pool = SqliteConnectionPool(
                 jdbcUrl = uri,
-                maxTotal = requireThreadsHint(options)
+                maxTotal = requireThreadsHint(uri, options)
             )
         )
         Mongo.isMongoUri(uri) -> MongoSource(
@@ -69,7 +69,7 @@ object AdapterProvider {
             Postgres.isPostgresUri(uri) -> PostgresDestination(
                 pool = PostgresConnectionPool(
                     jdbcUrl = uri,
-                    maxTotal = requireThreadsHint(options)
+                    maxTotal = requireThreadsHint(uri, options)
                 ),
                 typeMappingsConfig = dataTypeMappings
             )
@@ -94,6 +94,8 @@ object AdapterProvider {
             "Redis adapter for '$uri' requires additional option '$REDIS_SOURCE_MAPPING'"
         }
 
-    private fun requireThreadsHint(options: Map<String, String>): Int =
-        checkNotNull(options[THREADS_HINT]).toInt()
+    private fun requireThreadsHint(uri: String, options: Map<String, String>): Int =
+        checkNotNull(options[THREADS_HINT]) {
+            "Adapter for '$uri' requires additional option '$THREADS_HINT'"
+        }.toInt()
 }

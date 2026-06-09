@@ -66,6 +66,7 @@ class MainIT {
         private const val SQLITE_CHANGELOG = "liquibase/changelog-various_datatypes-sqlite.yaml"
         private const val DATASET = "datasets/various_datatypes.yml"
         private const val REDIS_MAPPING = "mappings/MainIT-various_datatypes.yml"
+        private val THREADS_OPTION = mapOf("threads" to "1")
 
         @Container
         @JvmStatic
@@ -123,6 +124,7 @@ class MainIT {
             return AdapterEndpoints(
                 name = "postgres",
                 source = SourceEndpoint(
+                    options = THREADS_OPTION,
                     prepare = {
                         withJdbcInitiator(sourceDbUrl) {
                             cleanup { connection ->
@@ -137,6 +139,7 @@ class MainIT {
                     }
                 ),
                 destination = DestinationEndpoint(
+                    options = THREADS_OPTION,
                     prepare = {
                         withJdbcInitiator(destinationDbUrl) {
                             cleanup { connection ->
@@ -211,6 +214,7 @@ class MainIT {
             return AdapterEndpoints(
                 name = "sqlite",
                 source = SourceEndpoint(
+                    options = THREADS_OPTION,
                     collectionName = SQLITE_COLLECTION_NAME,
                     prepare = {
                         val source = Files
@@ -226,6 +230,7 @@ class MainIT {
                     }
                 ),
                 destination = DestinationEndpoint(
+                    options = THREADS_OPTION,
                     prepare = {
                         val destination = Files
                             .createTempFile("data-transfer-main-target", ".db")
