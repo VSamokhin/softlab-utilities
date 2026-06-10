@@ -26,6 +26,7 @@ import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.config.DataTypeMappingsConfig
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.DocumentCollection
+import org.softlab.datatransfer.util.Redis.scanKeys
 
 
 class RedisSource(

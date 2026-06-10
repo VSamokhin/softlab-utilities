@@ -31,6 +31,7 @@ import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.TransferDocument
+import org.softlab.datatransfer.util.Redis.scanKeys
 import java.sql.Date
 import java.sql.Time
 import java.sql.Timestamp

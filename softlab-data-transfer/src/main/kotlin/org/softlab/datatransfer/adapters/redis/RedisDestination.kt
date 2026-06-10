@@ -37,6 +37,7 @@ import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.REPORT_ON_INSERTS
 import org.softlab.datatransfer.core.TransferDocument
+import org.softlab.datatransfer.util.Redis.scanKeys
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.plusAssign
@@ -84,7 +85,7 @@ class RedisDestination(
             table.sets.forEach { add(RedisMappingTemplate.of(it.key ?: table.table).toGlob()) }
         }.forEach { key ->
             commands.scanKeys(key).collect { keys ->
-                if (keys.isNotEmpty()) futures += commands.del(*keys.toTypedArray())
+                if (keys.isNotEmpty()) futures += commands.unlink(*keys.toTypedArray())
             }
         }
         futures.forEach { it.await() }

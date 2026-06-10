@@ -63,19 +63,23 @@ class RedisDestinationTest {
 
     @Test
     fun `dropCollection() deletes all mapped keys`() {
-        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
         val hashPage = scanCursor(listOf("users:1", "users:2"), finished = true)
         val setPage = scanCursor(listOf("users"), finished = true)
-        every { commands.scan(any<ScanArgs>()) } returnsMany listOf(
-            completedRedisFuture(hashPage),
-            completedRedisFuture(setPage)
-        )
-        every { commands.del("users:1", "users:2") } returns completedRedisFuture(2L)
-        every { commands.del("users") } returns completedRedisFuture(1L)
-        val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.async() } returns commands
-        val client = mockk<RedisClient>(relaxed = true)
-        every { client.connect() } returns connection
+        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true) {
+            every { scan(any<ScanArgs>()) } returnsMany listOf(
+                completedRedisFuture(hashPage),
+                completedRedisFuture(setPage)
+            )
+            every { unlink("users:1", "users:2") } returns completedRedisFuture(2L)
+            every { unlink("users") } returns completedRedisFuture(1L)
+        }
+
+        val connection = mockk<StatefulRedisConnection<String, String>> {
+            every { async() } returns commands
+        }
+        val client = mockk<RedisClient>(relaxed = true) {
+            every { connect() } returns connection
+        }
 
         val cut = RedisDestination(
             client = client,
@@ -93,8 +97,8 @@ class RedisDestinationTest {
 
         runBlocking { cut.dropCollection("users") }
 
-        verify(exactly = 1) { commands.del("users:1", "users:2") }
-        verify(exactly = 1) { commands.del("users") }
+        verify(exactly = 1) { commands.unlink("users:1", "users:2") }
+        verify(exactly = 1) { commands.unlink("users") }
     }
 
     @Test
