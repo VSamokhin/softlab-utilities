@@ -18,6 +18,7 @@ package org.softlab.datatransfer.adapters.jdbc
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.chunked
@@ -30,9 +31,12 @@ import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
+import org.softlab.datatransfer.core.MAX_PENDING_ROWS
 import org.softlab.datatransfer.core.REPORT_ON_INSERTS
 import org.softlab.datatransfer.core.TransferDocument
+import org.softlab.datatransfer.util.reduce
 import java.sql.PreparedStatement
+import java.util.LinkedList
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.plusAssign
@@ -85,6 +89,7 @@ open class JdbcDestination(
         val placeholders = fields.values.joinToString(separator = ", ") { "?" }
 
         val total = AtomicInt(0)
+        val jobs = LinkedList<Job>()
         val sql = "INSERT INTO $tableName ($columns) VALUES ($placeholders);"
         logger.trace { "Insert SQL: $sql" }
         coroutineScope {
@@ -92,7 +97,12 @@ open class JdbcDestination(
                 val batch = launch {
                     saveBatchAndReport(total, sql, docs, tableName.toString(), fields)
                 }
-                if (!dialect.supportsConcurrentInserts) batch.join()
+                if (!dialect.supportsConcurrentInserts) {
+                    batch.join()
+                } else {
+                    jobs += batch
+                    jobs.reduce(MAX_PENDING_ROWS / BATCH_SIZE)
+                }
             }
         }
         logger.info { "Total of $total rows inserted into '$tableName'" }
