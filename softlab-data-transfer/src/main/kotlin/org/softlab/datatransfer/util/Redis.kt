@@ -16,7 +16,32 @@
 
 package org.softlab.datatransfer.util
 
+import io.lettuce.core.ScanArgs
+import io.lettuce.core.api.async.RedisAsyncCommands
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.future.await
+
 
 object Redis {
+    const val KEYS_SCAN_SIZE = 2000L
+
+    fun RedisAsyncCommands<String, String>.scanKeys(
+        pattern: String,
+        scanCount: Long = KEYS_SCAN_SIZE
+    ): Flow<List<String>> = flow {
+        val scanArgs = ScanArgs().match(pattern).limit(scanCount)
+        var cursor = this@scanKeys.scan(scanArgs).await()
+        while (true) {
+            if (cursor.keys.isNotEmpty()) {
+                emit(cursor.keys)
+            }
+            if (cursor.isFinished) {
+                break
+            }
+            cursor = this@scanKeys.scan(cursor, scanArgs).await()
+        }
+    }
+
     fun isRedisUri(uri: String): Boolean = uri.startsWith("redis")
 }

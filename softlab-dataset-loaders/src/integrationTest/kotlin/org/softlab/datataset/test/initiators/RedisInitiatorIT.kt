@@ -35,18 +35,20 @@ class RedisInitiatorIT {
         RedisInitiator(redisContainer.redisURI, MAPPING).use { cut ->
             cut.cleanup()
 
-            val commands = cut.redisConnection.sync()
-            commands.set("tmp:key", "value")
+            cut.getConnection().use { conn ->
+                val commands = conn.sync()
+                commands.set("tmp:key", "value")
 
-            var invoked = false
-            cut.cleanup()
-            cut.initSchema("ignored") {
-                invoked = true
-                assertEquals(0L, it.sync().dbsize())
+                var invoked = false
+                cut.cleanup()
+                cut.initSchema("ignored") {
+                    invoked = true
+                    assertEquals(0L, it.sync().dbsize())
+                }
+
+                assertTrue(invoked)
+                assertEquals(0L, commands.dbsize())
             }
-
-            assertTrue(invoked)
-            assertEquals(0L, commands.dbsize())
         }
     }
 }

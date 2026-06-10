@@ -24,11 +24,16 @@ import org.softlab.dataset.core.FieldDefinition
  * Represents metadata for a collection (table)
  */
 data class CollectionMetadata(
+    /**
+     * Collection name
+     */
     val name: String,
     /**
-     * Can be an empty list if schema is not known
+     * Field name (in lower case!) to field definition mappings.
+     *
+     * Can be an empty list if schema is not known.
      */
-    val fields: Collection<FieldDefinition>
+    val fields: Map<String, FieldDefinition>
 )
 
 /**
@@ -62,6 +67,10 @@ const val REPORT_ON_INSERTS: Int = 20_000
  * For where read/write batches are applicable, use this value
  */
 const val BATCH_SIZE: Int = 10_000
+/**
+ * How many rows may remain pending for writing
+ */
+const val MAX_PENDING_ROWS: Int = 50_000
 
 /**
  * Destination database interface

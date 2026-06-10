@@ -6,31 +6,22 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 
 
-class DocumentCollectionMetadataTest {
+class CollectionMetadataTest {
     @Test
     fun `test collection metadata equality`() {
         val metadata1 = CollectionMetadata(
             name = "users",
-            fields = listOf(
-                FieldDefinition("user_id", "string"),
-                FieldDefinition("name", "string")
-            )
+            fields = createFieldDefinitions()
         )
 
         val metadata2 = CollectionMetadata(
             name = "users",
-            fields = listOf(
-                FieldDefinition("user_id", "string"),
-                FieldDefinition("name", "string")
-            )
+            fields = createFieldDefinitions()
         )
 
         val metadata3 = CollectionMetadata(
             name = "products",
-            fields = listOf(
-                FieldDefinition("user_id", "string"),
-                FieldDefinition("name", "string")
-            )
+            fields = createFieldDefinitions()
         )
 
         assertEquals(metadata1, metadata2)
@@ -46,4 +37,9 @@ class DocumentCollectionMetadataTest {
         assertEquals(field1, field2)
         assertNotEquals(field1, field3)
     }
+
+    private fun createFieldDefinitions() = mapOf(
+        "user_id" to FieldDefinition("user_id", "string"),
+        "name" to FieldDefinition("name", "string")
+    )
 }

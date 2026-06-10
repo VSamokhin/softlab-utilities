@@ -22,12 +22,11 @@ object KeyValues {
      * Extract named options from a comma-separated string of "key=value" pairs and normalize them,
      * removing leading and trailing spaces
      */
-    fun parse(options: String?): Map<String, String> {
-        if (options.isNullOrBlank()) {
-            return emptyMap()
-        }
-        return options.split(",")
-            .associate { option ->
+    fun parse(options: String?): MutableMap<String, String> {
+        val results = mutableMapOf<String, String>()
+        if (!options.isNullOrBlank()) {
+            options.split(",")
+            .associateTo(results) { option ->
                 val key = option.substringBefore("=")
                 val value = option.substringAfter("=", missingDelimiterValue = "")
                 check(key.isNotBlank() && option.contains("=") && value.isNotBlank()) {
@@ -35,5 +34,7 @@ object KeyValues {
                 }
                 key.trim() to value.trim()
             }
+        }
+        return results
     }
 }

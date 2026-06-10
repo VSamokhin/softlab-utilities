@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2025, Viktor Samokhin (wowyupiyo@gmail.com)
+ * Copyright (C) 2025-2026, Viktor Samokhin (wowyupiyo@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,126 +16,47 @@
 
 package org.softlab.datatransfer.adapters.postgres
 
-import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.chunked
-import kotlinx.coroutines.launch
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
-import org.softlab.dataset.jdbc.withConnection
-import org.softlab.dataset.jdbc.withStatement
-import org.softlab.datatransfer.core.BATCH_SIZE
-import org.softlab.datatransfer.core.CollectionMetadata
-import org.softlab.datatransfer.core.DatabaseDestination
-import org.softlab.datatransfer.core.REPORT_ON_INSERTS
-import org.softlab.datatransfer.core.TransferDocument
-import org.softlab.datatransfer.util.Postgres
-import java.sql.PreparedStatement
-import kotlin.concurrent.atomics.AtomicInt
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.plusAssign
+import org.softlab.datatransfer.adapters.jdbc.JdbcDestination
+import org.softlab.datatransfer.config.DataTypeMappings
+import org.softlab.datatransfer.config.DataTypeMappingsConfig
 
 
 class PostgresDestination(
-    private val pool: JdbcConnectionProvider,
-    private val dataTypeMappings: Map<String, String>,
-    private val closePool: Boolean = true
-) : DatabaseDestination {
-    companion object {
-        const val BACKEND = "postgres"
-    }
+    pool: PostgresConnectionPool,
+    dialect: PostgresDialect,
+    dataTypeMappings: DataTypeMappings,
+    closePool: Boolean
+) : JdbcDestination(
+    pool = pool,
+    dialect = dialect,
+    dataTypeMappings = dataTypeMappings,
+    closePool = closePool
+) {
+    constructor(
+        pool: PostgresConnectionPool,
+        typeMappingsConfig: DataTypeMappingsConfig,
+        closePool: Boolean = true
+    ) : this(pool, PostgresDialect(), typeMappingsConfig, closePool)
 
-    private val logger = KotlinLogging.logger {}
+    private constructor(
+        pool: PostgresConnectionPool,
+        dialect: PostgresDialect,
+        typeMappingsConfig: DataTypeMappingsConfig,
+        closePool: Boolean = true
+    ) : this(pool, PostgresDialect(), typeMappingsConfig.destination(dialect.backendName), closePool)
 
-    override fun getBackendName(): String = BACKEND
-
-    override suspend fun createCollection(metadata: CollectionMetadata) {
-        val schemaTable = Postgres.getSchemaTable(metadata.name)
-        logger.info { "Creating schema '${schemaTable.first}' if not exists and table '${schemaTable.second}'" }
-        val columnsDef = metadata.fields.joinToString(", ") {
-            "${it.name} ${mapType(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
-        }
-        pool.withStatement { stmt ->
-            val createSchemaSql = "CREATE SCHEMA IF NOT EXISTS ${schemaTable.first};"
-            logger.trace { "Executing SQL: $createSchemaSql" }
-            stmt.execute(createSchemaSql)
-
-            val createTableSql = "CREATE TABLE ${metadata.name} ($columnsDef);"
-            logger.trace { "Executing SQL: $createTableSql" }
-            stmt.execute(createTableSql)
-        }
-    }
-
-    override suspend fun dropCollection(collectionName: String) {
-        logger.info { "Dropping table '$collectionName'" }
-        val sql = "DROP TABLE IF EXISTS $collectionName;"
-        pool.withStatement { stmt ->
-            logger.trace { "Executing SQL: $sql" }
-            stmt.execute(sql)
-        }
-    }
-
-    private fun mapType(type: String): String {
-        val normalizedType = type.lowercase()
-        return dataTypeMappings[normalizedType] ?: normalizedType
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class, ExperimentalAtomicApi::class)
-    override suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>) {
-        logger.info { "Inserting documents into '$collectionName'" }
-
-        val schemaTable = Postgres.getSchemaTable(collectionName)
-        val fields = pool.withConnection {
-            Postgres.readColumns(schemaTable.first, schemaTable.second, it)
-        }
-        val fieldsLowerCase = fields.map { it.name.lowercase() }
-        val columns = fields.map { it.name }.joinToString(", ") { it }
-        val placeholders = fields.joinToString(", ") { "?" }
-
-        val total = AtomicInt(0)
-        val sql = "INSERT INTO $collectionName ($columns) VALUES ($placeholders);"
-        logger.trace { "Insert SQL: $sql" }
-        coroutineScope {
-            documents.chunked(BATCH_SIZE).collect { docs ->
-                launch {
-                    total += pool.withConnection {
-                        it.prepareStatement(sql).use { stmt ->
-                            saveBatch(stmt, docs, collectionName, fieldsLowerCase)
-                        }
-                    }
-                    if (total.load() % REPORT_ON_INSERTS == 0) {
-                        logger.info { "Inserted $total rows into '$collectionName'" }
-                    }
-                }
+    override fun castValue(type: String, value: Any?): Any? =
+        if (type.isBoolean()) {
+            when (value) {
+                is Byte -> value.toLong() != 0L
+                is Short -> value.toLong() != 0L
+                is Int -> value.toLong() != 0L
+                is Long -> value != 0L
+                else -> value
             }
+        } else {
+            value
         }
-        logger.info { "Total of $total rows inserted into '$collectionName'" }
-    }
 
-    private fun saveBatch(
-        stmt: PreparedStatement,
-        docs: List<TransferDocument>,
-        collectionName: String,
-        fields: List<String>
-    ): Int {
-        for (doc in docs) {
-            check(doc.keys.size <= fields.size) {
-                "Table '${collectionName}' has less columns than row:\n" +
-                    "table=${fields.joinToString(", ") { it }}\n" +
-                    "row=${doc.keys.joinToString(", ") { it }}"
-            }
-            val values =
-                doc.entries.associate { it.key.lowercase() to it.value } // I don't really like this
-            fields.forEachIndexed { i, field ->
-                stmt.setObject(i + 1, values[field])
-            }
-            stmt.addBatch()
-        }
-        return stmt.executeBatch().size
-    }
-
-    override fun close() {
-        if (closePool) pool.close()
-    }
+    private fun String.isBoolean(): Boolean = this in setOf("boolean", "bool")
 }

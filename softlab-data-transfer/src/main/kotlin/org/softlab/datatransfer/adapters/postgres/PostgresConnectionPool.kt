@@ -17,31 +17,21 @@
 package org.softlab.datatransfer.adapters.postgres
 
 import org.apache.commons.dbcp2.BasicDataSource
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
-import java.sql.Connection
+import org.softlab.datatransfer.adapters.jdbc.BasicJdbcConnectionPool
 
 
-class ConnectionPool(
+class PostgresConnectionPool(
     jdbcUrl: String,
     username: String? = null,
     password: String? = null,
     maxTotal: Int = 10,
     source: BasicDataSource = BasicDataSource()
-) : JdbcConnectionProvider {
+) : BasicJdbcConnectionPool(
+    jdbcUrl = jdbcUrl,
+    driverClassName = "org.postgresql.Driver",
+    username = username,
+    password = password,
+    maxTotal = maxTotal,
+    dataSource = source
+)
 
-    private val dataSource: BasicDataSource = source.apply {
-        driverClassName = "org.postgresql.Driver"
-        url = jdbcUrl
-        this.username = username
-        this.password = password
-        this.maxTotal = maxTotal
-    }
-
-    override fun openConnection(): Connection = dataSource.connection
-
-    override val closed: Boolean get() = dataSource.isClosed
-
-    override fun close() {
-        dataSource.close()
-    }
-}

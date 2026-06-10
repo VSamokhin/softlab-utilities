@@ -5,8 +5,8 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -17,21 +17,16 @@ import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.StringTokenFilter
-import java.util.concurrent.atomic.AtomicInteger
 
 
 class MigratorTest {
     @Test
     fun `migrate() copies data from source to destination`() {
-        val mockSource = mockk<DatabaseSource>()
-        val mockDest = mockk<DatabaseDestination>()
-        val mockCollection = mockk<DocumentCollection>()
-
         val testMetadata = CollectionMetadata(
             name = "users",
-            fields = listOf(
-                FieldDefinition("id", "string"),
-                FieldDefinition("name", "string")
+            fields = mapOf(
+                "id" to FieldDefinition("id", "string"),
+                "name" to FieldDefinition("name", "string")
             )
         )
 
@@ -40,11 +35,17 @@ class MigratorTest {
             mapOf("id" to "2", "name" to "Test User 2")
         )
 
-        coEvery { mockCollection.fetchMetadata() } returns testMetadata
-        every { mockCollection.readDocuments() } returns testDocuments
-        every { mockSource.listCollections() } returns flowOf(mockCollection)
-        coEvery { mockDest.createCollection(eq(testMetadata)) } returns Unit
-        coEvery { mockDest.insertDocuments(eq("users"), eq(testDocuments)) } returns Unit
+        val mockCollection = mockk<DocumentCollection> {
+            coEvery { fetchMetadata() } returns testMetadata
+            every { readDocuments() } returns testDocuments
+        }
+        val mockSource = mockk<DatabaseSource> {
+            every { listCollections() } returns flowOf(mockCollection)
+        }
+        val mockDest = mockk<DatabaseDestination> {
+            coEvery { createCollection(eq(testMetadata)) } returns Unit
+            coEvery { insertDocuments(eq("users"), eq(testDocuments)) } returns Unit
+        }
 
         runBlocking { Migrator().migrate(mockSource, mockDest) }
 
@@ -57,10 +58,10 @@ class MigratorTest {
 
     @Test
     fun `migrate() works correctly with empty source`() {
-        val mockSource = mockk<DatabaseSource>()
+        val mockSource = mockk<DatabaseSource> {
+            every { listCollections() } returns emptyFlow()
+        }
         val mockDest = mockk<DatabaseDestination>()
-
-        every { mockSource.listCollections() } returns emptyFlow()
 
         runBlocking { Migrator().migrate(mockSource, mockDest) }
 
@@ -70,32 +71,37 @@ class MigratorTest {
     }
 
     @Test
-    fun `migrate() filters collections by source name prefixes`() = runBlocking {
-        val mockSource = mockk<DatabaseSource>()
-        val mockDest = mockk<DatabaseDestination>()
-        val includedCollection = mockk<DocumentCollection>()
-        val skippedCollection = mockk<DocumentCollection>()
-
+    fun `migrate() filters collections by source name prefixes`() {
         val includedMetadata = CollectionMetadata(
             name = "users_active",
-            fields = listOf(FieldDefinition("id", "string"))
+            fields = mapOf("id" to FieldDefinition("id", "string"))
         )
         val skippedMetadata = CollectionMetadata(
             name = "orders",
-            fields = listOf(FieldDefinition("id", "string"))
+            fields = mapOf("id" to FieldDefinition("id", "string"))
         )
         val includedDocuments = flowOf(mapOf("id" to "1"))
 
-        coEvery { includedCollection.fetchMetadata() } returns includedMetadata
-        every { includedCollection.readDocuments() } returns includedDocuments
-        coEvery { skippedCollection.fetchMetadata() } returns skippedMetadata
-        every { skippedCollection.readDocuments() } returns flowOf(mapOf("id" to "2"))
-        every { mockSource.listCollections() } returns flowOf(includedCollection, skippedCollection)
-        coEvery { mockDest.createCollection(eq(includedMetadata)) } returns Unit
-        coEvery { mockDest.insertDocuments(eq(includedMetadata.name), any()) } returns Unit
+        val includedCollection = mockk<DocumentCollection> {
+            coEvery { fetchMetadata() } returns includedMetadata
+            every { readDocuments() } returns includedDocuments
+        }
+        val skippedCollection = mockk<DocumentCollection> {
+            coEvery { fetchMetadata() } returns skippedMetadata
+            every { readDocuments() } returns flowOf(mapOf("id" to "2"))
+        }
+        val mockSource = mockk<DatabaseSource> {
+            every { listCollections() } returns flowOf(includedCollection, skippedCollection)
+        }
+        val mockDest = mockk<DatabaseDestination> {
+            coEvery { createCollection(eq(includedMetadata)) } returns Unit
+            coEvery { insertDocuments(eq(includedMetadata.name), any()) } returns Unit
+        }
 
-        Migrator(sourceFilter = StringTokenFilter.from(listOf("users", "profiles")))
-            .migrate(mockSource, mockDest)
+        runBlocking {
+            Migrator(sourceFilter = StringTokenFilter.from(listOf("users", "profiles")))
+                .migrate(mockSource, mockDest)
+        }
 
         coVerify(exactly = 1) { includedCollection.fetchMetadata() }
         verify(exactly = 1) { includedCollection.readDocuments() }
@@ -108,55 +114,44 @@ class MigratorTest {
     }
 
     @Test
-    fun `migrate() processes collections concurrently with configured threads`() = runBlocking {
-        val activeCreates = AtomicInteger(0)
-        val peakCreates = AtomicInteger(0)
-
-        val source = object : DatabaseSource {
-            override fun getBackendName(): String = "test"
-
-            override fun listCollections() = flowOf(
-                testCollection("users_1"),
-                testCollection("users_2")
-            )
-
-            override suspend fun countDocuments(collectionName: String): Long = 0
-
-            override fun close() = Unit
-        }
-        val destination = object : DatabaseDestination {
-            override fun getBackendName(): String = "test"
-
-            override suspend fun createCollection(metadata: CollectionMetadata) {
-                val concurrentCalls = activeCreates.incrementAndGet()
-                peakCreates.accumulateAndGet(concurrentCalls) { current, update -> maxOf(current, update) }
-                delay(100)
-                activeCreates.decrementAndGet()
-            }
-
-            override suspend fun dropCollection(collectionName: String) = Unit
-
-            override suspend fun insertDocuments(
-                collectionName: String,
-                documents: kotlinx.coroutines.flow.Flow<Map<String, Any?>>
-            ) {
-                documents.collect { }
-            }
-
-            override fun close() = Unit
-        }
-
-        Migrator(workerThreads = 2).migrate(source, destination)
-
-        assertEquals(2, peakCreates.get())
-    }
-
-    private fun testCollection(name: String) = object : DocumentCollection {
-        override suspend fun fetchMetadata() = CollectionMetadata(
-            name = name,
-            fields = listOf(FieldDefinition("id", "string"))
+    fun `migrate() handles large datasets efficiently`() {
+        val testMetadata = CollectionMetadata(
+            name = "public.large_table",
+            fields = mapOf("id" to FieldDefinition("id", "string"))
         )
 
-        override fun readDocuments() = flowOf(mapOf("id" to name))
+        // Generate a large number of test documents
+        var recordsCount = 0L
+        val testDocuments = flow {
+            while (recordsCount < NUM_RECORDS) {
+                emit(mapOf("id" to recordsCount.toString()))
+                recordsCount++
+            }
+        }
+
+        val mockCollection = mockk<DocumentCollection> {
+            coEvery { fetchMetadata() } returns testMetadata
+            every { readDocuments() } returns testDocuments
+        }
+        val mockSource = mockk<DatabaseSource> {
+            every { listCollections() } returns flowOf(mockCollection)
+        }
+
+        val mockDestination = mockk<DatabaseDestination> {
+            coEvery { createCollection(testMetadata) } returns Unit
+            coEvery { insertDocuments(testMetadata.name, testDocuments) } coAnswers {
+                testDocuments.collect { }
+            }
+        }
+
+        runBlocking { Migrator().migrate(mockSource, mockDestination) }
+
+        assertEquals(NUM_RECORDS, recordsCount)
+        coVerify(exactly = 1) { mockDestination.createCollection(testMetadata) }
+        coVerify(exactly = 1) { mockDestination.insertDocuments(testMetadata.name, testDocuments) }
+    }
+
+    companion object {
+        private const val NUM_RECORDS = 1_000_000L
     }
 }

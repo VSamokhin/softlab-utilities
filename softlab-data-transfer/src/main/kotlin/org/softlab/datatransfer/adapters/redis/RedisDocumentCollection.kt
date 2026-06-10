@@ -27,9 +27,11 @@ import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.redis.RedisHashMapping
 import org.softlab.dataset.redis.RedisMappingTemplate
 import org.softlab.dataset.redis.RedisTableMapping
+import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.TransferDocument
+import org.softlab.datatransfer.util.Redis.scanKeys
 import java.sql.Date
 import java.sql.Time
 import java.sql.Timestamp
@@ -46,14 +48,13 @@ import kotlin.uuid.ExperimentalUuidApi
 class RedisDocumentCollection(
     private val table: RedisTableMapping,
     private val commands: RedisAsyncCommands<String, String>,
-    private val dataTypeMappings: Map<String, String>
+    private val dataTypeMappings: DataTypeMappings
 ) : DocumentCollection {
     private val metadata: CollectionMetadata by lazy {
-        CollectionMetadata(table.table, table.fields)
-    }
-
-    private val fieldNames: Set<String> by lazy {
-        metadata.fields.mapTo(linkedSetOf()) { it.name }
+        CollectionMetadata(
+            table.table,
+            table.fields.associateBy { it.name.lowercase() }
+        )
     }
 
     override suspend fun fetchMetadata(): CollectionMetadata = metadata
@@ -177,20 +178,19 @@ class RedisDocumentCollection(
     }
 
     private fun toDocument(row: Map<String, String>): TransferDocument {
-        val unexpectedFields = row.keys - fieldNames
+        val unexpectedFields = row.keys - metadata.fields.keys
         check(unexpectedFields.isEmpty()) {
             "Redis source mapping for table '${table.table}' yielded fields not declared in schema: " +
                 unexpectedFields.joinToString(", ")
         }
-        return metadata.fields.associate { field ->
+        return metadata.fields.values.associate { field ->
             field.name to row[field.name]?.let { convertValue(it, field) }
         }
     }
 
     @OptIn(ExperimentalUuidApi::class)
     private fun convertValue(value: String, field: FieldDefinition): Any {
-        val mappedType = dataTypeMappings[field.type.lowercase()] ?: field.type.lowercase()
-        return when (mappedType) {
+        return when (val mappedType = dataTypeMappings.map(field.type)) {
             "short" -> value.toShort()
             "int" -> value.toInt()
             "long" -> value.toLong()

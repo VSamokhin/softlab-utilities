@@ -21,6 +21,7 @@ import com.mongodb.client.model.ValidationOptions
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.any
@@ -29,28 +30,43 @@ import kotlinx.coroutines.launch
 import org.bson.BsonDocument
 import org.bson.Document
 import org.softlab.dataset.mongo.MongoTypesMapper.asBsonDocument
+import org.softlab.datatransfer.config.DataTypeMappings
+import org.softlab.datatransfer.config.DataTypeMappingsConfig
 import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
+import org.softlab.datatransfer.core.MAX_PENDING_ROWS
 import org.softlab.datatransfer.core.REPORT_ON_INSERTS
 import org.softlab.datatransfer.core.TransferDocument
 import org.softlab.datatransfer.util.Mongo
+import org.softlab.datatransfer.util.reduce
+import java.util.LinkedList
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.plusAssign
 
 
 class MongoDestination(
-    private val uri: String,
-    private val dataTypeMappings: Map<String, String>,
-    private val databaseName: String = Mongo.getDatabaseName(uri)
+    private val client: MongoClient,
+    databaseName: String,
+    private val dataTypeMappings: DataTypeMappings,
+    private val closeClient: Boolean
 ) : DatabaseDestination {
+    constructor(
+        uri: String,
+        typeMappingsConfig: DataTypeMappingsConfig
+    ) : this(
+        MongoClient.create(uri),
+        Mongo.getDatabaseName(uri),
+        typeMappingsConfig.destination(BACKEND),
+        true
+    )
+
     companion object {
-        const val BACKEND = "mongo"
+        private const val BACKEND = "mongo"
     }
 
     private val logger = KotlinLogging.logger {}
-    private val client: MongoClient = MongoClient.create(uri)
     private val db = client.getDatabase(databaseName)
 
     override fun getBackendName(): String = BACKEND
@@ -80,12 +96,12 @@ class MongoDestination(
     }
 
     private fun buildValidator(metadata: CollectionMetadata): Document {
-        val properties = metadata.fields.associate { field ->
+        val properties = metadata.fields.values.associate { field ->
             field.name to Document(mapOf(
                 "bsonType" to bsonTypeFor(field.type, field.nullable)
             ))
         }
-        val required = metadata.fields
+        val required = metadata.fields.values
             .filterNot { it.nullable }
             .map { it.name }
         val jsonSchema = Document(mapOf(
@@ -98,8 +114,7 @@ class MongoDestination(
     }
 
     private fun bsonTypeFor(type: String, nullable: Boolean): Any {
-        val normalizedType = type.lowercase()
-        val bsonType = dataTypeMappings[normalizedType] ?: normalizedType
+        val bsonType = dataTypeMappings.map(type)
         return if (nullable) {
             listOf(bsonType, "null")
         } else {
@@ -113,9 +128,10 @@ class MongoDestination(
 
         val collection = db.getCollection<BsonDocument>(collectionName)
         val total = AtomicInt(0)
+        val jobs = LinkedList<Job>()
         coroutineScope {
             documents.chunked(BATCH_SIZE).collect { batch ->
-                launch {
+                jobs += launch {
                     val docs = batch.map { doc -> doc.asBsonDocument() }
                     collection.insertMany(docs)
                     total += docs.size
@@ -123,12 +139,13 @@ class MongoDestination(
                         logger.info { "Inserted $total documents into '$collectionName'" }
                     }
                 }
+                jobs.reduce(MAX_PENDING_ROWS / BATCH_SIZE)
             }
         }
         logger.info { "Total of $total documents inserted into '$collectionName'" }
     }
 
     override fun close() {
-        client.close()
+        if (closeClient) client.close()
     }
 }

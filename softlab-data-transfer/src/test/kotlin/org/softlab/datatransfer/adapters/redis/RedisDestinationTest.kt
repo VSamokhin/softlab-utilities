@@ -34,55 +34,56 @@ class RedisDestinationTest {
         every { client.connect() } returns connection
 
         val cut = RedisDestination(
-            uri = "redis://localhost:6379/0",
-            mappingsFile = "unused",
             client = client,
-            mappings = RedisTableMappings(
+            tableMappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
                         table = "users",
                         hashes = listOf(RedisHashMapping(key = "users:\${missing}"))
                     )
                 )
-            )
+            ),
+            true
         )
 
         val exc = assertThrows<IllegalStateException> {
             runBlocking {
                 cut.createCollection(
                     CollectionMetadata(
-                        "users", listOf(FieldDefinition("id", "integer"))
+                        "users", mapOf("id" to FieldDefinition("id", "integer"))
                     )
                 )
             }
         }
         assertThat(exc.message, allOf(
-            containsString("'users'"),
+            containsString("users"),
             containsString("missing")
         ))
     }
 
     @Test
     fun `dropCollection() deletes all mapped keys`() {
-        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true)
         val hashPage = scanCursor(listOf("users:1", "users:2"), finished = true)
         val setPage = scanCursor(listOf("users"), finished = true)
-        every { commands.scan(any<ScanArgs>()) } returnsMany listOf(
-            completedRedisFuture(hashPage),
-            completedRedisFuture(setPage)
-        )
-        every { commands.del("users:1", "users:2") } returns completedRedisFuture(2L)
-        every { commands.del("users") } returns completedRedisFuture(1L)
-        val connection = mockk<StatefulRedisConnection<String, String>>()
-        every { connection.async() } returns commands
-        val client = mockk<RedisClient>(relaxed = true)
-        every { client.connect() } returns connection
+        val commands = mockk<RedisAsyncCommands<String, String>>(relaxed = true) {
+            every { scan(any<ScanArgs>()) } returnsMany listOf(
+                completedRedisFuture(hashPage),
+                completedRedisFuture(setPage)
+            )
+            every { unlink("users:1", "users:2") } returns completedRedisFuture(2L)
+            every { unlink("users") } returns completedRedisFuture(1L)
+        }
+
+        val connection = mockk<StatefulRedisConnection<String, String>> {
+            every { async() } returns commands
+        }
+        val client = mockk<RedisClient>(relaxed = true) {
+            every { connect() } returns connection
+        }
 
         val cut = RedisDestination(
-            uri = "redis://localhost:6379/0",
-            mappingsFile = "unused",
             client = client,
-            mappings = RedisTableMappings(
+            tableMappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
                         table = "users",
@@ -90,13 +91,14 @@ class RedisDestinationTest {
                         sets = listOf(RedisSetMapping(key = "users"))
                     )
                 )
-            )
+            ),
+            true
         )
 
         runBlocking { cut.dropCollection("users") }
 
-        verify(exactly = 1) { commands.del("users:1", "users:2") }
-        verify(exactly = 1) { commands.del("users") }
+        verify(exactly = 1) { commands.unlink("users:1", "users:2") }
+        verify(exactly = 1) { commands.unlink("users") }
     }
 
     @Test
@@ -110,10 +112,8 @@ class RedisDestinationTest {
         every { client.connect() } returns connection
 
         val cut = RedisDestination(
-            uri = "redis://localhost:6379/0",
-            mappingsFile = "unused",
             client = client,
-            mappings = RedisTableMappings(
+            tableMappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
                         table = "users",
@@ -121,7 +121,8 @@ class RedisDestinationTest {
                         sets = listOf(RedisSetMapping(key = "users", member = "\${id}"))
                     )
                 )
-            )
+            ),
+            true
         )
 
         runBlocking {
@@ -146,10 +147,8 @@ class RedisDestinationTest {
         every { client.connect() } returns connection
 
         val cut = RedisDestination(
-            uri = "redis://localhost:6379/0",
-            mappingsFile = "unused",
             client = client,
-            mappings = RedisTableMappings(
+            tableMappings = RedisTableMappings(
                 tables = listOf(
                     RedisTableMapping(
                         table = "users",
@@ -157,7 +156,8 @@ class RedisDestinationTest {
                         sets = listOf(RedisSetMapping(key = "users", member = "\${id}"))
                     )
                 )
-            )
+            ),
+            true
         )
 
         val exc = assertThrows<IllegalStateException> { runBlocking {

@@ -17,41 +17,49 @@
 package org.softlab.datatransfer.adapters.redis
 
 import io.lettuce.core.RedisClient
-import io.lettuce.core.api.StatefulRedisConnection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.softlab.dataset.redis.RedisMappingTemplate
 import org.softlab.dataset.redis.RedisMappingsLoader
 import org.softlab.dataset.redis.RedisTableMappings
-import org.softlab.datatransfer.config.ConfigProvider
+import org.softlab.datatransfer.config.DataTypeMappings
+import org.softlab.datatransfer.config.DataTypeMappingsConfig
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.DocumentCollection
+import org.softlab.datatransfer.util.Redis.scanKeys
 
 
 class RedisSource(
-    uri: String,
-    mappingsFile: String,
-    private val mappings: RedisTableMappings = RedisMappingsLoader.load(mappingsFile),
-    private val client: RedisClient = RedisClient.create(uri),
-    private val connection: StatefulRedisConnection<String, String> = client.connect(),
-    private val dataTypeMappings: Map<String, String> = ConfigProvider.config
-        .getDataTypeMappings()
-        .source(BACKEND)
+    private val client: RedisClient,
+    private val tableMappings: RedisTableMappings,
+    private val dataTypeMappings: DataTypeMappings,
+    private val closeClient: Boolean
 ) : DatabaseSource {
+    constructor(
+        uri: String,
+        tableMappingsFile: String,
+        typeMappingsConfig: DataTypeMappingsConfig
+    ) : this(
+        RedisClient.create(uri),
+        RedisMappingsLoader.load(tableMappingsFile),
+        typeMappingsConfig.source(BACKEND),
+        true
+    )
     companion object {
-        const val BACKEND = "redis"
+        private const val BACKEND = "redis"
     }
 
+    private val connection = client.connect()
     private val commands = connection.async()
 
     init {
-        RedisMappingValidator.validateSourceMappings(mappings)
+        RedisMappingValidator.validateSourceMappings(tableMappings)
     }
 
     override fun getBackendName(): String = BACKEND
 
     override fun listCollections(): Flow<DocumentCollection> = flow {
-        mappings.tables.forEach { table ->
+        tableMappings.tables.forEach { table ->
             emit(RedisDocumentCollection(table, commands, dataTypeMappings))
         }
     }
@@ -61,7 +69,7 @@ class RedisSource(
      */
     override suspend fun countDocuments(collectionName: String): Long {
         var count = 0L
-        val table = mappings.table(collectionName)
+        val table = tableMappings.table(collectionName)
         commands.scanKeys(RedisMappingTemplate.of(table).toGlob()).collect {  keys ->
             count += keys.size
         }
@@ -70,6 +78,6 @@ class RedisSource(
 
     override fun close() {
         connection.close()
-        client.shutdown()
+        if (closeClient) client.shutdown()
     }
 }

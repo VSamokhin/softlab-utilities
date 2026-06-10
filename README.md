@@ -88,13 +88,22 @@ tables:
 ## _softlab-data-transfer_ – Database-to-Database Data Migration
 
 This project is a CLI migration utility that copies collections/tables between supported database backends.
-It detects source/destination adapters from connection URI, reads source metadata/documents, creates destination collections/tables, and streams data in batches.
-You can optionally drop destination targets first and limit migrated collections/tables by name prefix.
+It detects source and destination adapters from connection URI, reads source metadata and documents, creates destination collections, and streams data in batches.
+You can optionally drop destination targets first and limit migrated collections by name prefix.
+
+Supported databases, you can use any combination of them as source and destination:
+* MongoDB
+* PostgreSQL
+* Redis
+* SQLite
 
 Current limitations:
-* Redis migrations require an explicit mapping YAML because Redis does not expose a usable relational/document schema on its own.
-* It migrates data and basic field schema/types, but not DB objects like indexes, constraints beyond inferred nullability, sequences, triggers, views, or stored procedures.
-* Mongo schema inference is best-effort when a validator is missing (falls back to sampling a document), so field typing can be incomplete/inaccurate.
+* Redis migrations require an explicit mapping YAML because Redis does not expose a usable document schema on its own.
+* The utility migrates data and basic field schema, but not DB objects like indexes, constraints beyond inferred nullability, sequences, triggers, views, or stored procedures.
+* Mongo schema inference is best-effort when a predefined validator is missing (falls back to sampling a document), so field typing can be incomplete/inaccurate.
+* Sqlite does not support schema inference, so multi-schema data transfers you may have to do on schema-per-file basis.
+* Different databases have different data type capabilities, so some type conversions may be lossy or not possible at all 
+(e.g. Redis only supports string values, SQLite's single integer data type covers the whole range from 16 to 64-bit long integers).
 
 Configuration spots:
 * Type mapping config (embedded): `softlab-data-transfer/src/main/resources/data-transfer-config.yml` which can be overridden by a custom one
@@ -102,7 +111,8 @@ placed in runtime working directory.
 
 Redis mapping note:
 * The existing Redis [dataset mapping format](#dbunit-dataset--redis-hashes) is reused for migration as well.
-* For Redis as a migration source, add optional `fields` metadata per table so the tool can restore typed values, for example:
+* At least a single hash listing all fields is required (aka anchor hash). This limits flexibility of the data schema, but allows assured bidirectional data transfer.
+* You have to add optional `fields` metadata per table so the tool can restore typed values, for example:
 
 ```yaml
 tables:

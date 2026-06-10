@@ -48,11 +48,10 @@ class MongoYamlDatasetLoaderIT {
 
     @Test
     fun `load() loads dataset correctly`() {
-        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.mongoDb))
+        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.getConnection()))
         cut.load("datasets/test-dataset.yml")
 
-        val db = mongoInitiator.mongoClient.getDatabase(DATABASE)
-        val testTable = db.getCollection<Document>("test.test_table")
+        val testTable = mongoInitiator.getConnection().getCollection<Document>("test.test_table")
         val docs = runBlocking { testTable.find().toList() }
 
         assertEquals(2, docs.size)
@@ -79,7 +78,7 @@ class MongoYamlDatasetLoaderIT {
 
     @Test
     fun `load() should throw exception for non existent collection`() {
-        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.mongoDb))
+        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.getConnection()))
         val exception = assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-collection-does-not-exist.yml")
         }
@@ -88,7 +87,7 @@ class MongoYamlDatasetLoaderIT {
 
     @Test
     fun `load() should throw exception for non existent field`() {
-        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.mongoDb))
+        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.getConnection()))
         val exception = assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-field-does-not-exist.yml")
         }
@@ -97,7 +96,7 @@ class MongoYamlDatasetLoaderIT {
 
     @Test
     fun `load() should throw exception for collection without validator`() {
-        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.mongoDb))
+        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.getConnection()))
         val exception = assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-collection-without-validator.yml")
         }
@@ -110,7 +109,7 @@ class MongoYamlDatasetLoaderIT {
 
     @Test
     fun `load() should throw exception for collection with incorrect type`() {
-        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.mongoDb))
+        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.getConnection()))
         assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-collection-with-incorrect-type.yml")
         }
@@ -118,7 +117,7 @@ class MongoYamlDatasetLoaderIT {
 
     @Test
     fun `load() should throw exception for collection with not supported type`() {
-        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.mongoDb))
+        val cut = MongoYamlDatasetLoader(CoroutineMongoDatabase(mongoInitiator.getConnection()))
         val exception = assertThrows<IllegalStateException> {
             cut.load("datasets/test-dataset-mongo-collection-with-unsupported-type.yml")
         }

@@ -15,6 +15,7 @@ dependencies {
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:_'
     implementation 'com.fasterxml.jackson.module:jackson-module-kotlin:_'
     implementation 'org.postgresql:postgresql:_'
+    implementation 'org.xerial:sqlite-jdbc:_'
     implementation 'org.apache.commons:commons-dbcp2:_'
     implementation 'org.apache.commons:commons-pool2:_'
     implementation 'org.mongodb:mongodb-driver-kotlin-coroutine'
@@ -24,6 +25,7 @@ dependencies {
     }
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
 
+    testImplementation testFixtures(project(':softlab-dataset-loaders'))
     testImplementation 'com.jayway.jsonpath:json-path-assert:_'
 
     integrationTestImplementation project(':softlab-dataset-loaders')
@@ -42,6 +44,7 @@ dependencies {
     integrationTestImplementation 'org.testcontainers:testcontainers-mongodb'
     integrationTestImplementation 'com.redis:testcontainers-redis:_'
     integrationTestImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    integrationTestImplementation 'org.dbunit:dbunit:_'
 }
 
 application {
@@ -66,5 +69,7 @@ startScripts {
 }
 
 jacocoTestCoverageVerification {
-    jacocoVerification(it, 0.86, 3)
+    jacocoVerification(it, 0.91, 5)
+    // Revisit these thresholds later as there's a Gradle plugin bug
+    // preventing inline functions from being properly counted in the coverage report: https://github.com/gradle/gradle/issues/36667
 }

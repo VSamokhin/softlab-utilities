@@ -20,25 +20,34 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.help
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.types.int
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
-import org.softlab.datatransfer.adapters.KeyValues
 import org.softlab.datatransfer.adapters.AdapterProvider
-import org.softlab.datatransfer.core.DatabaseDestination
-import org.softlab.datatransfer.core.DatabaseSource
+import org.softlab.datatransfer.adapters.KeyValues
 import org.softlab.datatransfer.core.StringTokenFilter
 import org.softlab.datatransfer.migration.Migrator
 import org.softlab.datatransfer.util.StopWatch
 
 
 class Main : CliktCommand() {
+    companion object {
+        private const val MIN_DEFAULT_JOBS = 1
+        private const val MAX_DEFAULT_JOBS = 8
+    }
     private val logger = KotlinLogging.logger {}
+
+    private val defaultJobs: Int = Runtime.getRuntime()
+        .availableProcessors()
+        .coerceAtLeast(MIN_DEFAULT_JOBS)
+        .coerceAtMost(MAX_DEFAULT_JOBS)
 
     private val source by argument()
         .help("Source DB connection string (URL)")
@@ -54,33 +63,48 @@ class Main : CliktCommand() {
         .help("Additional source adapter options as comma-separated key=value pairs")
     private val destOptions by option()
         .help("Additional destination adapter options as comma-separated key=value pairs")
+    private val jobs by option()
+        .help("Hint of simultaneous jobs count used for migration (default: $defaultJobs)")
+        .int()
+        .default(defaultJobs)
 
     override fun run() {
         val sourceNameFilter = StringTokenFilter.from(sourceFilter)
-        val parsedSourceOptions = KeyValues.parse(sourceOptions)
-        val parsedDestOptions = KeyValues.parse(destOptions)
-
-        val sourceAdapter: DatabaseSource = AdapterProvider.sourceFor(source, parsedSourceOptions)
-        val destAdapter: DatabaseDestination = AdapterProvider.destinationFor(dest, parsedDestOptions)
-
-        val timer = StopWatch().start()
-        try {
-            runBlocking {
-                if (dropTargets) {
-                    logger.info { "First drop target collections" }
-                    sourceAdapter.listCollections()
-                        .map { it.fetchMetadata().name }
-                        .filter { sourceNameFilter.startsWith(it) }
-                        .collect { destAdapter.dropCollection(it) }
-                }
-                logger.info { "Now migrate data" }
-                Migrator(sourceFilter = sourceNameFilter).migrate(sourceAdapter, destAdapter)
-            }
-        } finally {
-            sourceAdapter.close()
-            destAdapter.close()
+        val parsedSourceOptions = KeyValues.parse(sourceOptions).apply {
+            put(AdapterProvider.JOBS_HINT, jobs.toString())
         }
-        logger.info { "Job done in ${timer.stopAndGetTimeStr()}" }
+        val parsedDestOptions = KeyValues.parse(destOptions).apply {
+            put(AdapterProvider.JOBS_HINT, jobs.toString())
+        }
+
+        logger.info { "Will be using $jobs threads for the data transfer if the database supports parallelism" }
+
+        val dropTimer = StopWatch()
+        val migrateTimer = StopWatch()
+        AdapterProvider.sourceFor(source, parsedSourceOptions).use { sourceAdapter ->
+            AdapterProvider.destinationFor(dest, parsedDestOptions).use { destAdapter ->
+                runBlocking {
+                    if (dropTargets) {
+                        logger.info { "First drop target collections" }
+                        dropTimer.start()
+                        sourceAdapter.listCollections()
+                            .map { it.fetchMetadata().name }
+                            .filter { sourceNameFilter.startsWith(it) }
+                            .collect { destAdapter.dropCollection(it) }
+                        dropTimer.stop()
+                    }
+                    logger.info { "Now migrate data" }
+                    migrateTimer.start()
+                    Migrator(sourceNameFilter,jobs)
+                        .migrate(sourceAdapter, destAdapter)
+                    migrateTimer.stop()
+                }
+            }
+        }
+        logger.info {
+            "Job done in ${StopWatch.formatTime(dropTimer.getStopTime() + migrateTimer.getStopTime())}, " +
+                "drop took ${dropTimer.getStopTimeStr()}, migration took ${migrateTimer.getStopTimeStr()}"
+        }
     }
 }
 

@@ -18,8 +18,8 @@ package org.softlab.datataset.test.initiators
 
 import liquibase.Liquibase
 import liquibase.database.DatabaseFactory
+import liquibase.database.jvm.JdbcConnection
 import liquibase.resource.ClassLoaderResourceAccessor
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
 import org.softlab.dataset.jdbc.JdbcDatasetLoader
 import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.postgresql.PostgreSQLContainer
@@ -35,74 +35,56 @@ fun createPostgresContainer(container: String = POSTGRES_CONTAINER): PostgreSQLC
         // Workaround for Rancher Desktop on Mac, somehow postgres container is not ready while the tests start
         .waitingFor(Wait.forListeningPorts(5432))
 
-fun getProvider(initiator: JdbcInitiator): JdbcConnectionProvider = object : JdbcConnectionProvider {
-        var closedFlag = false
-
-        override fun openConnection() = initiator.getConnection()
-
-        override val closed get() = closedFlag
-
-        override fun close() {
-            closedFlag = true
-        }
-    }
-
-/**
- * Convenient method to work with a closable JDBC provider wrapper in tests
- */
-inline fun <T> withProvider(initiator: JdbcInitiator, block: (JdbcConnectionProvider) -> T): T =
-    getProvider(initiator).use(block)
-
 class JdbcInitiator(
     override val dbUrl: String,
-    private val username: String,
-    private val password: String
+    private val dbUnitProperties: Map<String, Any>? = null,
+    private val connectionProvider: (String) -> Connection
 ) : DatabaseInitiator<Connection> {
+
+    constructor(
+        dbUrl: String,
+        username: String,
+        password: String
+    ) : this(dbUrl, null, { DriverManager.getConnection(it, username, password) })
 
     private val lazyConnection = lazy { getConnection() }
     private val conn: Connection by lazyConnection
 
     override fun cleanup(additionalSteps: (Connection) -> Unit) {
-        DatabaseFactory.getInstance()
-            .openDatabase(
-                dbUrl,
-                username,
-                password,
-                null,
-                null
-            ).use { database ->
-                database.dropDatabaseObjects(database.defaultSchema)
-            }
-
+        getConnection().use { connection ->
+            DatabaseFactory.getInstance()
+                .findCorrectDatabaseImplementation(JdbcConnection(connection))
+                .use { database ->
+                    database.dropDatabaseObjects(database.defaultSchema)
+                }
+        }
         additionalSteps(conn)
     }
 
     override fun initSchema(changelogPath: String, additionalSteps: (Connection) -> Unit) {
-        val database = DatabaseFactory.getInstance()
-            .openDatabase(
-                dbUrl,
-                username,
-                password,
-                null,
-                null
-            )
-        Liquibase(
-            changelogPath,
-            ClassLoaderResourceAccessor(),
-            database
-        ).use { liquibase -> liquibase.update() }
-
+        getConnection().use { connection ->
+            Liquibase(
+                changelogPath,
+                ClassLoaderResourceAccessor(),
+                JdbcConnection(connection)
+            ).use { liquibase ->
+                liquibase.update()
+            }
+        }
         additionalSteps(conn)
     }
 
     override fun seedData(datasetPath: String) {
-        JdbcDatasetLoader(conn).load(datasetPath)
+        (
+            dbUnitProperties?.let {
+                JdbcDatasetLoader(conn, it)
+            } ?: JdbcDatasetLoader(conn)
+        ).load(datasetPath)
     }
 
     override fun close() {
         if (lazyConnection.isInitialized()) conn.close()
     }
 
-    fun getConnection(): Connection =
-        DriverManager.getConnection(dbUrl, username, password)
+    override fun getConnection(): Connection = connectionProvider(dbUrl)
 }

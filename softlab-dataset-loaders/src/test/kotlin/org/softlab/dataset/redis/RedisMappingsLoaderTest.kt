@@ -16,12 +16,12 @@ class RedisMappingsLoaderTest {
             tables:
               - table: users
                 fields:
-                  - name: id
+                  - name: ID
                     type: integer
                 hashes:
                   - key: users:${'$'}{id}
                 sets:
-                  - key: users
+                  - key: uSeRs
                     member: ${'$'}{id}
             """.trimIndent()
         )

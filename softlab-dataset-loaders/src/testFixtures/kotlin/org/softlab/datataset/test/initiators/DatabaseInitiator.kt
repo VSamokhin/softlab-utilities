@@ -17,11 +17,24 @@
 package org.softlab.datataset.test.initiators
 
 
+/**
+ * Here [T] represents a database specific connection.
+ *
+ * Normally, before every test you should do:
+ * * [cleanup]
+ * * [initSchema]
+ * * [seedData]
+ */
 interface DatabaseInitiator<T> : AutoCloseable {
     /**
      * The underlying database's URL
      */
     val dbUrl: String
+
+    /**
+     * Return the database connection
+     */
+    fun getConnection(): T
 
     /**
      * Do a full database cleanup (e.g. drop schema or database)

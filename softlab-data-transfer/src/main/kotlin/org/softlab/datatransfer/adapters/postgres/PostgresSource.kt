@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2025-2026, Viktor Samokhin (wowyupiyo@gmail.com)
+ * Copyright (C) 2026, Viktor Samokhin (wowyupiyo@gmail.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,48 +16,11 @@
 
 package org.softlab.datatransfer.adapters.postgres
 
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
-import org.softlab.dataset.jdbc.withConnection
-import org.softlab.dataset.jdbc.withStatement
-import org.softlab.datatransfer.core.DatabaseSource
-import org.softlab.datatransfer.core.DocumentCollection
+import org.softlab.dataset.jdbc.JdbcConnectionPool
+import org.softlab.datatransfer.adapters.jdbc.JdbcSource
 
 
 class PostgresSource(
-    private val pool: JdbcConnectionProvider,
-    private val closePool: Boolean = true
-) : DatabaseSource {
-    companion object {
-        private const val BACKEND = "postgres"
-    }
-
-    override fun getBackendName(): String = BACKEND
-
-    override fun listCollections(): Flow<DocumentCollection> = flow {
-        pool.withConnection { connection ->
-            connection.metaData
-                .getTables(null, null, "%", arrayOf("TABLE"))
-                .use { rs ->
-                    while (rs.next()) {
-                        val schemaName = rs.getString("TABLE_SCHEM")!!
-                        val tableName = rs.getString("TABLE_NAME")!!
-                        emit(PostgresDocumentCollection(schemaName, tableName, pool))
-                    }
-                }
-        }
-    }
-
-    override suspend fun countDocuments(collectionName: String): Long {
-        pool.withStatement { stmt ->
-            stmt.executeQuery("SELECT COUNT(*) FROM $collectionName;").use { rs ->
-                return if (rs.next()) rs.getLong(1) else error("Could not count rows in $collectionName")
-            }
-        }
-    }
-
-    override fun close() {
-        if (closePool) pool.close()
-    }
-}
+    pool: JdbcConnectionPool,
+    closePool: Boolean = true
+) : JdbcSource(pool, PostgresDialect(), closePool)

@@ -29,7 +29,7 @@ object RedisMappingValidator {
 
     fun validateSourceMapping(table: RedisTableMapping) {
         require(table.fields.isNotEmpty()) {
-            "Redis source mapping for table '${table.table}' must define fields because Redis has no schema"
+            "Redis source mapping for table '${table.table}' must define fields (because Redis has no schema)"
         }
         require(table.hashes.isNotEmpty()) {
             "Redis source mapping for table '${table.table}' must define at least one hash mapping"
@@ -52,26 +52,40 @@ object RedisMappingValidator {
         if (metadata.fields.isEmpty()) {
             return
         }
-        val fields = metadata.fields.map { it.name }.toSet()
         table.hashes.forEach { hash ->
             hash.key?.let { template ->
-                requireKnownFields(fields, RedisMappingTemplate.of(template).placeholders(), "hash key", table.table)
+                requireKnownFields(
+                    metadata.fields.keys,
+                    RedisMappingTemplate.of(template).placeholders(),
+                    "hash key",
+                    table.table
+                )
             }
             hash.field?.let { template ->
-                requireKnownFields(fields, RedisMappingTemplate.of(template).placeholders(), "hash field", table.table)
+                requireKnownFields(
+                    metadata.fields.keys,
+                    RedisMappingTemplate.of(template).placeholders(),
+                    "hash field",
+                    table.table
+                )
             }
             hash.value?.let { value ->
-                check(RedisMappingTemplate.exactPlaceholder(value) in fields) {
+                check(RedisMappingTemplate.exactPlaceholder(value) in metadata.fields.keys) {
                     "Redis hash value '$value' refers to an unknown field for table '${table.table}'"
                 }
             }
         }
         table.sets.forEach { set ->
             set.key?.let { template ->
-                requireKnownFields(fields, RedisMappingTemplate.of(template).placeholders(), "set key", table.table)
+                requireKnownFields(
+                    metadata.fields.keys,
+                    RedisMappingTemplate.of(template).placeholders(),
+                    "set key",
+                    table.table
+                )
             }
             set.member?.let { value ->
-                check(RedisMappingTemplate.exactPlaceholder(value) in fields) {
+                check(RedisMappingTemplate.exactPlaceholder(value) in metadata.fields.keys) {
                     "Redis set member '$value' refers to an unknown field for table '${table.table}'"
                 }
             }

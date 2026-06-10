@@ -16,43 +16,7 @@
 
 package org.softlab.datatransfer.util
 
-import org.softlab.dataset.core.FieldDefinition
-import java.sql.Connection
-
 
 object Postgres {
-    fun readColumns(schemaName: String, tableName: String, conn: Connection): List<FieldDefinition> =
-        conn.createStatement().use { stmt ->
-            stmt.executeQuery(
-                """
-                    SELECT column_name, data_type, is_nullable
-                    FROM information_schema.columns
-                    WHERE table_schema = '$schemaName' AND table_name = '$tableName';
-                    """.trimIndent()
-            ).use { rs ->
-                val result = mutableListOf<FieldDefinition>()
-                while (rs.next()) {
-                    result.add(
-                        FieldDefinition(
-                            rs.getString("column_name"),
-                            rs.getString("data_type"),
-                            rs.getString("is_nullable").lowercase() == "yes"
-                        )
-                    )
-                }
-                result
-            }
-        }
-
-    fun tableExists(schemaName: String, tableName: String, conn: Connection): Boolean =
-        conn.metaData
-            .getTables(null, schemaName, tableName, arrayOf("TABLE"))
-            .use { rs ->
-                return rs.next()
-            }
-
     fun isPostgresUri(uri: String): Boolean = uri.startsWith("jdbc:postgres")
-
-    fun getSchemaTable(collectionName: String): Pair<String, String> =
-        collectionName.substringBefore(".", "public") to collectionName.substringAfter(".")
 }

@@ -103,10 +103,5 @@ class JdbcConnectionProviderTest {
             openConnectionCalls++
             return connection
         }
-
-        override val closed: Boolean
-            get() = error("not implemented")
-
-        override fun close() = error("not implemented")
     }
 }

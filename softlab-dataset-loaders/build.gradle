@@ -30,6 +30,7 @@ dependencies {
     testImplementation 'org.mongodb:mongodb-driver-kotlin-coroutine'
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:_'
     testImplementation 'io.lettuce:lettuce-core:_'
+    testRuntimeOnly 'org.xerial:sqlite-jdbc:_'
     // Additional stuff for the test fixtures
     integrationTestRuntimeOnly 'org.liquibase:liquibase-core:_'
     integrationTestRuntimeOnly 'org.liquibase.ext:liquibase-mongodb:_'
@@ -58,7 +59,7 @@ integrationTest {
 }
 
 jacocoTestCoverageVerification {
-    jacocoVerification(it, 0.89, 2)
+    jacocoVerification(it, 0.90, 2)
     // Revisit these thresholds later as there's a Gradle plugin bug
     // preventing inline functions from being properly counted in the coverage report: https://github.com/gradle/gradle/issues/36667
 }

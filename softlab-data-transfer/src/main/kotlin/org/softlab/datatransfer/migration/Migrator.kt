@@ -18,8 +18,6 @@ package org.softlab.datatransfer.migration
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
@@ -29,22 +27,18 @@ import org.softlab.datatransfer.core.StringTokenFilter
 
 class Migrator(
     private val sourceFilter: StringTokenFilter = StringTokenFilter.from(emptyList()),
-    workerThreads: Int = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+    workerThreads: Int = 1
 ) {
     private val dispatcher: CoroutineDispatcher
     init {
         require(workerThreads > 0) { "workerThreads must be greater than 0" }
-        dispatcher = Dispatchers.IO.limitedParallelism(workerThreads)
+        dispatcher = Dispatchers.IO.limitedParallelism(workerThreads + 1)
     }
 
     suspend fun migrate(source: DatabaseSource, destination: DatabaseDestination) = withContext(dispatcher) {
-        val tasks = mutableListOf<kotlinx.coroutines.Deferred<Unit>>()
         source.listCollections().collect { collection ->
-            tasks += async {
-                migrateCollection(collection, destination)
-            }
+            migrateCollection(collection, destination)
         }
-        tasks.awaitAll()
     }
 
     private suspend fun migrateCollection(

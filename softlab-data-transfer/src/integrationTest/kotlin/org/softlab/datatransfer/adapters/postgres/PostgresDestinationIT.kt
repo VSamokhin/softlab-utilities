@@ -14,13 +14,13 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.postgresql.util.PSQLException
 import org.softlab.dataset.core.FieldDefinition
-import org.softlab.dataset.jdbc.JdbcConnectionProvider
 import org.softlab.dataset.jdbc.withConnection
 import org.softlab.dataset.jdbc.withStatement
 import org.softlab.datataset.test.initiators.createPostgresContainer
+import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
 import org.softlab.datatransfer.config.ConfigProvider
+import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.core.CollectionMetadata
-import org.softlab.datatransfer.util.Postgres
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.sql.SQLException
@@ -36,18 +36,16 @@ class PostgresDestinationIT {
         @JvmStatic
         private val postgres = createPostgresContainer()
 
-        private val dataTypeMappings = ConfigProvider.config
-            .getDataTypeMappings()
-            .destination(PostgresDestination.BACKEND)
+        private val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
 
-        private fun getPool(): JdbcConnectionProvider =
-            ConnectionPool(
+        private fun getPool(): PostgresConnectionPool =
+            PostgresConnectionPool(
                 postgres.jdbcUrl,
                 postgres.username,
                 postgres.password
             )
 
-        private inline fun <T> withPool(block: (JdbcConnectionProvider) -> T): T =
+        private inline fun <T> withPool(block: (PostgresConnectionPool) -> T): T =
             getPool().use(block)
     }
 
@@ -69,7 +67,7 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(FieldDefinition("id", "int"))
+                            fields = mapOf("id" to FieldDefinition("id", "int"))
                         )
                     )
                 }
@@ -86,24 +84,23 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(
-                                FieldDefinition("id", "int", false),
-                                FieldDefinition("name", "string"),
-                                FieldDefinition("active", "boolean", false)
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int", false),
+                                "name" to FieldDefinition("name", "string"),
+                                "active" to FieldDefinition("active", "boolean", false)
                             )
                         )
                     )
                 }
 
                 val columns = pool.withConnection {
-                    Postgres.readColumns("public", "users", it)
+                    PostgresDialect().listColumns(JdbcTableName("public", "users"), it)
                 }
 
-                assertThat(
-                    columns, contains(
-                        FieldDefinition("id", "integer", false),
+                assertThat(columns.values, contains(
+                        FieldDefinition("id", "int4", false),
                         FieldDefinition("name", "text"),
-                        FieldDefinition("active", "boolean", false)
+                        FieldDefinition("active", "bool", false)
                     )
                 )
             }
@@ -115,7 +112,7 @@ class PostgresDestinationIT {
         PostgresDestination(getPool(), dataTypeMappings).use { destination ->
             val metadata = CollectionMetadata(
                 name = "public.users",
-                fields = listOf(FieldDefinition("id", "int"))
+                fields = mapOf("id" to FieldDefinition("id", "int"))
             )
 
             runBlocking {
@@ -132,21 +129,26 @@ class PostgresDestinationIT {
     @Test
     fun `createCollection() uses provided data type mappings`()  {
         withPool { pool ->
-            PostgresDestination(pool, mapOf("custom_type" to "TEXT"), false).use { destination ->
+            PostgresDestination(
+                pool,
+                PostgresDialect(),
+                DataTypeMappings(mapOf("custom_type" to "TEXT")),
+                false
+            ).use { destination ->
                 runBlocking {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(FieldDefinition("notes", "custom_type"))
+                            fields = mapOf("notes" to FieldDefinition("notes", "custom_type"))
                         )
                     )
                 }
             }
 
             val columns = pool.withConnection {
-                Postgres.readColumns("public", "users", it)
+                PostgresDialect().listColumns(JdbcTableName("public", "users"), it)
             }
-            assertThat(columns, contains(FieldDefinition("notes", "text")))
+            assertThat(columns.values, contains(FieldDefinition("notes", "text")))
         }
     }
 
@@ -154,7 +156,7 @@ class PostgresDestinationIT {
     fun `createCollection() causes postgres to throw for unknow field type`() {
         PostgresDestination(getPool(), dataTypeMappings).use { destination ->
             val col = CollectionMetadata("public.users",
-                listOf(FieldDefinition("notes", "custom"))
+                mapOf("notes" to FieldDefinition("notes", "custom"))
             )
 
             val exc = assertThrows<PSQLException> {
@@ -167,17 +169,22 @@ class PostgresDestinationIT {
     @Test
     fun `createCollection() works when no columns`() {
         withPool { pool ->
-            PostgresDestination(pool, dataTypeMappings, closePool = false).use { destination ->
+            PostgresDestination(pool, dataTypeMappings, false).use { destination ->
                 runBlocking {
                     destination.createCollection(
-                        CollectionMetadata("public.no_columns", emptyList())
+                        CollectionMetadata("public.no_columns", emptyMap())
                     )
                 }
             }
 
+            val dialect = PostgresDialect()
             pool.withConnection { conn ->
-                assertTrue(Postgres.tableExists("public", "no_columns", conn))
-                assertTrue(Postgres.readColumns("public", "no_columns", conn).isEmpty())
+                assertTrue(dialect.tableExists(
+                    JdbcTableName("public", "no_columns"), conn
+                ))
+                assertTrue(dialect.listColumns(
+                    JdbcTableName("public", "no_columns"), conn
+                ).isEmpty())
             }
         }
     }
@@ -185,19 +192,21 @@ class PostgresDestinationIT {
     @Test
     fun `createCollection() creates missing schema automatically`() {
         withPool { pool ->
-            PostgresDestination(pool, dataTypeMappings, closePool = false).use { destination ->
+            PostgresDestination(pool, dataTypeMappings, false).use { destination ->
                 runBlocking {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "custom.users",
-                            fields = listOf(FieldDefinition("id", "int"))
+                            fields = mapOf("id" to FieldDefinition("id", "int"))
                         )
                     )
                 }
             }
 
             pool.withConnection { conn ->
-                assertTrue(Postgres.tableExists("custom", "users", conn))
+                assertTrue(PostgresDialect().tableExists(
+                    JdbcTableName("custom", "users"), conn)
+                )
             }
         }
     }
@@ -217,9 +226,9 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(
-                                FieldDefinition("id", "int"),
-                                FieldDefinition("name", "string")
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int"),
+                                "name" to FieldDefinition("name", "string")
                             )
                         )
                     )
@@ -235,31 +244,31 @@ class PostgresDestinationIT {
                 }
 
                 pool.withConnection { conn ->
-                    assertFalse(Postgres.tableExists("public", "users", conn))
+                    assertFalse(PostgresDialect().tableExists(JdbcTableName("public", "users"), conn))
                 }
             }
         }
     }
 
     @Test
-    fun `dropCollection() doesn't fail if table not exists`() = runBlocking {
+    fun `dropCollection() doesn't fail if table not exists`() {
         PostgresDestination(getPool(), dataTypeMappings).use { destination ->
-            assertDoesNotThrow {  destination.dropCollection("public.something") }
+            assertDoesNotThrow { runBlocking { destination.dropCollection("public.something") } }
         }
     }
 
     @Test
     fun `insertDocuments() writes expected data`() {
         withPool { pool ->
-            PostgresDestination(pool, dataTypeMappings, closePool = false).use { destination ->
+            PostgresDestination(pool, dataTypeMappings, false).use { destination ->
                 runBlocking {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(
-                                FieldDefinition("id", "int"),
-                                FieldDefinition("name", "string"),
-                                FieldDefinition("active", "boolean")
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int"),
+                                "name" to FieldDefinition("name", "string"),
+                                "active" to FieldDefinition("active", "boolean")
                             )
                         )
                     )
@@ -293,6 +302,47 @@ class PostgresDestinationIT {
     }
 
     @Test
+    fun `insertDocuments() casts integer values to booleans for boolean columns`() {
+        withPool { pool ->
+            PostgresDestination(pool, dataTypeMappings, false).use { destination ->
+                runBlocking {
+                    destination.createCollection(
+                        CollectionMetadata(
+                            name = "public.users",
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int"),
+                                "active" to FieldDefinition("active", "boolean")
+                            )
+                        )
+                    )
+
+                    destination.insertDocuments(
+                        "public.users",
+                        flowOf(
+                            mapOf("id" to 1, "active" to 1),
+                            mapOf("id" to 2, "active" to 0)
+                        )
+                    )
+                }
+            }
+
+            pool.withStatement { stmt ->
+                stmt.executeQuery("SELECT id, active FROM public.users ORDER BY id;").use { rs ->
+                    assertTrue(rs.next())
+                    assertEquals(1, rs.getInt("id"))
+                    assertEquals(true, rs.getBoolean("active"))
+
+                    assertTrue(rs.next())
+                    assertEquals(2, rs.getInt("id"))
+                    assertEquals(false, rs.getBoolean("active"))
+
+                    assertFalse(rs.next())
+                }
+            }
+        }
+    }
+
+    @Test
     fun `insertDocuments() writes null for missing nullable fields`() {
         withPool { pool ->
             PostgresDestination(pool, dataTypeMappings, closePool = false).use { destination ->
@@ -300,10 +350,10 @@ class PostgresDestinationIT {
                     destination.createCollection(
                         CollectionMetadata(
                             name = "public.users",
-                            fields = listOf(
-                                FieldDefinition("id", "int", false),
-                                FieldDefinition("name", "string", true),
-                                FieldDefinition("active", "boolean", true)
+                            fields = mapOf(
+                                "id" to FieldDefinition("id", "int", false),
+                                "name" to FieldDefinition("name", "string", true),
+                                "active" to FieldDefinition("active", "boolean", true)
                             )
                         )
                     )
@@ -338,7 +388,7 @@ class PostgresDestinationIT {
                 destination.createCollection(
                     CollectionMetadata(
                         name = "public.users",
-                        fields = listOf(FieldDefinition("id", "int"))
+                        fields = mapOf("id" to FieldDefinition("id", "int"))
                     )
                 )
 

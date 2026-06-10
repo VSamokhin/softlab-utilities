@@ -41,7 +41,7 @@ class MongoDestinationIT {
 
         private lateinit var mongoInitiator: MongoInitiator
 
-        private val dataTypeMappings = ConfigProvider.config.getDataTypeMappings().destination(MongoDestination.BACKEND)
+        private val dataTypeMappings = ConfigProvider.config.getDataTypeMappings()
 
         @BeforeAll
         @JvmStatic
@@ -58,10 +58,10 @@ class MongoDestinationIT {
 
     @BeforeEach
     fun seedData() = runBlocking {
-        mongoInitiator.mongoDb.listCollections()
+        mongoInitiator.getConnection().listCollections()
             .map { it.getString("name") }
             .collect { collection ->
-                mongoInitiator.mongoDb
+                mongoInitiator.getConnection()
                     .getCollection<Document>(collection)
                     .drop()
             }
@@ -72,18 +72,18 @@ class MongoDestinationIT {
         MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
             destination.createCollection(
                 CollectionMetadata("new_collection",
-                    listOf(
-                        FieldDefinition("id", "string"),
-                        FieldDefinition("nickname", "string", nullable = true)
+                    mapOf(
+                        "id" to FieldDefinition("id", "string"),
+                        "nickname" to FieldDefinition("nickname", "string", nullable = true)
                     ))
             )
             destination.createCollection(
-                CollectionMetadata("existing", emptyList())
+                CollectionMetadata("existing", emptyMap())
             )
         }
 
         assertThat(
-            mongoInitiator.mongoDb.listCollections().map { it["name"] }.toList(),
+            mongoInitiator.getConnection().listCollections().map { it["name"] }.toList(),
             containsInAnyOrder(
                 "existing", "new_collection"
             )
@@ -99,7 +99,7 @@ class MongoDestinationIT {
             newProperties.get("nickname", Document::class.java).getList("bsonType", String::class.java)
         )
 
-        val existingCollection = mongoInitiator.mongoDb.listCollections()
+        val existingCollection = mongoInitiator.getConnection().listCollections()
             .toList()
             .first { it.getString("name") == "existing" }
         val existingOptions = existingCollection.get("options", Document::class.java)
@@ -107,16 +107,16 @@ class MongoDestinationIT {
         assertTrue(existingOptions.isEmpty())
     }
 
-        @Test
+    @Test
     fun `createCollection() forms expected validator descriptor`() = runBlocking {
         MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
             destination.createCollection(
                 CollectionMetadata(
                     "validator_shape",
-                    listOf(
-                        FieldDefinition("user_id", "long"),
-                        FieldDefinition("nickname", "string", nullable = true),
-                        FieldDefinition("active", "bool")
+                    mapOf(
+                        "user_id" to FieldDefinition("user_id", "long"),
+                        "nickname" to FieldDefinition("nickname", "string", nullable = true),
+                        "active" to FieldDefinition("active", "bool")
                     )
                 )
             )
@@ -145,9 +145,9 @@ class MongoDestinationIT {
             destination.createCollection(
                 CollectionMetadata(
                     "validator_all_nullable",
-                    listOf(
-                        FieldDefinition("a", "string", nullable = true),
-                        FieldDefinition("b", "double", nullable = true)
+                    mapOf(
+                        "a" to FieldDefinition("a", "string", nullable = true),
+                        "b" to FieldDefinition("b", "double", nullable = true)
                     )
                 )
             )
@@ -163,10 +163,10 @@ class MongoDestinationIT {
             destination.createCollection(
                 CollectionMetadata(
                     "validator_with_aliases",
-                    listOf(
-                        FieldDefinition("age", "integer"),
-                        FieldDefinition("memo", "text", nullable = true),
-                        FieldDefinition("enabled", "boolean")
+                    mapOf(
+                        "age" to FieldDefinition("age", "integer"),
+                        "memo" to FieldDefinition("memo", "text", nullable = true),
+                        "enabled" to FieldDefinition("enabled", "boolean")
                     )
                 )
             )
@@ -186,7 +186,7 @@ class MongoDestinationIT {
     fun `createCollection() causes mongo to throw for unknow field type`() {
         MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
             val col = CollectionMetadata("users",
-                listOf(FieldDefinition("notes", "custom"))
+                mapOf("notes" to FieldDefinition("notes", "custom"))
             )
 
             val exc = assertThrows<MongoCommandException> {
@@ -199,7 +199,7 @@ class MongoDestinationIT {
     @Test
     fun `createCollection() throws when collection already exists`() = runBlocking {
         MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
-            val metadata = CollectionMetadata("users", emptyList())
+            val metadata = CollectionMetadata("users", emptyMap())
 
             destination.createCollection(metadata)
 
@@ -220,7 +220,7 @@ class MongoDestinationIT {
     @Test
     fun `dropCollection() drops collection with all data`() = runBlocking {
         MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
-            destination.createCollection(CollectionMetadata("users", emptyList()))
+            destination.createCollection(CollectionMetadata("users", emptyMap()))
             destination.insertDocuments(
                 "users",
                 flowOf(
@@ -231,7 +231,7 @@ class MongoDestinationIT {
             destination.dropCollection("users")
         }
 
-        val collectionNames = mongoInitiator.mongoDb.listCollections()
+        val collectionNames = mongoInitiator.getConnection().listCollections()
             .map { it.getString("name") }
             .toList()
         assertTrue("users" !in collectionNames)
@@ -247,7 +247,7 @@ class MongoDestinationIT {
     @Test
     fun `insertDocuments() writes expected data`() = runBlocking {
         MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
-            destination.createCollection(CollectionMetadata("users", emptyList()))
+            destination.createCollection(CollectionMetadata("users", emptyMap()))
             destination.insertDocuments(
                 "users",
                 flowOf(
@@ -257,7 +257,7 @@ class MongoDestinationIT {
             )
         }
 
-        val docs = mongoInitiator.mongoDb
+        val docs = mongoInitiator.getConnection()
             .getCollection<BsonDocument>("users")
             .find()
             .toList()
@@ -273,7 +273,7 @@ class MongoDestinationIT {
     }
 
     private suspend fun getJsonSchemaValidator(collectionName: String): Document {
-        val collectionInfo = mongoInitiator.mongoDb.listCollections()
+        val collectionInfo = mongoInitiator.getConnection().listCollections()
             .toList()
             .first { it.getString("name") == collectionName }
         return collectionInfo

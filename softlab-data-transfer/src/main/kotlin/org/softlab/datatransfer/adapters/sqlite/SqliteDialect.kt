@@ -1,0 +1,40 @@
+/**
+ * Copyright (C) 2026, Viktor Samokhin (wowyupiyo@gmail.com)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.softlab.datatransfer.adapters.sqlite
+
+import org.softlab.dataset.core.FieldDefinition
+import org.softlab.datatransfer.adapters.jdbc.JdbcDialect
+import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
+import java.sql.Connection
+
+
+class SqliteDialect : JdbcDialect(
+    backendName = "sqlite",
+    supportsConcurrentInserts = false
+) {
+    override fun parseTableName(tableName: String): JdbcTableName =
+        JdbcTableName(null, tableName.substringAfter("."))
+
+    override fun listColumns(tableName: JdbcTableName, connection: Connection): Map<String, FieldDefinition> {
+        return super.listColumns(tableName, connection).mapValues { field ->
+            // INTEGER type can handle numbers up to int8
+            if (field.value.type == "INTEGER") {
+                FieldDefinition(field.value.name, "INT8", field.value.nullable)
+            } else field.value
+        }
+    }
+}

@@ -33,33 +33,36 @@ import org.softlab.datatransfer.util.Mongo
  * ```
  */
 class MongoSource(
-    uri: String,
-    private val client: MongoClient = MongoClient.create(uri),
-    val databaseName: String = Mongo.getDatabaseName(uri)
+    private val client: MongoClient,
+    databaseName: String,
+    private val closeClient: Boolean
 ) : DatabaseSource {
+    constructor(uri: String) : this(
+        MongoClient.create(uri),
+        Mongo.getDatabaseName(uri),
+        true
+    )
     companion object {
         private const val BACKEND = "mongo"
     }
 
-    private val db = client.getDatabase(databaseName)
+    private val mongoDb = client.getDatabase(databaseName)
 
     override fun getBackendName(): String = BACKEND
 
     override fun listCollections(): Flow<DocumentCollection> {
         return runBlocking {
-            db.listCollectionNames().map {
-                MongoDocumentCollection(it, this@MongoSource)
+            mongoDb.listCollectionNames().map {
+                MongoDocumentCollection(it, client.getDatabase(mongoDb.name))
             }
         }
     }
 
     override suspend fun countDocuments(collectionName: String): Long {
-        return db.getCollection<Document>(collectionName).countDocuments()
+        return mongoDb.getCollection<Document>(collectionName).countDocuments()
     }
 
     override fun close() {
-        client.close()
+        if (closeClient) client.close()
     }
-
-    fun getClient(): MongoClient = client
 }

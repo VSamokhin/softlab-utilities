@@ -1,5 +1,8 @@
 package org.softlab.dataset.redis
 
+import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.allOf
+import org.hamcrest.Matchers.containsString
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -34,19 +37,9 @@ class RedisTableMappingTest {
             mapping.anchorHash()
         }
 
-        assertEquals(
-            "Redis table 'users' must define a row-level anchor hash without field/value mappings",
-            exc.message
-        )
-    }
-
-    @Test
-    fun `table() returns matching mapping by name`() {
-        val expected = RedisTableMapping(table = "users")
-        val mappings = RedisTableMappings(
-            tables = listOf(expected, RedisTableMapping(table = "roles"))
-        )
-
-        assertEquals(expected, mappings.table("users"))
+        assertThat(exc.message, allOf(
+            containsString("users"),
+            containsString("row-level anchor")
+        ))
     }
 }

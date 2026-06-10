@@ -3,6 +3,7 @@ package org.softlab.datatransfer.adapters.postgres
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.hamcrest.MatcherAssert.assertThat
+import org.hamcrest.Matchers.contains
 import org.hamcrest.Matchers.containsInAnyOrder
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
@@ -10,8 +11,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.softlab.datataset.test.initiators.JdbcInitiator
 import org.softlab.datataset.test.initiators.createPostgresContainer
-import org.softlab.datataset.test.initiators.getProvider
-import org.softlab.datataset.test.initiators.withProvider
+import org.softlab.datataset.test.initiators.getPool
+import org.softlab.datataset.test.initiators.withTestPool
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import kotlin.test.assertEquals
@@ -48,7 +49,7 @@ class PostgresSourceIT {
 
     @Test
     fun `class closes provider`() {
-        withProvider(postgresInitiator) { provider ->
+        postgresInitiator.withTestPool { provider ->
             PostgresSource(provider).use { cut ->
                 runBlocking { cut.countDocuments("schema1.users") }
             }
@@ -58,27 +59,27 @@ class PostgresSourceIT {
     }
 
     @Test
-    fun `countDocuments() returns correct count`() = runBlocking {
-        PostgresSource(getProvider(postgresInitiator)).use { cut ->
-            assertEquals(2, cut.countDocuments("schema1.users"))
-            assertEquals(1, cut.countDocuments("schema2.products"))
+    fun `countDocuments() returns correct count`() {
+        PostgresSource(getPool(postgresInitiator)).use { cut ->
+            assertEquals(2, runBlocking { cut.countDocuments("schema1.users") })
+            assertEquals(1, runBlocking { cut.countDocuments("schema2.products") })
         }
     }
 
     @Test
     fun `getBackendName() returns postgres`() {
-        PostgresSource(getProvider(postgresInitiator)).use { cut ->
+        PostgresSource(getPool(postgresInitiator)).use { cut ->
             assertEquals("postgres", cut.getBackendName())
         }
     }
 
     @Test
-    fun `listCollections() returns expected collections`() = runBlocking {
-        PostgresSource(getProvider(postgresInitiator)).use { cut ->
-            val collections = cut.listCollections().toList()
+    fun `listCollections() returns expected collections`() {
+        PostgresSource(getPool(postgresInitiator)).use { cut ->
+            val collections = runBlocking { cut.listCollections().toList() }
 
             assertThat(
-                collections.map { it.fetchMetadata().name },
+                collections.map { runBlocking { it.fetchMetadata() }.name },
                 containsInAnyOrder(
                     "schema1.users",
                     "schema2.products",
@@ -87,28 +88,33 @@ class PostgresSourceIT {
                 )
             )
 
-            val usersCollection = collections.first { it.fetchMetadata().name == "schema1.users" }
+            val usersCollection = collections.first { runBlocking { it.fetchMetadata() }.name == "schema1.users" }
+            val usersMetadata = runBlocking { usersCollection.fetchMetadata() }
             assertThat(
-                usersCollection.fetchMetadata().fields.map { it.name }.toList(),
-                containsInAnyOrder("user_id", "name", "email")
+                usersMetadata.fields.keys,
+                contains("user_id", "name", "email")
+            )
+            assertThat(
+                usersMetadata.fields.map { it.value.type },
+                containsInAnyOrder("int4", "varchar", "varchar")
             )
 
-            val productsCollection = collections.first { it.fetchMetadata().name == "schema2.products" }
+            val productsCollection = collections.first { runBlocking { it.fetchMetadata() }.name == "schema2.products" }
             assertThat(
-                productsCollection.fetchMetadata().fields.map { it.name }.toSet(),
+                runBlocking { productsCollection.fetchMetadata() }.fields.keys,
                 containsInAnyOrder("product_id", "title")
             )
         }
     }
 
     @Test
-    fun `readDocuments() returns expected documents`() = runBlocking {
-        PostgresSource(getProvider(postgresInitiator)).use { cut ->
-            val collections = cut.listCollections().toList()
+    fun `readDocuments() returns expected documents`() {
+        PostgresSource(getPool(postgresInitiator)).use { cut ->
+            val collections = runBlocking { cut.listCollections().toList() }
 
-            val usersCollection = collections.firstOrNull { it.fetchMetadata().name == "schema1.users" }
+            val usersCollection = collections.firstOrNull { runBlocking { it.fetchMetadata() }.name == "schema1.users" }
             assertNotNull(usersCollection)
-            val users = usersCollection.readDocuments().toList()
+            val users = runBlocking { usersCollection.readDocuments().toList() }
             assertThat(
                 users.map { it["name"] }.toList(),
                 containsInAnyOrder("Alice", "Bob")
@@ -118,9 +124,11 @@ class PostgresSourceIT {
                 containsInAnyOrder("alice@example.com", "bob@example.com")
             )
 
-            val productsCollection = collections.firstOrNull { it.fetchMetadata().name == "schema2.products" }
+            val productsCollection = collections.firstOrNull {
+                runBlocking { it.fetchMetadata() }.name == "schema2.products"
+            }
             assertNotNull(productsCollection)
-            val products = productsCollection.readDocuments().toList()
+            val products = runBlocking { productsCollection.readDocuments().toList() }
             assertThat(products.map { it["title"] }.toList(), containsInAnyOrder("Gizmo"))
         }
     }

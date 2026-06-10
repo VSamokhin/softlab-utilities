@@ -66,7 +66,7 @@ object MongoTypesMapper {
             ?.get("properties", Document::class.java)
             ?.entries
             ?.associate { p ->
-                p.key to when(val type = (p.value as Document)["bsonType"]!!) {
+                p.key.lowercase() to when(val type = (p.value as Document)["bsonType"]!!) {
                     is String -> FieldDefinition(p.key, type, p.key !in required)
                     is List<*> -> {
                         check(type.size == 2) {
