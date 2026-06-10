@@ -21,6 +21,7 @@ import com.mongodb.client.model.ValidationOptions
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.any
@@ -34,9 +35,12 @@ import org.softlab.datatransfer.config.DataTypeMappingsConfig
 import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
+import org.softlab.datatransfer.core.MAX_PENDING_ROWS
 import org.softlab.datatransfer.core.REPORT_ON_INSERTS
 import org.softlab.datatransfer.core.TransferDocument
 import org.softlab.datatransfer.util.Mongo
+import org.softlab.datatransfer.util.reduce
+import java.util.LinkedList
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.plusAssign
@@ -124,9 +128,10 @@ class MongoDestination(
 
         val collection = db.getCollection<BsonDocument>(collectionName)
         val total = AtomicInt(0)
+        val jobs = LinkedList<Job>()
         coroutineScope {
             documents.chunked(BATCH_SIZE).collect { batch ->
-                launch {
+                jobs += launch {
                     val docs = batch.map { doc -> doc.asBsonDocument() }
                     collection.insertMany(docs)
                     total += docs.size
@@ -134,6 +139,7 @@ class MongoDestination(
                         logger.info { "Inserted $total documents into '$collectionName'" }
                     }
                 }
+                jobs.reduce(MAX_PENDING_ROWS / BATCH_SIZE)
             }
         }
         logger.info { "Total of $total documents inserted into '$collectionName'" }
