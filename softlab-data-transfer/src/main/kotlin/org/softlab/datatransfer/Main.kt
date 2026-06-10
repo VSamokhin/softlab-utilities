@@ -38,9 +38,16 @@ import org.softlab.datatransfer.util.StopWatch
 
 
 class Main : CliktCommand() {
+    companion object {
+        private const val MIN_DEFAULT_JOBS = 1
+        private const val MAX_DEFAULT_JOBS = 8
+    }
     private val logger = KotlinLogging.logger {}
 
-    private val defaultThreads: Int = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+    private val defaultJobs: Int = Runtime.getRuntime()
+        .availableProcessors()
+        .coerceAtLeast(MIN_DEFAULT_JOBS)
+        .coerceAtMost(MAX_DEFAULT_JOBS)
 
     private val source by argument()
         .help("Source DB connection string (URL)")
@@ -56,37 +63,47 @@ class Main : CliktCommand() {
         .help("Additional source adapter options as comma-separated key=value pairs")
     private val destOptions by option()
         .help("Additional destination adapter options as comma-separated key=value pairs")
-    private val threads by option()
-        .help("Set count of worker threads for migration (default: $defaultThreads)")
+    private val jobs by option()
+        .help("Hint of simultaneous jobs count used for migration (default: $defaultJobs)")
         .int()
-        .default(defaultThreads)
+        .default(defaultJobs)
 
     override fun run() {
         val sourceNameFilter = StringTokenFilter.from(sourceFilter)
         val parsedSourceOptions = KeyValues.parse(sourceOptions).apply {
-            put(AdapterProvider.THREADS_HINT, threads.toString())
+            put(AdapterProvider.JOBS_HINT, jobs.toString())
         }
         val parsedDestOptions = KeyValues.parse(destOptions).apply {
-            put(AdapterProvider.THREADS_HINT, threads.toString())
+            put(AdapterProvider.JOBS_HINT, jobs.toString())
         }
 
+        logger.info { "Will be using $jobs threads for the data transfer if the database supports parallelism" }
+
+        val dropTimer = StopWatch()
+        val migrateTimer = StopWatch()
         AdapterProvider.sourceFor(source, parsedSourceOptions).use { sourceAdapter ->
             AdapterProvider.destinationFor(dest, parsedDestOptions).use { destAdapter ->
-                val timer = StopWatch().start()
                 runBlocking {
                     if (dropTargets) {
                         logger.info { "First drop target collections" }
+                        dropTimer.start()
                         sourceAdapter.listCollections()
                             .map { it.fetchMetadata().name }
                             .filter { sourceNameFilter.startsWith(it) }
                             .collect { destAdapter.dropCollection(it) }
+                        dropTimer.stop()
                     }
                     logger.info { "Now migrate data" }
-                    Migrator(sourceNameFilter,threads)
+                    migrateTimer.start()
+                    Migrator(sourceNameFilter,jobs)
                         .migrate(sourceAdapter, destAdapter)
+                    migrateTimer.stop()
                 }
-                logger.info { "Job done in ${timer.stopAndGetTimeStr()}" }
             }
+        }
+        logger.info {
+            "Job done in ${StopWatch.formatTime(dropTimer.getStopTime() + migrateTimer.getStopTime())}, " +
+                "drop took ${dropTimer.getStopTimeStr()}, migration took ${migrateTimer.getStopTimeStr()}"
         }
     }
 }

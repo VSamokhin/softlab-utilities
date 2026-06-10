@@ -13,15 +13,15 @@ class AdapterProviderTest {
     companion object {
         @JvmStatic
         fun getSources(): List<Arguments> = listOf(
-            Arguments.of("jdbc:postgres://localhost:5432/db", "threads"),
-            Arguments.of("jdbc:sqlite:///path/to/db.sqlite", "threads"),
-            Arguments.of("redis://localhost:6379/db", "mapping")
+            Arguments.of("jdbc:postgres://localhost:5432/db", AdapterProvider.JOBS_HINT),
+            Arguments.of("jdbc:sqlite:///path/to/db.sqlite", AdapterProvider.JOBS_HINT),
+            Arguments.of("redis://localhost:6379/db", AdapterProvider.REDIS_SOURCE_MAPPING)
         )
 
         @JvmStatic
         fun getDestinations(): List<Arguments> = listOf(
-            Arguments.of("jdbc:postgres://localhost:5432/db", "threads"),
-            Arguments.of("redis://localhost:6379", "mapping")
+            Arguments.of("jdbc:postgres://localhost:5432/db", AdapterProvider.JOBS_HINT),
+            Arguments.of("redis://localhost:6379", AdapterProvider.REDIS_SOURCE_MAPPING)
         )
     }
 

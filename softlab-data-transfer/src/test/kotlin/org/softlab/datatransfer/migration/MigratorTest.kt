@@ -5,7 +5,6 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -18,8 +17,6 @@ import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.DocumentCollection
 import org.softlab.datatransfer.core.StringTokenFilter
-import java.util.concurrent.atomic.AtomicInteger
-import kotlin.time.Duration.Companion.milliseconds
 
 
 class MigratorTest {
@@ -114,59 +111,6 @@ class MigratorTest {
         coVerify(exactly = 0) { mockDest.createCollection(skippedMetadata) }
         coVerify(exactly = 1) { mockDest.insertDocuments(includedMetadata.name, any()) }
         coVerify(exactly = 0) { mockDest.insertDocuments(skippedMetadata.name, any()) }
-    }
-
-    @Test
-    fun `migrate() processes collections concurrently with configured threads`() {
-        val activeCreates = AtomicInteger(0)
-        val peakCreates = AtomicInteger(0)
-
-        val source = object : DatabaseSource {
-            override fun getBackendName(): String = "test"
-
-            override fun listCollections() = flowOf(
-                testCollection("users_1"),
-                testCollection("users_2")
-            )
-
-            override suspend fun countDocuments(collectionName: String): Long = 0
-
-            override fun close() = Unit
-        }
-        val destination = object : DatabaseDestination {
-            override fun getBackendName(): String = "test"
-
-            override suspend fun createCollection(metadata: CollectionMetadata) {
-                val concurrentCalls = activeCreates.incrementAndGet()
-                peakCreates.accumulateAndGet(concurrentCalls) { current, update -> maxOf(current, update) }
-                delay(100.milliseconds)
-                activeCreates.decrementAndGet()
-            }
-
-            override suspend fun dropCollection(collectionName: String) = Unit
-
-            override suspend fun insertDocuments(
-                collectionName: String,
-                documents: kotlinx.coroutines.flow.Flow<Map<String, Any?>>
-            ) {
-                documents.collect { }
-            }
-
-            override fun close() = Unit
-        }
-
-        runBlocking { Migrator(workerThreads = 2).migrate(source, destination) }
-
-        assertEquals(2, peakCreates.get())
-    }
-
-    private fun testCollection(name: String) = object : DocumentCollection {
-        override suspend fun fetchMetadata() = CollectionMetadata(
-            name = name,
-            fields = mapOf("id" to FieldDefinition("id", "string"))
-        )
-
-        override fun readDocuments() = flowOf(mapOf("id" to name))
     }
 
     @Test

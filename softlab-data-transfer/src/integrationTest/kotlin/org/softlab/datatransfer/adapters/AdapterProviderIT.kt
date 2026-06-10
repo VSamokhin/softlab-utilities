@@ -42,8 +42,10 @@ class AdapterProviderIT {
         private val sqliteUri: String = Files.createTempFile("data-transfer-sqlite", ".db")
             .apply { toFile().deleteOnExit() }.let { "jdbc:sqlite:$it" }
 
-        private val REDIS_OPTIONS = mapOf("mapping" to "mappings/MainIT-AdapterProviderIT-various_datatypes.yml")
-        private val THREADS_OPTION = mapOf("threads" to "1")
+        private val REDIS_OPTIONS = mapOf(
+            AdapterProvider.REDIS_SOURCE_MAPPING to "mappings/MainIT-AdapterProviderIT-various_datatypes.yml"
+        )
+        private val JOBS_OPTION = mapOf(AdapterProvider.JOBS_HINT to "1")
 
         @BeforeAll
         @JvmStatic
@@ -56,9 +58,9 @@ class AdapterProviderIT {
         @JvmStatic
         fun getSources(): List<Arguments> {
             return listOf(
-                Arguments.of(postgresUri, THREADS_OPTION, PostgresSource::class.java),
+                Arguments.of(postgresUri, JOBS_OPTION, PostgresSource::class.java),
                 Arguments.of(mongoUri, emptyMap<String, String>(), MongoSource::class.java),
-                Arguments.of(sqliteUri, THREADS_OPTION, SqliteSource::class.java),
+                Arguments.of(sqliteUri, JOBS_OPTION, SqliteSource::class.java),
                 Arguments.of(redisUri, REDIS_OPTIONS, RedisSource::class.java)
             )
         }
@@ -66,7 +68,7 @@ class AdapterProviderIT {
         @JvmStatic
         fun getDestinations(): List<Arguments> {
             return listOf(
-                Arguments.of(postgresUri, THREADS_OPTION, PostgresDestination::class.java),
+                Arguments.of(postgresUri, JOBS_OPTION, PostgresDestination::class.java),
                 Arguments.of(mongoUri, emptyMap<String, String>(), MongoDestination::class.java),
                 Arguments.of(sqliteUri, emptyMap<String, String>(), SqliteDestination::class.java),
                 Arguments.of(redisUri, REDIS_OPTIONS, RedisDestination::class.java)
