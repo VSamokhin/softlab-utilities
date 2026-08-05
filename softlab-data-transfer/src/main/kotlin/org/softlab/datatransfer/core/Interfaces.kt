@@ -127,4 +127,5 @@ interface DatabaseDestination : AutoCloseable {
      */
     suspend fun dropCollection(collectionName: String)
     suspend fun insertDocuments(collectionName: String, documents: Flow<TransferDocument>)
+    suspend fun createIndexesAndConstraints(metadata: CollectionMetadata) = Unit
 }

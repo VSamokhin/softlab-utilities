@@ -51,5 +51,6 @@ class Migrator(
         }
         destination.createCollection(metadata)
         destination.insertDocuments(metadata.name, collection.readDocuments())
+        destination.createIndexesAndConstraints(metadata)
     }
 }

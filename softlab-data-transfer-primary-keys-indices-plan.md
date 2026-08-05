@@ -58,14 +58,14 @@ Commit outcome:
 
 * Core metadata can represent primary keys and secondary indices without changing backend behavior.
 
-## Task 2: Add Destination Post-Load Metadata Hook
+## Task 2: Add Destination Post-Load Metadata Hook (Done)
 
 Scope:
 
 * Add a default method to `DatabaseDestination`, for example:
 
 ```kotlin
-suspend fun createMetadataDefinitions(metadata: CollectionMetadata) = Unit
+suspend fun createIndexesAndConstraints(metadata: CollectionMetadata) = Unit
 ```
 
 * Call this method in `Migrator.migrateCollection()` after `insertDocuments()`.
@@ -77,7 +77,7 @@ Tests:
 * Update `MigratorTest` to verify call order:
   * `createCollection(metadata)`
   * `insertDocuments(metadata.name, documents)`
-  * `createMetadataDefinitions(metadata)`
+  * `createIndexesAndConstraints(metadata)`
 * Verify skipped collections do not call the hook.
 * Verify empty sources do not call the hook.
 
@@ -116,7 +116,7 @@ Commit outcome:
 
 Scope:
 
-* Implement `PostgresDestination.createMetadataDefinitions(metadata)`.
+* Implement `PostgresDestination.createIndexesAndConstraints(metadata)`.
 * Generate `ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY (...)` for `primaryKey`.
 * Generate `CREATE [UNIQUE] INDEX ... ON ... (...)` for `indices`.
 * Add safe identifier handling before generating DDL. Current code interpolates names directly; this task should either introduce a small PostgreSQL identifier renderer or intentionally document the existing limitation and keep the implementation consistent.
@@ -127,7 +127,7 @@ Scope:
 
 Tests:
 
-* Extend `PostgresDestinationIT` to create a table, insert rows, then call `createMetadataDefinitions()` and verify constraints/indexes in PostgreSQL catalogs.
+* Extend `PostgresDestinationIT` to create a table, insert rows, then call `createIndexesAndConstraints()` and verify constraints/indexes in PostgreSQL catalogs.
 * Cover duplicate data causing primary-key or unique-index creation failure.
 * Cover metadata with no definitions.
 
@@ -179,15 +179,15 @@ Scope:
   * create the primary key inline during `createCollection()` for SQLite, accepting possible insert-time overhead
   * do not recreate SQLite primary keys in the first implementation and document this limitation
   * rebuild the table after transfer, which is technically possible but higher risk and should be a separate task if chosen
-* Recommended first implementation: create SQLite primary keys inline in `createCollection()` when `metadata.primaryKey` is present, and create secondary indices after `insertDocuments()` in `createMetadataDefinitions()`.
+* Recommended first implementation: create SQLite primary keys inline in `createCollection()` when `metadata.primaryKey` is present, and create secondary indices after `insertDocuments()` in `createIndexesAndConstraints()`.
 * Generate `CREATE [UNIQUE] INDEX ... ON ... (...)` for supported `indices`.
 * Add SQLite identifier rendering or reuse a shared JDBC identifier renderer if introduced for PostgreSQL.
-* Ensure `createMetadataDefinitions()` does nothing when no supported definitions are present.
+* Ensure `createIndexesAndConstraints()` does nothing when no supported definitions are present.
 
 Tests:
 
 * Extend `SqliteDestinationIT` to create a table from metadata with a primary key and verify it through PRAGMA metadata.
-* Insert rows first, then call `createMetadataDefinitions()` and verify supported unique and non-unique indices.
+* Insert rows first, then call `createIndexesAndConstraints()` and verify supported unique and non-unique indices.
 * Cover duplicate data causing unique-index creation failure.
 * Cover metadata with no definitions.
 * Cover the chosen behavior for SQLite primary-key timing so future changes do not accidentally move it after the load.
@@ -223,7 +223,7 @@ Commit outcome:
 
 Scope:
 
-* Implement `MongoDestination.createMetadataDefinitions(metadata)`.
+* Implement `MongoDestination.createIndexesAndConstraints(metadata)`.
 * Create indexes with `Indexes.ascending`, `Indexes.descending`, or compound index definitions depending on `IndexDefinition.fields`.
 * Apply `IndexOptions().name(name).unique(unique)` when values are present.
 * Do not create primary keys for Mongo in the first implementation unless `_id` transfer support is added. Mongo always has `_id`; creating a relational-style primary key would be misleading.
@@ -231,7 +231,7 @@ Scope:
 
 Tests:
 
-* Extend `MongoDestinationIT` to create a collection, insert data, call `createMetadataDefinitions()`, and verify `listIndexes()`.
+* Extend `MongoDestinationIT` to create a collection, insert data, call `createIndexesAndConstraints()`, and verify `listIndexes()`.
 * Cover unique index creation failure with duplicate documents.
 * Cover no definitions.
 

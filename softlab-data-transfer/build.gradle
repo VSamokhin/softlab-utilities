@@ -70,7 +70,7 @@ startScripts {
 }
 
 jacocoTestCoverageVerification {
-    jacocoVerification(it, 0.91, 5)
+    jacocoVerification(it, 0.91, 6)
     // Revisit these thresholds later as there's a Gradle plugin bug
     // preventing inline functions from being properly counted in the coverage report: https://github.com/gradle/gradle/issues/36667
 }
