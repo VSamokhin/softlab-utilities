@@ -4,7 +4,6 @@
   * Organize all Kotlin source files under `src/main/kotlin` of every subproject, according to their package declarations. Place unit test files under `src/test/kotlin` and integration test files under `src/integrationTest/kotlin` accordingly.
   * This project uses Gradle's convention plugins to share configuration across multiple subprojects, these plugins are located in the `buildSrc/src/main/groovy` directory.
   * If using WireMock in tests, then place the WireMock stubs under `src/test/resources/__files` and the mappings under `src/test/resources/mappings` of a corresponding subproject.
-  * To define mocks in tests, use `io.mockk:mockk` library, but if adding it as a dependency, exclude all its transient dependencies to all modules of `org.junit.jupiter`.
   * The project uses `detekt` for static code analysis, and its configuration is located in `etc/detekt/detekt-config.yml`.
   * After adding a new dependency, don't change `versions.properties` file directly, but instead execute `./gradlew build` to allow `refershVersions` plugin to update it with the new dependency version.
 
@@ -34,6 +33,9 @@
   * Keep corresponding tests and test classes up to date when changing the code or renaming source code modules.
   * For test modules a file header is not needed.
   * Writing source code, assume a possibility of direct mocking in tests, without the need to apply global mocks, or mock hooks, or static mocks.
+  * To define mocks in tests, use `io.mockk:mockk` library, but if adding it as a dependency, exclude all its transient dependencies to all modules of `org.junit.jupiter`.
+  * When testing equality correctness, use `nl.jqno.equalsverifier:equalsverifier` library.
+  * When testing `toString()` correctness, use `com.jparams:to-string-verifier` library.
   * Do not wrap entire test body with `runBlocking`, but instead use `runBlocking` only on particular suspend call sites.
   * For assertion of iterables, use `kotlin.test.assertContentEquals`
   * Don't provide an error message to assertion functions as most of the time it's excessive.

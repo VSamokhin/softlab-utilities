@@ -33,8 +33,49 @@ data class CollectionMetadata(
      *
      * Can be an empty list if schema is not known.
      */
-    val fields: Map<String, FieldDefinition>
+    val fields: Map<String, FieldDefinition>,
+    /**
+     * Primary key definition, if known.
+     */
+    val primaryKey: PrimaryKeyDefinition? = null,
+    /**
+     * Secondary index definitions, if known.
+     */
+    val indices: Collection<IndexDefinition> = emptyList()
 )
+
+/**
+ * Represents a primary key definition.
+ */
+data class PrimaryKeyDefinition(
+    val name: String?,
+    val fields: List<String>
+)
+
+/**
+ * Represents a secondary index definition.
+ */
+data class IndexDefinition(
+    val name: String?,
+    val fields: List<IndexFieldDefinition>,
+    val unique: Boolean = false
+)
+
+/**
+ * Represents a field within a secondary index definition.
+ */
+data class IndexFieldDefinition(
+    val name: String,
+    val order: IndexSortOrder = IndexSortOrder.ASC
+)
+
+/**
+ * Represents portable index field sort order.
+ */
+enum class IndexSortOrder {
+    ASC,
+    DESC
+}
 
 /**
  * Represents a document (row)

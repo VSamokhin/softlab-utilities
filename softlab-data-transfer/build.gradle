@@ -27,6 +27,7 @@ dependencies {
 
     testImplementation testFixtures(project(':softlab-dataset-loaders'))
     testImplementation 'com.jayway.jsonpath:json-path-assert:_'
+    testImplementation 'nl.jqno.equalsverifier:equalsverifier:_'
 
     integrationTestImplementation project(':softlab-dataset-loaders')
     integrationTestImplementation testFixtures(project(':softlab-dataset-loaders'))

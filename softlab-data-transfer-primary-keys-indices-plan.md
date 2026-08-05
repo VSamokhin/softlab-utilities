@@ -35,7 +35,7 @@ data class IndexFieldDefinition(
 
 This intentionally starts with a portable core. Backend-specific options such as PostgreSQL index method, Mongo sparse/partial indexes, expression indexes, included columns, collation, or operator classes should be added later only after a real transfer use case requires them.
 
-## Task 1: Add Portable Metadata Models
+## Task 1: Add Portable Metadata Models (Done)
 
 Scope:
 
