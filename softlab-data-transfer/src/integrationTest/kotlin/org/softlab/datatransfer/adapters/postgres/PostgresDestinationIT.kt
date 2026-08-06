@@ -17,7 +17,7 @@ import org.softlab.dataset.core.FieldDefinition
 import org.softlab.dataset.jdbc.withConnection
 import org.softlab.dataset.jdbc.withStatement
 import org.softlab.datataset.test.initiators.createPostgresContainer
-import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
+import org.softlab.datatransfer.core.SqlTableName
 import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.core.CollectionMetadata
@@ -100,7 +100,7 @@ class PostgresDestinationIT {
                 }
 
                 val columns = pool.withConnection {
-                    PostgresDialect().listColumns(JdbcTableName("public", "users"), it)
+                    PostgresDialect().listColumns(SqlTableName("public", "users"), it)
                 }
 
                 assertThat(columns.values, contains(
@@ -152,7 +152,7 @@ class PostgresDestinationIT {
             }
 
             val columns = pool.withConnection {
-                PostgresDialect().listColumns(JdbcTableName("public", "users"), it)
+                PostgresDialect().listColumns(SqlTableName("public", "users"), it)
             }
             assertThat(columns.values, contains(FieldDefinition("notes", "text")))
         }
@@ -186,10 +186,10 @@ class PostgresDestinationIT {
             val dialect = PostgresDialect()
             pool.withConnection { conn ->
                 assertTrue(dialect.tableExists(
-                    JdbcTableName("public", "no_columns"), conn
+                    SqlTableName("public", "no_columns"), conn
                 ))
                 assertTrue(dialect.listColumns(
-                    JdbcTableName("public", "no_columns"), conn
+                    SqlTableName("public", "no_columns"), conn
                 ).isEmpty())
             }
         }
@@ -211,7 +211,7 @@ class PostgresDestinationIT {
 
             pool.withConnection { conn ->
                 assertTrue(PostgresDialect().tableExists(
-                    JdbcTableName("custom", "users"), conn)
+                    SqlTableName("custom", "users"), conn)
                 )
             }
         }
@@ -238,7 +238,7 @@ class PostgresDestinationIT {
 
             pool.withConnection { conn ->
                 val dialect = PostgresDialect()
-                val tableName = JdbcTableName("public", "users")
+                val tableName = SqlTableName("public", "users")
 
                 assertEquals(metadata.primaryKey, dialect.readPrimaryKey(tableName, conn))
                 assertContentEquals(metadata.indices, dialect.readIndices(tableName, conn))
@@ -262,7 +262,7 @@ class PostgresDestinationIT {
             }
 
             pool.withConnection { conn ->
-                val tableName = JdbcTableName("public", "users")
+                val tableName = SqlTableName("public", "users")
 
                 assertNull(PostgresDialect().readPrimaryKey(tableName, conn))
                 assertContentEquals(emptyList(), PostgresDialect().readIndices(tableName, conn))
@@ -296,7 +296,7 @@ class PostgresDestinationIT {
             }
 
             pool.withConnection { conn ->
-                val tableName = JdbcTableName("public", "users")
+                val tableName = SqlTableName("public", "users")
 
                 assertEquals(
                     PrimaryKeyDefinition("users_pkey", listOf("id")),
@@ -412,7 +412,7 @@ class PostgresDestinationIT {
                 }
 
                 pool.withConnection { conn ->
-                    assertFalse(PostgresDialect().tableExists(JdbcTableName("public", "users"), conn))
+                    assertFalse(PostgresDialect().tableExists(SqlTableName("public", "users"), conn))
                 }
             }
         }

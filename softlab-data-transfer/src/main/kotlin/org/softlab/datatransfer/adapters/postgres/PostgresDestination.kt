@@ -18,13 +18,14 @@ package org.softlab.datatransfer.adapters.postgres
 
 import org.softlab.dataset.jdbc.withStatement
 import org.softlab.datatransfer.adapters.jdbc.JdbcDestination
-import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
 import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.config.DataTypeMappingsConfig
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.IndexDefinition
-import org.softlab.datatransfer.core.IndexSortOrder
 import org.softlab.datatransfer.core.PrimaryKeyDefinition
+import org.softlab.datatransfer.core.SqlTableName
+import org.softlab.datatransfer.core.toSql
+import org.softlab.datatransfer.core.toSqlIdentifier
 
 
 class PostgresDestination(
@@ -77,30 +78,22 @@ class PostgresDestination(
 
     private fun String.isBoolean(): Boolean = this in setOf("boolean", "bool")
 
-    private fun createPrimaryKeySql(tableName: JdbcTableName, primaryKey: PrimaryKeyDefinition): String {
+    private fun createPrimaryKeySql(tableName: SqlTableName, primaryKey: PrimaryKeyDefinition): String {
         val name = primaryKey.name ?: "${tableName.table}_pkey"
-        val fields = primaryKey.fields.joinToString(", ") { quoteIdentifier(it) }
-        return "ALTER TABLE ${quoteTableName(tableName)} " +
-            "ADD CONSTRAINT ${quoteIdentifier(name)} PRIMARY KEY ($fields);"
+        val fields = primaryKey.fields.joinToString(", ") { it.toSqlIdentifier() }
+        return "ALTER TABLE ${tableName.toSql()} " +
+            "ADD CONSTRAINT ${name.toSqlIdentifier()} PRIMARY KEY ($fields);"
     }
 
-    private fun createIndexSql(tableName: JdbcTableName, index: IndexDefinition): String {
+    private fun createIndexSql(tableName: SqlTableName, index: IndexDefinition): String {
         val name = index.name ?: fallbackIndexName(tableName, index)
         val unique = if (index.unique) "UNIQUE " else ""
         val fields = index.fields.joinToString(", ") { field ->
-            "${quoteIdentifier(field.name)} ${field.order.toSql()}"
+            "${field.name.toSqlIdentifier()} ${field.order.toSql()}"
         }
-        return "CREATE ${unique}INDEX ${quoteIdentifier(name)} ON ${quoteTableName(tableName)} ($fields);"
+        return "CREATE ${unique}INDEX ${name.toSqlIdentifier()} ON ${tableName.toSql()} ($fields);"
     }
 
-    private fun fallbackIndexName(tableName: JdbcTableName, index: IndexDefinition): String =
+    private fun fallbackIndexName(tableName: SqlTableName, index: IndexDefinition): String =
         "${tableName.table}_${index.fields.joinToString("_") { it.name }}_idx"
-
-    private fun quoteTableName(tableName: JdbcTableName): String =
-        listOfNotNull(tableName.schema, tableName.table).joinToString(".") { quoteIdentifier(it) }
-
-    private fun quoteIdentifier(identifier: String): String =
-        "\"${identifier.replace("\"", "\"\"")}\""
-
-    private fun IndexSortOrder.toSql(): String = name
 }

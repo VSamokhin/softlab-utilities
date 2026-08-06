@@ -16,6 +16,7 @@ import org.softlab.datatransfer.adapters.postgres.PostgresDialect
 import org.softlab.datatransfer.core.IndexDefinition
 import org.softlab.datatransfer.core.IndexFieldDefinition
 import org.softlab.datatransfer.core.IndexSortOrder
+import org.softlab.datatransfer.core.SqlTableName
 import org.softlab.datatransfer.core.PrimaryKeyDefinition
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
@@ -87,13 +88,13 @@ class JdbcDialectIT {
     @MethodSource("provideDialects")
     fun `listColumns() returns column definitions from JDBC metadata`(dialect: JdbcDialect, connection: Connection) {
         connection.use {
-            val columns = dialect.listColumns(JdbcTableName(null, "users"), connection)
+            val columns = dialect.listColumns(SqlTableName(null, "users"), connection)
 
             assertThat(columns.keys, contains("id", "name", "email"))
             assertThat(columns.map { it.value.name }, contains("id", "name", "email"))
             assertContentEquals(listOf("int4", "varchar", "varchar"), columns.map { it.value.type })
             assertContentEquals(listOf(false, true, true), columns.map { it.value.nullable })
-            assertTrue(dialect.listColumns(JdbcTableName(null, "missing"), connection).isEmpty())
+            assertTrue(dialect.listColumns(SqlTableName(null, "missing"), connection).isEmpty())
         }
     }
 
@@ -101,9 +102,9 @@ class JdbcDialectIT {
     @MethodSource("provideDialects")
     fun `tableExists() returns table presence`(dialect: JdbcDialect, connection: Connection) {
         connection.use { connection ->
-            assertTrue(dialect.tableExists(JdbcTableName(null, "users"), connection))
-            assertTrue(dialect.tableExists(JdbcTableName(null, "products"), connection))
-            assertFalse(dialect.tableExists(JdbcTableName(null, "missing"), connection))
+            assertTrue(dialect.tableExists(SqlTableName(null, "users"), connection))
+            assertTrue(dialect.tableExists(SqlTableName(null, "products"), connection))
+            assertFalse(dialect.tableExists(SqlTableName(null, "missing"), connection))
         }
     }
 
@@ -112,14 +113,14 @@ class JdbcDialectIT {
     fun `readPrimaryKey() returns primary key metadata`(dialect: JdbcDialect, connection: Connection) {
         connection.use { connection ->
             assertThat(
-                dialect.readPrimaryKey(JdbcTableName(null, "single_pk"), connection),
+                dialect.readPrimaryKey(SqlTableName(null, "single_pk"), connection),
                 equalTo(PrimaryKeyDefinition("single_pk_pkey", listOf("id")))
             )
             assertThat(
-                dialect.readPrimaryKey(JdbcTableName(null, "composite_pk"), connection),
+                dialect.readPrimaryKey(SqlTableName(null, "composite_pk"), connection),
                 equalTo(PrimaryKeyDefinition("composite_pk_pkey", listOf("tenant_id", "user_id")))
             )
-            assertNull(dialect.readPrimaryKey(JdbcTableName(null, "no_key"), connection))
+            assertNull(dialect.readPrimaryKey(SqlTableName(null, "no_key"), connection))
         }
     }
 
@@ -146,9 +147,9 @@ class JdbcDialectIT {
                         )
                     )
                 ),
-                dialect.readIndices(JdbcTableName(null, "indexed_users"), connection)
+                dialect.readIndices(SqlTableName(null, "indexed_users"), connection)
             )
-            assertContentEquals(emptyList(), dialect.readIndices(JdbcTableName(null, "no_key"), connection))
+            assertContentEquals(emptyList(), dialect.readIndices(SqlTableName(null, "no_key"), connection))
         }
     }
 }

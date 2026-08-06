@@ -21,6 +21,7 @@ import org.softlab.datatransfer.core.IndexDefinition
 import org.softlab.datatransfer.core.IndexFieldDefinition
 import org.softlab.datatransfer.core.IndexSortOrder
 import org.softlab.datatransfer.core.PrimaryKeyDefinition
+import org.softlab.datatransfer.core.SqlTableName
 import java.sql.Connection
 import java.sql.DatabaseMetaData
 import java.sql.ResultSet
@@ -30,15 +31,15 @@ abstract class JdbcDialect(
     val backendName: String,
     val supportsConcurrentInserts: Boolean
 ) {
-    abstract fun parseTableName(tableName: String): JdbcTableName
+    abstract fun parseTableName(tableName: String): SqlTableName
 
-    open fun listTables(connection: Connection): List<JdbcTableName> {
-        val results = mutableListOf<JdbcTableName>()
+    open fun listTables(connection: Connection): List<SqlTableName> {
+        val results = mutableListOf<SqlTableName>()
         connection.metaData
             .getTables(null, null, "%", arrayOf("TABLE")).use { rs ->
                 while (rs.next()) {
                     results +=
-                        JdbcTableName(
+                        SqlTableName(
                             schema = rs.getString("TABLE_SCHEM"),
                             table = rs.getString("TABLE_NAME")
                         )
@@ -47,7 +48,7 @@ abstract class JdbcDialect(
         return results
     }
 
-    open fun listColumns(tableName: JdbcTableName, connection: Connection): Map<String, FieldDefinition> {
+    open fun listColumns(tableName: SqlTableName, connection: Connection): Map<String, FieldDefinition> {
         val results = mutableMapOf<String, FieldDefinition>()
         connection.metaData
             .getColumns(null, tableName.schema, tableName.table, "%")
@@ -65,12 +66,12 @@ abstract class JdbcDialect(
         return results
     }
 
-    open fun tableExists(tableName: JdbcTableName, connection: Connection): Boolean =
+    open fun tableExists(tableName: SqlTableName, connection: Connection): Boolean =
         connection.metaData
             .getTables(null, tableName.schema, tableName.table, arrayOf("TABLE"))
             .use { rs -> rs.next() }
 
-    open fun readPrimaryKey(tableName: JdbcTableName, connection: Connection): PrimaryKeyDefinition? {
+    open fun readPrimaryKey(tableName: SqlTableName, connection: Connection): PrimaryKeyDefinition? {
         val fields = mutableListOf<Pair<Int, String>>()
         var name: String? = null
         connection.metaData
@@ -88,7 +89,7 @@ abstract class JdbcDialect(
         }
     }
 
-    open fun readIndices(tableName: JdbcTableName, connection: Connection): List<IndexDefinition> {
+    open fun readIndices(tableName: SqlTableName, connection: Connection): List<IndexDefinition> {
         val primaryKey = readPrimaryKey(tableName, connection)
         val indices = mutableListOf<JdbcIndexColumn>()
         connection.metaData
@@ -112,7 +113,7 @@ abstract class JdbcDialect(
             }
     }
 
-    open fun beforeCreateTable(tableName: JdbcTableName, connection: Connection) {
+    open fun beforeCreateTable(tableName: SqlTableName, connection: Connection) {
         // Default dialects do not need schema setup.
     }
 

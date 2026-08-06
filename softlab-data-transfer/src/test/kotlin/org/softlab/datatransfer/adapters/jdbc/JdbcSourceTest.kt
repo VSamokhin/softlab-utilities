@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.jdbc.withConnection
 import org.softlab.datataset.test.initiators.withTestPool
+import org.softlab.datatransfer.core.SqlTableName
 import java.sql.SQLException
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -57,7 +58,7 @@ class JdbcSourceTest {
                     statement.execute("CREATE TABLE users (id INTEGER);")
                 }
             }
-            val tableNames = mutableListOf<JdbcTableName>()
+            val tableNames = mutableListOf<SqlTableName>()
             val source = JdbcSource(
                 pool,
                 TestJdbcDialect(),
@@ -69,7 +70,7 @@ class JdbcSourceTest {
 
             runBlocking { source.listCollections().toList() }
 
-            assertContentEquals(listOf(JdbcTableName(null, "users")), tableNames)
+            assertContentEquals(listOf(SqlTableName(null, "users")), tableNames)
         }
     }
 

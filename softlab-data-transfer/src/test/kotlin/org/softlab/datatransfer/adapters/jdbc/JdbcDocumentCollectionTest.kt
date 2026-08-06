@@ -11,6 +11,7 @@ import org.softlab.dataset.jdbc.withConnection
 import org.softlab.datataset.test.initiators.withTestPool
 import org.softlab.datatransfer.core.IndexDefinition
 import org.softlab.datatransfer.core.IndexFieldDefinition
+import org.softlab.datatransfer.core.SqlTableName
 import java.sql.SQLException
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -33,7 +34,7 @@ class JdbcDocumentCollectionTest {
 
             val metadata = runBlocking {
                 JdbcDocumentCollection(
-                    JdbcTableName(null, "users"),
+                    SqlTableName(null, "users"),
                     pool,
                     TestJdbcDialect()
                 ).fetchMetadata()
@@ -61,7 +62,7 @@ class JdbcDocumentCollectionTest {
             val exc = assertThrows<IllegalStateException> {
                 runBlocking {
                     JdbcDocumentCollection(
-                        JdbcTableName(null, "users"),
+                        SqlTableName(null, "users"),
                         pool,
                         TestJdbcDialect()
                     ).fetchMetadata()
@@ -83,7 +84,7 @@ class JdbcDocumentCollectionTest {
 
             val documents = runBlocking {
                 JdbcDocumentCollection(
-                    JdbcTableName(null, "users"),
+                    SqlTableName(null, "users"),
                     pool,
                     TestJdbcDialect()
                 ).readDocuments().toList()
@@ -107,7 +108,7 @@ class JdbcDocumentCollectionTest {
 
             val documents = runBlocking {
                 JdbcDocumentCollection(
-                    JdbcTableName(null, "users"),
+                    SqlTableName(null, "users"),
                     pool,
                     TestJdbcDialect()
                 ).readDocuments().toList()
@@ -124,7 +125,7 @@ class JdbcDocumentCollectionTest {
             val exc = assertThrows<SQLException> {
                 runBlocking {
                     JdbcDocumentCollection(
-                        JdbcTableName(null, "missing_table"),
+                        SqlTableName(null, "missing_table"),
                         pool,
                         TestJdbcDialect()
                     ).readDocuments().toList()

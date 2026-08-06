@@ -6,7 +6,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.softlab.datataset.test.initiators.JdbcInitiator
 import org.softlab.datataset.test.initiators.createPostgresContainer
-import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
+import org.softlab.datatransfer.core.SqlTableName
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import kotlin.test.assertTrue
@@ -45,7 +45,7 @@ class PostgresDialectIT {
         postgresInitiator.getConnection().use { connection ->
             val dialect = PostgresDialect()
 
-            dialect.beforeCreateTable(JdbcTableName("custom", "users"), connection)
+            dialect.beforeCreateTable(SqlTableName("custom", "users"), connection)
 
             connection.metaData.getSchemas(null, "custom").use { rs ->
                 assertTrue(rs.next())

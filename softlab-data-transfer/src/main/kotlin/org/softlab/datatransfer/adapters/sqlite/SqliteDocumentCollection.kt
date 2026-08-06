@@ -19,12 +19,12 @@ package org.softlab.datatransfer.adapters.sqlite
 import org.softlab.dataset.jdbc.JdbcConnectionPool
 import org.softlab.datatransfer.adapters.jdbc.JdbcDialect
 import org.softlab.datatransfer.adapters.jdbc.JdbcDocumentCollection
-import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
+import org.softlab.datatransfer.core.SqlTableName
 import java.sql.ResultSet
 
 
 class SqliteDocumentCollection(
-    tableName: JdbcTableName,
+    tableName: SqlTableName,
     pool: JdbcConnectionPool,
     dialect: JdbcDialect
 ) : JdbcDocumentCollection(

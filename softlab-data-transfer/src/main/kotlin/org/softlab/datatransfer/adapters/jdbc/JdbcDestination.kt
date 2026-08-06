@@ -61,7 +61,7 @@ open class JdbcDestination(
         pool.withConnection { connection ->
             dialect.beforeCreateTable(tableName, connection)
             connection.createStatement().use { stmt ->
-                val createTableSql = "CREATE TABLE $tableName ($columnsDef);"
+                val createTableSql = "CREATE TABLE ${tableName.toSql()} ($columnsDef);"
                 logger.trace { "Executing SQL: $createTableSql" }
                 stmt.execute(createTableSql)
             }
@@ -72,7 +72,7 @@ open class JdbcDestination(
         val tableName = dialect.parseTableName(collectionName)
         logger.info { "Dropping table '$tableName'" }
 
-        val sql = "DROP TABLE IF EXISTS $tableName;"
+        val sql = "DROP TABLE IF EXISTS ${tableName.toSql()};"
         pool.withStatement { stmt ->
             logger.trace { "Executing SQL: $sql" }
             stmt.execute(sql)
@@ -90,7 +90,7 @@ open class JdbcDestination(
 
         val total = AtomicInt(0)
         val jobs = LinkedList<Job>()
-        val sql = "INSERT INTO $tableName ($columns) VALUES ($placeholders);"
+        val sql = "INSERT INTO ${tableName.toSql()} ($columns) VALUES ($placeholders);"
         logger.trace { "Insert SQL: $sql" }
         coroutineScope {
             documents.chunked(BATCH_SIZE).collect { docs ->

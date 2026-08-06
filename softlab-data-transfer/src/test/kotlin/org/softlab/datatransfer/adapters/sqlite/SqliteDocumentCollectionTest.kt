@@ -5,7 +5,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Test
 import org.softlab.dataset.jdbc.withStatement
 import org.softlab.datataset.test.initiators.withTestPool
-import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
+import org.softlab.datatransfer.core.SqlTableName
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
@@ -23,7 +23,7 @@ class SqliteDocumentCollectionTest {
 
             val document = runBlocking {
                 SqliteDocumentCollection(
-                    tableName = JdbcTableName(null, "users"),
+                    tableName = SqlTableName(null, "users"),
                     pool = pool,
                     dialect = SqliteDialect()
                 ).readDocuments().toList().single()

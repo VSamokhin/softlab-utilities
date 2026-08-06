@@ -18,7 +18,7 @@ package org.softlab.datatransfer.adapters.sqlite
 
 import org.softlab.dataset.core.FieldDefinition
 import org.softlab.datatransfer.adapters.jdbc.JdbcDialect
-import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
+import org.softlab.datatransfer.core.SqlTableName
 import java.sql.Connection
 
 
@@ -26,10 +26,10 @@ class SqliteDialect : JdbcDialect(
     backendName = "sqlite",
     supportsConcurrentInserts = false
 ) {
-    override fun parseTableName(tableName: String): JdbcTableName =
-        JdbcTableName(null, tableName.substringAfter("."))
+    override fun parseTableName(tableName: String): SqlTableName =
+        SqlTableName(null, tableName.substringAfter("."))
 
-    override fun listColumns(tableName: JdbcTableName, connection: Connection): Map<String, FieldDefinition> {
+    override fun listColumns(tableName: SqlTableName, connection: Connection): Map<String, FieldDefinition> {
         return super.listColumns(tableName, connection).mapValues { field ->
             // INTEGER type can handle numbers up to int8
             if (field.value.type == "INTEGER") {
