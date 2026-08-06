@@ -3,7 +3,13 @@ databaseChangeLog:
       id: 1
       author: Viktor Samokhin
       sql:
-        - "CREATE SCHEMA IF NOT EXISTS schema1; CREATE SCHEMA IF NOT EXISTS schema2;"
+        - |
+          DROP SCHEMA IF EXISTS schema1 CASCADE;
+          DROP SCHEMA IF EXISTS schema2 CASCADE;
+          DROP SCHEMA IF EXISTS metadata_cases CASCADE;
+          CREATE SCHEMA schema1;
+          CREATE SCHEMA schema2;
+          CREATE SCHEMA metadata_cases;
       changes:
         - createTable:
             schemaName: schema1
@@ -32,3 +38,82 @@ databaseChangeLog:
               - column:
                   name: title
                   type: varchar(255)
+        - createTable:
+            schemaName: metadata_cases
+            tableName: single_pk
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: name
+                  type: varchar(255)
+        - createTable:
+            schemaName: metadata_cases
+            tableName: composite_pk
+            columns:
+              - column:
+                  name: tenant_id
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: composite_pk_pkey
+              - column:
+                  name: user_id
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: composite_pk_pkey
+              - column:
+                  name: email
+                  type: varchar(255)
+        - createTable:
+            schemaName: metadata_cases
+            tableName: no_key
+            columns:
+              - column:
+                  name: id
+                  type: int
+              - column:
+                  name: name
+                  type: varchar(255)
+        - createTable:
+            schemaName: metadata_cases
+            tableName: indexed_users
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: name
+                  type: varchar(255)
+              - column:
+                  name: email
+                  type: varchar(255)
+        - createIndex:
+            schemaName: metadata_cases
+            tableName: indexed_users
+            indexName: indexed_users_name_idx
+            columns:
+              - column:
+                  name: name
+        - createIndex:
+            schemaName: metadata_cases
+            tableName: indexed_users
+            indexName: indexed_users_email_unique_idx
+            unique: true
+            columns:
+              - column:
+                  name: email
+        - createIndex:
+            schemaName: metadata_cases
+            tableName: indexed_users
+            indexName: indexed_users_name_desc_idx
+            columns:
+              - column:
+                  name: name
+                  descending: true

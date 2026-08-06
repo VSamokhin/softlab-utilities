@@ -13,6 +13,7 @@ import org.softlab.datataset.test.initiators.JdbcInitiator
 import org.softlab.datataset.test.initiators.createPostgresContainer
 import org.softlab.datataset.test.initiators.getPool
 import org.softlab.datataset.test.initiators.withTestPool
+import org.softlab.datatransfer.core.PrimaryKeyDefinition
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import kotlin.test.assertEquals
@@ -83,6 +84,10 @@ class PostgresSourceIT {
                 containsInAnyOrder(
                     "schema1.users",
                     "schema2.products",
+                    "metadata_cases.single_pk",
+                    "metadata_cases.composite_pk",
+                    "metadata_cases.no_key",
+                    "metadata_cases.indexed_users",
                     "public.databasechangelog",
                     "public.databasechangeloglock"
                 )
@@ -98,11 +103,20 @@ class PostgresSourceIT {
                 usersMetadata.fields.map { it.value.type },
                 containsInAnyOrder("int4", "varchar", "varchar")
             )
+            assertEquals(
+                PrimaryKeyDefinition("users_pkey", listOf("user_id")),
+                usersMetadata.primaryKey
+            )
 
             val productsCollection = collections.first { runBlocking { it.fetchMetadata() }.name == "schema2.products" }
+            val productsMetadata = runBlocking { productsCollection.fetchMetadata() }
             assertThat(
-                runBlocking { productsCollection.fetchMetadata() }.fields.keys,
+                productsMetadata.fields.keys,
                 containsInAnyOrder("product_id", "title")
+            )
+            assertEquals(
+                PrimaryKeyDefinition("products_pkey", listOf("product_id")),
+                productsMetadata.primaryKey
             )
         }
     }

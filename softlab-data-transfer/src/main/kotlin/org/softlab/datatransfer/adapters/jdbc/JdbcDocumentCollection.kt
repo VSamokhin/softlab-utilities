@@ -39,7 +39,12 @@ open class JdbcDocumentCollection(
         pool.withConnection { connection ->
             if (dialect.tableExists(tableName, connection)) {
                 val columns = dialect.listColumns(tableName, connection)
-                CollectionMetadata(tableName.toString(), columns)
+                CollectionMetadata(
+                    name = tableName.toString(),
+                    fields = columns,
+                    primaryKey = dialect.readPrimaryKey(tableName, connection),
+                    indices = dialect.readIndices(tableName, connection)
+                )
             } else error("Table '$tableName' does not exist")
         }
     }

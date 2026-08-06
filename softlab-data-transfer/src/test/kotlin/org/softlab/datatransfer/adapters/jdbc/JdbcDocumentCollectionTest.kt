@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.softlab.dataset.jdbc.withConnection
 import org.softlab.datataset.test.initiators.withTestPool
+import org.softlab.datatransfer.core.IndexDefinition
+import org.softlab.datatransfer.core.IndexFieldDefinition
 import java.sql.SQLException
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -21,7 +23,11 @@ class JdbcDocumentCollectionTest {
         withTestPool { pool ->
             pool.withConnection { connection ->
                 connection.createStatement().use { statement ->
-                    statement.execute("CREATE TABLE users (id INTEGER NOT NULL, name TEXT);")
+                    statement.execute("CREATE TABLE users (" +
+                        "id INTEGER NOT NULL, " +
+                        "name TEXT, " +
+                        "CONSTRAINT users_pkey PRIMARY KEY (id));")
+                    statement.execute("CREATE INDEX users_name_idx ON users (name);")
                 }
             }
 
@@ -35,6 +41,17 @@ class JdbcDocumentCollectionTest {
 
             assertEquals("users", metadata.name)
             assertThat(metadata.fields.keys, contains("id", "name"))
+            assertEquals("users_pkey", metadata.primaryKey?.name)
+            assertContentEquals(listOf("id"), metadata.primaryKey?.fields)
+            assertContentEquals(
+                listOf(
+                    IndexDefinition(
+                        name = "users_name_idx",
+                        fields = listOf(IndexFieldDefinition("name"))
+                    )
+                ),
+                metadata.indices.toList()
+            )
         }
     }
 

@@ -85,28 +85,30 @@ Commit outcome:
 
 * Migration flow supports delayed creation of primary keys and indices after data transfer, which is preferable for bulk insert performance.
 
-## Task 3: Read PostgreSQL Primary Keys and Indices
+## Task 3: Read PostgreSQL Primary Keys and Indices (Done)
 
 Scope:
 
-* Extend `Postgres.readColumns()` responsibility by adding separate helpers in `Postgres.kt`, for example:
-  * `readPrimaryKey(schemaName, tableName, conn): PrimaryKeyDefinition?`
-  * `readIndices(schemaName, tableName, conn): List<IndexDefinition>`
-* Use PostgreSQL catalog tables, not only `information_schema`, so index column order, sort direction, uniqueness, and primary-key exclusion can be handled reliably.
+* Extend the shared `JdbcDialect` metadata path with default JDBC `DatabaseMetaData` helpers:
+  * `readPrimaryKey(tableName, conn): PrimaryKeyDefinition?`
+  * `readIndices(tableName, conn): List<IndexDefinition>`
+* Use JDBC `DatabaseMetaData.getPrimaryKeys()` and `DatabaseMetaData.getIndexInfo()` first, avoiding database-specific catalog queries while driver metadata quality is sufficient.
 * Exclude the primary-key backing index from `indices`.
 * Preserve deterministic ordering by constraint/index name and column position.
-* Extend `PostgresDocumentCollection.fetchMetadata()` to include both definitions.
+* Extend `JdbcDocumentCollection.fetchMetadata()` to include both definitions.
+* Keep SQLite primary-key and index metadata disabled until Task 5 because its JDBC driver does not preserve all required portable metadata such as descending index order.
 
 Tests:
 
-* Unit-test SQL/result mapping if helper extraction makes that practical.
-* Extend `PostgresIT` with a table that has:
+* Add a generic JDBC dialect integration contract using multiple JDBC drivers/connections as inputs.
+* Extend the PostgreSQL Liquibase changelog with tables that have:
   * a single-column primary key
   * a composite primary key
   * a non-unique index
   * a unique index
-  * a descending index column if supported by the chosen query
-* Extend `PostgresDocumentCollectionIT` to assert fetched metadata includes the expected definitions.
+  * a descending index column
+* Use Postgres integration tests to verify the PostgreSQL JDBC driver reports the expected portable metadata.
+* Assert fetched PostgreSQL collection metadata includes the expected definitions.
 
 Commit outcome:
 

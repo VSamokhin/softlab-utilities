@@ -17,7 +17,13 @@
 package org.softlab.datatransfer.adapters.jdbc
 
 import org.softlab.dataset.core.FieldDefinition
+import org.softlab.datatransfer.core.IndexDefinition
+import org.softlab.datatransfer.core.IndexFieldDefinition
+import org.softlab.datatransfer.core.IndexSortOrder
+import org.softlab.datatransfer.core.PrimaryKeyDefinition
 import java.sql.Connection
+import java.sql.DatabaseMetaData
+import java.sql.ResultSet
 
 
 abstract class JdbcDialect(
@@ -64,7 +70,84 @@ abstract class JdbcDialect(
             .getTables(null, tableName.schema, tableName.table, arrayOf("TABLE"))
             .use { rs -> rs.next() }
 
+    open fun readPrimaryKey(tableName: JdbcTableName, connection: Connection): PrimaryKeyDefinition? {
+        val fields = mutableListOf<Pair<Int, String>>()
+        var name: String? = null
+        connection.metaData
+            .getPrimaryKeys(null, tableName.schema, tableName.table)
+            .use { rs ->
+                while (rs.next()) {
+                    name = rs.getString("PK_NAME")
+                    fields += rs.getShort("KEY_SEQ").toInt() to rs.getString("COLUMN_NAME").lowercase()
+                }
+            }
+        return if (fields.isEmpty()) {
+            null
+        } else {
+            PrimaryKeyDefinition(name, fields.sortedBy { it.first }.map { it.second })
+        }
+    }
+
+    open fun readIndices(tableName: JdbcTableName, connection: Connection): List<IndexDefinition> {
+        val primaryKey = readPrimaryKey(tableName, connection)
+        val indices = mutableListOf<JdbcIndexColumn>()
+        connection.metaData
+            .getIndexInfo(null, tableName.schema, tableName.table, false, false)
+            .use { rs ->
+                while (rs.next()) {
+                    readIndexColumn(rs, primaryKey)?.let(indices::add)
+                }
+            }
+        return indices
+            .groupBy { it.indexName }
+            .toSortedMap()
+            .map { (indexName, columns) ->
+                IndexDefinition(
+                    name = indexName,
+                    fields = columns
+                        .sortedBy { it.columnPosition }
+                        .map { IndexFieldDefinition(it.columnName, it.order) },
+                    unique = columns.first().unique
+                )
+            }
+    }
+
     open fun beforeCreateTable(tableName: JdbcTableName, connection: Connection) {
         // Default dialects do not need schema setup.
     }
+
+    private fun readIndexColumn(rs: ResultSet, primaryKey: PrimaryKeyDefinition?): JdbcIndexColumn? {
+        val indexName = rs.getString("INDEX_NAME")
+        val columnName = rs.getString("COLUMN_NAME")
+        return if (isSupportedIndexColumn(rs, indexName, columnName, primaryKey)) {
+            JdbcIndexColumn(
+                indexName = indexName!!,
+                columnPosition = rs.getShort("ORDINAL_POSITION").toInt(),
+                columnName = columnName!!.lowercase(),
+                order = if (rs.getString("ASC_OR_DESC") == "D") IndexSortOrder.DESC else IndexSortOrder.ASC,
+                unique = !rs.getBoolean("NON_UNIQUE")
+            )
+        } else {
+            null
+        }
+    }
+
+    private fun isSupportedIndexColumn(
+        rs: ResultSet,
+        indexName: String?,
+        columnName: String?,
+        primaryKey: PrimaryKeyDefinition?
+    ): Boolean =
+        !indexName.isNullOrBlank() &&
+            !columnName.isNullOrBlank() &&
+            indexName != primaryKey?.name &&
+            rs.getShort("TYPE").toInt() != DatabaseMetaData.tableIndexStatistic.toInt()
+
+    private data class JdbcIndexColumn(
+        val indexName: String,
+        val columnPosition: Int,
+        val columnName: String,
+        val order: IndexSortOrder,
+        val unique: Boolean
+    )
 }
