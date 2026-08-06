@@ -97,6 +97,28 @@ class JdbcSourceTest {
     }
 
     @Test
+    fun `countDocuments() returns row count for table requiring identifier quoting`() {
+        withTestPool { pool ->
+            pool.withConnection { connection ->
+                connection.createStatement().use { statement ->
+                    statement.execute("CREATE TABLE \"user data\" (id INTEGER);")
+                    statement.execute("INSERT INTO \"user data\" (id) VALUES (1), (2);")
+                }
+            }
+
+            val count = runBlocking {
+                JdbcSource(
+                    pool,
+                    TestJdbcDialect(),
+                    closePool = false
+                ).countDocuments("user data")
+            }
+
+            assertEquals(2, count)
+        }
+    }
+
+    @Test
     fun `close() closes pool when configured`() {
         withTestPool { pool ->
             JdbcSource(pool, TestJdbcDialect(), closePool = true).close()

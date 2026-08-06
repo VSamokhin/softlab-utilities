@@ -18,6 +18,7 @@ package org.softlab.datatransfer.adapters.postgres
 
 import org.softlab.datatransfer.adapters.jdbc.JdbcDialect
 import org.softlab.datatransfer.core.SqlTableName
+import org.softlab.datatransfer.core.toSqlIdentifier
 import java.sql.Connection
 
 
@@ -31,8 +32,9 @@ class PostgresDialect : JdbcDialect(
     )
 
     override fun beforeCreateTable(tableName: SqlTableName, connection: Connection) {
+        val schema = tableName.schema ?: return
         connection.createStatement().use { stmt ->
-            stmt.execute("CREATE SCHEMA IF NOT EXISTS ${tableName.schema};")
+            stmt.execute("CREATE SCHEMA IF NOT EXISTS ${schema.toSqlIdentifier()};")
         }
     }
 }

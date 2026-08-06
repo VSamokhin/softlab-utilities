@@ -45,7 +45,7 @@ open class JdbcSource(
     override suspend fun countDocuments(collectionName: String): Long {
         val tableName = dialect.parseTableName(collectionName)
         pool.withStatement { stmt ->
-            stmt.executeQuery("SELECT COUNT(*) FROM $tableName;").use { rs ->
+            stmt.executeQuery("SELECT COUNT(*) FROM ${tableName.toSql()};").use { rs ->
                 return if (rs.next()) rs.getLong(1) else error("Could not count rows in $tableName")
             }
         }

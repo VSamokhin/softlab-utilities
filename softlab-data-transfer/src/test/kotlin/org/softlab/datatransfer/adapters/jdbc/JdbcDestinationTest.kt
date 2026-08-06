@@ -51,7 +51,7 @@ class JdbcDestinationTest {
                         "users",
                         mapOf(
                             "id" to FieldDefinition("id", "int", false),
-                            "name" to FieldDefinition("name", "string", true)
+                            "full name" to FieldDefinition("full name", "string", true)
                         )
                     )
                 )
@@ -62,6 +62,7 @@ class JdbcDestinationTest {
                 val columns = dialect.listColumns(SqlTableName(null, "users"), connection)
                 assertContentEquals(listOf("INT", "TEXT"), columns.map { it.value.type })
                 assertContentEquals(listOf(false, true), columns.map { it.value.nullable })
+                assertContentEquals(listOf("id", "full name"), columns.map { it.value.name })
             }
             assertContentEquals(
                 listOf(SqlTableName(null, "users")), dialect.beforeCreateTableCalls
@@ -126,7 +127,7 @@ class JdbcDestinationTest {
                         "users",
                         mapOf(
                             "id" to FieldDefinition("id", "int"),
-                            "name" to FieldDefinition("name", "string", true)
+                            "full name" to FieldDefinition("full name", "string", true)
                         )
                     )
                 )
@@ -134,20 +135,20 @@ class JdbcDestinationTest {
                 destination.insertDocuments(
                     "users",
                     flowOf(
-                        mapOf("name" to "Alice", "id" to 1),
-                        mapOf("ID" to 2, "NAME" to "Bob")
+                        mapOf("full name" to "Alice", "id" to 1),
+                        mapOf("ID" to 2, "FULL NAME" to "Bob")
                     )
                 )
             }
 
             pool.withStatement { statement ->
-                statement.executeQuery("SELECT id, name FROM users ORDER BY id;").use { rs ->
+                statement.executeQuery("SELECT id, \"full name\" FROM users ORDER BY id;").use { rs ->
                     assertTrue(rs.next())
                     assertEquals(1, rs.getInt("id"))
-                    assertEquals("Alice", rs.getString("name"))
+                    assertEquals("Alice", rs.getString("full name"))
                     assertTrue(rs.next())
                     assertEquals(2, rs.getInt("id"))
-                    assertEquals("Bob", rs.getString("name"))
+                    assertEquals("Bob", rs.getString("full name"))
                     assertFalse(rs.next())
                 }
             }

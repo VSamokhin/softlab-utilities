@@ -34,6 +34,7 @@ import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.MAX_PENDING_ROWS
 import org.softlab.datatransfer.core.REPORT_ON_INSERTS
 import org.softlab.datatransfer.core.TransferDocument
+import org.softlab.datatransfer.core.toSqlIdentifier
 import org.softlab.datatransfer.util.reduce
 import java.sql.PreparedStatement
 import java.util.LinkedList
@@ -56,7 +57,7 @@ open class JdbcDestination(
         val tableName = dialect.parseTableName(metadata.name)
         logger.info { "Creating table '$tableName'" }
         val columnsDef = metadata.fields.values.joinToString(", ") {
-            "${it.name} ${dataTypeMappings.map(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
+            "${it.name.toSqlIdentifier()} ${dataTypeMappings.map(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
         }
         pool.withConnection { connection ->
             dialect.beforeCreateTable(tableName, connection)
@@ -85,7 +86,7 @@ open class JdbcDestination(
         logger.info { "Inserting documents into '$tableName'" }
 
         val fields = pool.withConnection { dialect.listColumns(tableName, it) }
-        val columns = fields.values.map { it.name }.joinToString(separator = ", ") { it }
+        val columns = fields.values.map { it.name.toSqlIdentifier() }.joinToString(separator = ", ")
         val placeholders = fields.values.joinToString(separator = ", ") { "?" }
 
         val total = AtomicInt(0)
