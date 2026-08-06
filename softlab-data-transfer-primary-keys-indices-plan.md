@@ -114,7 +114,7 @@ Commit outcome:
 
 * PostgreSQL sources expose portable primary-key and index metadata.
 
-## Task 4: Recreate PostgreSQL Primary Keys and Indices
+## Task 4: Recreate PostgreSQL Primary Keys and Indices (Done)
 
 Scope:
 

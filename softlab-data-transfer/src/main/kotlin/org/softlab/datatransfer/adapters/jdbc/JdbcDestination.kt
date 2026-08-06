@@ -43,8 +43,8 @@ import kotlin.concurrent.atomics.plusAssign
 
 
 open class JdbcDestination(
-    private val pool: JdbcConnectionPool,
-    private val dialect: JdbcDialect,
+    protected val pool: JdbcConnectionPool,
+    protected val dialect: JdbcDialect,
     private val dataTypeMappings: DataTypeMappings,
     private val closePool: Boolean
 ) : DatabaseDestination {

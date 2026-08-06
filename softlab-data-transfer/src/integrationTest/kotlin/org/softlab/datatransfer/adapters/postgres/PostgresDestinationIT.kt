@@ -21,11 +21,17 @@ import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
 import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.core.CollectionMetadata
+import org.softlab.datatransfer.core.IndexDefinition
+import org.softlab.datatransfer.core.IndexFieldDefinition
+import org.softlab.datatransfer.core.IndexSortOrder
+import org.softlab.datatransfer.core.PrimaryKeyDefinition
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.sql.SQLException
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 
@@ -207,6 +213,168 @@ class PostgresDestinationIT {
                 assertTrue(PostgresDialect().tableExists(
                     JdbcTableName("custom", "users"), conn)
                 )
+            }
+        }
+    }
+
+    @Test
+    fun `createIndexesAndConstraints() creates primary key and indices`() {
+        val metadata = usersMetadataWithPrimaryKeyAndIndices()
+
+        withPool { pool ->
+            PostgresDestination(pool, dataTypeMappings, false).use { destination ->
+                runBlocking {
+                    destination.createCollection(metadata)
+                    destination.insertDocuments(
+                        metadata.name,
+                        flowOf(
+                            mapOf("id" to 1, "tenant_id" to 1, "name" to "Alice", "email" to "alice@example.com"),
+                            mapOf("id" to 2, "tenant_id" to 1, "name" to "Bob", "email" to "bob@example.com")
+                        )
+                    )
+                    destination.createIndexesAndConstraints(metadata)
+                }
+            }
+
+            pool.withConnection { conn ->
+                val dialect = PostgresDialect()
+                val tableName = JdbcTableName("public", "users")
+
+                assertEquals(metadata.primaryKey, dialect.readPrimaryKey(tableName, conn))
+                assertContentEquals(metadata.indices, dialect.readIndices(tableName, conn))
+            }
+        }
+    }
+
+    @Test
+    fun `createIndexesAndConstraints() does nothing when metadata has no definitions`() {
+        val metadata = CollectionMetadata(
+            name = "public.users",
+            fields = mapOf("id" to FieldDefinition("id", "int"))
+        )
+
+        withPool { pool ->
+            PostgresDestination(pool, dataTypeMappings, false).use { destination ->
+                runBlocking {
+                    destination.createCollection(metadata)
+                    destination.createIndexesAndConstraints(metadata)
+                }
+            }
+
+            pool.withConnection { conn ->
+                val tableName = JdbcTableName("public", "users")
+
+                assertNull(PostgresDialect().readPrimaryKey(tableName, conn))
+                assertContentEquals(emptyList(), PostgresDialect().readIndices(tableName, conn))
+            }
+        }
+    }
+
+    @Test
+    fun `createIndexesAndConstraints() uses fallback names when metadata names are absent`() {
+        val metadata = CollectionMetadata(
+            name = "public.users",
+            fields = mapOf(
+                "id" to FieldDefinition("id", "int"),
+                "email" to FieldDefinition("email", "string")
+            ),
+            primaryKey = PrimaryKeyDefinition(null, listOf("id")),
+            indices = listOf(
+                IndexDefinition(
+                    name = null,
+                    fields = listOf(IndexFieldDefinition("email"))
+                )
+            )
+        )
+
+        withPool { pool ->
+            PostgresDestination(pool, dataTypeMappings, false).use { destination ->
+                runBlocking {
+                    destination.createCollection(metadata)
+                    destination.createIndexesAndConstraints(metadata)
+                }
+            }
+
+            pool.withConnection { conn ->
+                val tableName = JdbcTableName("public", "users")
+
+                assertEquals(
+                    PrimaryKeyDefinition("users_pkey", listOf("id")),
+                    PostgresDialect().readPrimaryKey(tableName, conn)
+                )
+                assertContentEquals(
+                    listOf(
+                        IndexDefinition(
+                            name = "users_email_idx",
+                            fields = listOf(IndexFieldDefinition("email"))
+                        )
+                    ),
+                    PostgresDialect().readIndices(tableName, conn)
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `createIndexesAndConstraints() fails when primary key data has duplicates`() {
+        val metadata = CollectionMetadata(
+            name = "public.users",
+            fields = mapOf(
+                "id" to FieldDefinition("id", "int"),
+                "name" to FieldDefinition("name", "string")
+            ),
+            primaryKey = PrimaryKeyDefinition("users_pkey", listOf("id"))
+        )
+
+        PostgresDestination(getPool(), dataTypeMappings).use { destination ->
+            runBlocking {
+                destination.createCollection(metadata)
+                destination.insertDocuments(
+                    metadata.name,
+                    flowOf(
+                        mapOf("id" to 1, "name" to "Alice"),
+                        mapOf("id" to 1, "name" to "Bob")
+                    )
+                )
+
+                assertThrows<PSQLException> {
+                    destination.createIndexesAndConstraints(metadata)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `createIndexesAndConstraints() fails when unique index data has duplicates`() {
+        val metadata = CollectionMetadata(
+            name = "public.users",
+            fields = mapOf(
+                "id" to FieldDefinition("id", "int"),
+                "email" to FieldDefinition("email", "string")
+            ),
+            indices = listOf(
+                IndexDefinition(
+                    name = "users_email_unique_idx",
+                    fields = listOf(IndexFieldDefinition("email")),
+                    unique = true
+                )
+            )
+        )
+
+        PostgresDestination(getPool(), dataTypeMappings).use { destination ->
+            runBlocking {
+                destination.createCollection(metadata)
+                destination.insertDocuments(
+                    metadata.name,
+                    flowOf(
+                        mapOf("id" to 1, "email" to "duplicate@example.com"),
+                        mapOf("id" to 2, "email" to "duplicate@example.com")
+                    )
+                )
+
+                assertThrows<PSQLException> {
+                    destination.createIndexesAndConstraints(metadata)
+                }
             }
         }
     }
@@ -408,4 +576,34 @@ class PostgresDestinationIT {
             }
         }
     }
+
+    private fun usersMetadataWithPrimaryKeyAndIndices(): CollectionMetadata =
+        CollectionMetadata(
+            name = "public.users",
+            fields = mapOf(
+                "id" to FieldDefinition("id", "int"),
+                "tenant_id" to FieldDefinition("tenant_id", "int"),
+                "name" to FieldDefinition("name", "string"),
+                "email" to FieldDefinition("email", "string")
+            ),
+            primaryKey = PrimaryKeyDefinition("users_pkey", listOf("id")),
+            indices = listOf(
+                IndexDefinition(
+                    name = "users_email_unique_idx",
+                    fields = listOf(IndexFieldDefinition("email")),
+                    unique = true
+                ),
+                IndexDefinition(
+                    name = "users_name_desc_idx",
+                    fields = listOf(IndexFieldDefinition("name", IndexSortOrder.DESC))
+                ),
+                IndexDefinition(
+                    name = "users_tenant_name_idx",
+                    fields = listOf(
+                        IndexFieldDefinition("tenant_id"),
+                        IndexFieldDefinition("name")
+                    )
+                )
+            )
+        )
 }
