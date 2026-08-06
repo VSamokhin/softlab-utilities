@@ -6,6 +6,14 @@
   * If using WireMock in tests, then place the WireMock stubs under `src/test/resources/__files` and the mappings under `src/test/resources/mappings` of a corresponding subproject.
   * The project uses `detekt` for static code analysis, and its configuration is located in `etc/detekt/detekt-config.yml`.
   * After adding a new dependency, don't change `versions.properties` file directly, but instead execute `./gradlew build` to allow `refershVersions` plugin to update it with the new dependency version.
+  * Report all important internal state changes, allowed corner cases to a log using `io.github.oshai:kotlin-logging-jvm` with `ch.qos.logback:logback-classic` as its backend.
+    * distinguish between the following logging levels:
+      * `info` — basic output of the most important events and actions, may include a work progress report, etc.
+      * `debug` — some more information on the internal state changes
+      * `trace` — most detailed output with e.g. SQL-queries or similar information
+      * `warn` — report exceptional however acceptable states if any
+      * `error` — use it almost never as it is rather a matter of an exception.
+  * Prefer the fail-fast approach, don't work around problems which are not part of an expected execution flow, better let the code fail with a clear exception message.
 
 * Creating a new source file or changing an existing one:
   * Ensure there is a single trailing empty line
