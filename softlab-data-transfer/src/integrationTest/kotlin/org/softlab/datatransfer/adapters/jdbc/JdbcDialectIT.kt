@@ -47,8 +47,7 @@ class JdbcDialectIT {
             postgresInitiator = JdbcInitiator(postgres.jdbcUrl, postgres.username, postgres.password)
             val sqliteDbFile = Files
                 .createTempFile("data-transfer-jdbc-dialect", ".db")
-                .toFile()
-                .deleteOnExit()
+                .apply { toFile().deleteOnExit() }
             sqliteInitiator = JdbcInitiator("jdbc:sqlite:$sqliteDbFile", null) { dbUrl ->
                 DriverManager.getConnection(dbUrl)
             }

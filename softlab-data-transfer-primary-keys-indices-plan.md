@@ -171,7 +171,7 @@ Commit outcome:
 
 * SQLite sources expose portable primary-key and supported secondary-index metadata.
 
-## Task 6: Recreate SQLite Primary Keys and Indices
+## Task 6: Recreate SQLite Primary Keys and Indices (Done)
 
 Scope:
 

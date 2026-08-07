@@ -46,7 +46,7 @@ import kotlin.concurrent.atomics.plusAssign
 open class JdbcDestination(
     protected val pool: JdbcConnectionPool,
     protected val dialect: JdbcDialect,
-    private val dataTypeMappings: DataTypeMappings,
+    protected val dataTypeMappings: DataTypeMappings,
     private val closePool: Boolean
 ) : DatabaseDestination {
     private val logger = KotlinLogging.logger {}
@@ -56,18 +56,25 @@ open class JdbcDestination(
     override suspend fun createCollection(metadata: CollectionMetadata) {
         val tableName = dialect.parseTableName(metadata.name)
         logger.info { "Creating table '$tableName'" }
-        val columnsDef = metadata.fields.values.joinToString(", ") {
-            "${it.name.toSqlIdentifier()} ${dataTypeMappings.map(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
-        }
+        val tableDefinitions = createTableDefinitions(metadata)
         pool.withConnection { connection ->
             dialect.beforeCreateTable(tableName, connection)
             connection.createStatement().use { stmt ->
-                val createTableSql = "CREATE TABLE ${tableName.toSql()} ($columnsDef);"
+                val createTableSql = "CREATE TABLE ${tableName.toSql()} ($tableDefinitions);"
                 logger.trace { "Executing SQL: $createTableSql" }
                 stmt.execute(createTableSql)
             }
         }
     }
+
+    protected open fun createTableDefinitions(metadata: CollectionMetadata): String =
+        createColumnDefinitions(metadata)
+
+    protected open fun createColumnDefinitions(metadata: CollectionMetadata): String =
+        metadata.fields.values.joinToString(", ") { createColumnDefinition(it, it.nullable) }
+
+    protected fun createColumnDefinition(field: FieldDefinition, nullable: Boolean): String =
+        "${field.name.toSqlIdentifier()} ${dataTypeMappings.map(field.type)}${if (!nullable) " NOT NULL" else ""}"
 
     override suspend fun dropCollection(collectionName: String) {
         val tableName = dialect.parseTableName(collectionName)
@@ -95,7 +102,7 @@ open class JdbcDestination(
         logger.trace { "Insert SQL: $sql" }
         coroutineScope {
             documents.chunked(BATCH_SIZE).collect { docs ->
-                val batch = launch {
+                val batch = this@coroutineScope.launch {
                     saveBatchAndReport(total, sql, docs, tableName.toString(), fields)
                 }
                 if (!dialect.supportsConcurrentInserts) {
