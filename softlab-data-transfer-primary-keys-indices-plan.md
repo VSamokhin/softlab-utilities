@@ -137,25 +137,25 @@ Commit outcome:
 
 * PostgreSQL destinations can recreate primary keys and secondary indices after bulk data transfer.
 
-## Task 5: Read SQLite Primary Keys and Indices
+## Task 5: Read SQLite Primary Keys and Indices (Done)
+
+Decision:
+
+* Use the generic JDBC metadata path for SQLite as a best-effort implementation for now.
+* Do not add SQLite PRAGMA-specific extraction until a strict need appears for metadata that JDBC does not expose reliably, such as partial indexes, expression indexes, or SQLite-specific index origin.
+* Keep the shared JDBC implementation responsible for excluding anonymous primary-key backing indexes when the driver reports them as secondary indexes.
 
 Scope:
 
 * Extend the shared JDBC metadata path where possible so SQL backends can expose primary keys and indices through `JdbcDialect`.
-* Add SQLite-specific helpers in `SqliteDialect` or `Sqlite.kt`, for example:
-  * `readPrimaryKey(tableName, connection): PrimaryKeyDefinition?`
-  * `readIndices(tableName, connection): List<IndexDefinition>`
-* Use SQLite PRAGMA metadata:
+* Exclude anonymous primary-key backing indexes from `indices` when the generic JDBC metadata path reports them as secondary indexes.
+* Preserve deterministic ordering by primary-key column position, index name, and index column sequence.
+* Let the existing `JdbcDocumentCollection.fetchMetadata()` path expose SQLite primary keys and best-effort secondary indices.
+* Deferred: add SQLite PRAGMA metadata if strict fidelity becomes necessary:
   * `PRAGMA table_info(<table>)` or `PRAGMA table_xinfo(<table>)` for primary-key column positions
   * `PRAGMA index_list(<table>)` for index names, uniqueness, origin, and partial flag
   * `PRAGMA index_xinfo(<index>)` for ordered indexed columns and sort direction
-* Exclude SQLite auto-created primary-key and unique-constraint backing indexes from `indices` when they represent constraints rather than user-created secondary indexes.
-* Skip unsupported index definitions with a warning:
-  * expression index entries where `PRAGMA index_xinfo` has no column name
-  * partial indexes unless the portable model is extended with predicates
-  * implicit indexes created only for constraints
-* Preserve deterministic ordering by primary-key column position, index name, and index column sequence.
-* Extend `JdbcDocumentCollection.fetchMetadata()` or `SqliteDocumentCollection` so SQLite metadata includes the primary key and supported secondary indices.
+  * skip expression indexes, partial indexes, and implicit indexes with explicit warnings
 
 Tests:
 
@@ -164,8 +164,7 @@ Tests:
   * composite primary key
   * non-unique index
   * unique index
-  * descending index column
-  * skipped expression or partial index behavior
+  * anonymous primary-key backing index exclusion
 * Extend `SqliteDocumentCollectionTest` or `SqliteSourceIT` to assert fetched collection metadata includes the expected definitions.
 
 Commit outcome:

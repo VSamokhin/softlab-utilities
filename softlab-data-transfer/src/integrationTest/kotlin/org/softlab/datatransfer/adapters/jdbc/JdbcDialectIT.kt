@@ -10,17 +10,19 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import org.softlab.datataset.test.initiators.JdbcInitiator
-import org.softlab.datataset.test.initiators.TestJdbcPool
 import org.softlab.datataset.test.initiators.createPostgresContainer
 import org.softlab.datatransfer.adapters.postgres.PostgresDialect
+import org.softlab.datatransfer.adapters.sqlite.SqliteDialect
 import org.softlab.datatransfer.core.IndexDefinition
 import org.softlab.datatransfer.core.IndexFieldDefinition
 import org.softlab.datatransfer.core.IndexSortOrder
-import org.softlab.datatransfer.core.SqlTableName
 import org.softlab.datatransfer.core.PrimaryKeyDefinition
+import org.softlab.datatransfer.core.SqlTableName
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import java.nio.file.Files
 import java.sql.Connection
+import java.sql.DriverManager
 import kotlin.test.assertContentEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -37,33 +39,43 @@ class JdbcDialectIT {
         private val postgres = createPostgresContainer()
 
         private lateinit var postgresInitiator: JdbcInitiator
-        private val sqlitePool = TestJdbcPool.create()
+        private lateinit var sqliteInitiator: JdbcInitiator
 
         @BeforeAll
         @JvmStatic
         fun setup() {
             postgresInitiator = JdbcInitiator(postgres.jdbcUrl, postgres.username, postgres.password)
+            val sqliteDbFile = Files
+                .createTempFile("data-transfer-jdbc-dialect", ".db")
+                .toFile()
+                .deleteOnExit()
+            sqliteInitiator = JdbcInitiator("jdbc:sqlite:$sqliteDbFile", null) { dbUrl ->
+                DriverManager.getConnection(dbUrl)
+            }
         }
 
         @AfterAll
         @JvmStatic
         fun cleanup() {
             postgresInitiator.close()
+            sqliteInitiator.close()
         }
 
         @JvmStatic
         fun provideDialects(): List<Arguments> {
             return listOf(
                 Arguments.of(PostgresDialect(), postgresInitiator.getConnection()),
-                //Arguments.of(SqliteDialect(), sqlitePool.openConnection())
+                Arguments.of(SqliteDialect(), sqliteInitiator.getConnection())
             )
         }
     }
 
     @BeforeEach
     fun prepareDb() {
-        postgresInitiator.cleanup()
-        postgresInitiator.initSchema(CHANGELOG)
+        listOf(postgresInitiator, sqliteInitiator).forEach { initiator ->
+            initiator.cleanup()
+            initiator.initSchema(CHANGELOG)
+        }
     }
 
     @ParameterizedTest
@@ -92,7 +104,7 @@ class JdbcDialectIT {
 
             assertThat(columns.keys, contains("id", "name", "email"))
             assertThat(columns.map { it.value.name }, contains("id", "name", "email"))
-            assertContentEquals(listOf("int4", "varchar", "varchar"), columns.map { it.value.type })
+            assertContentEquals(listOf("int8", "varchar", "varchar"), columns.map { it.value.type.lowercase() })
             assertContentEquals(listOf(false, true, true), columns.map { it.value.nullable })
             assertTrue(dialect.listColumns(SqlTableName(null, "missing"), connection).isEmpty())
         }

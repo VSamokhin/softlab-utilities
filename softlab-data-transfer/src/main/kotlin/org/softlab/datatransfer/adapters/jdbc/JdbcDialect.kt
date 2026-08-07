@@ -111,6 +111,7 @@ abstract class JdbcDialect(
                     unique = columns.first().unique
                 )
             }
+            .filterNot { it.isPrimaryKeyBackingIndex(primaryKey) }
     }
 
     open fun beforeCreateTable(tableName: SqlTableName, connection: Connection) {
@@ -143,6 +144,12 @@ abstract class JdbcDialect(
             !columnName.isNullOrBlank() &&
             indexName != primaryKey?.name &&
             rs.getShort("TYPE").toInt() != DatabaseMetaData.tableIndexStatistic.toInt()
+
+    private fun IndexDefinition.isPrimaryKeyBackingIndex(primaryKey: PrimaryKeyDefinition?): Boolean =
+        primaryKey != null &&
+            primaryKey.name == null &&
+            unique &&
+            fields.map { it.name } == primaryKey.fields
 
     private data class JdbcIndexColumn(
         val indexName: String,

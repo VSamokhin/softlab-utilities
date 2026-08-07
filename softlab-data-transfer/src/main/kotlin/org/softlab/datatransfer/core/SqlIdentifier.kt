@@ -16,6 +16,7 @@
 
 package org.softlab.datatransfer.core
 
+
 fun String.toSqlIdentifier(): String =
     "\"${replace("\"", "\"\"")}\""
 
