@@ -1,5 +1,6 @@
 package org.softlab.datatransfer.adapters.mongo
 
+import com.mongodb.client.model.IndexOptions
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.bson.Document
@@ -13,9 +14,14 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.softlab.datataset.test.initiators.MongoInitiator
 import org.softlab.datataset.test.initiators.createMongoContainer
+import org.softlab.datatransfer.core.IndexDefinition
+import org.softlab.datatransfer.core.IndexFieldDefinition
+import org.softlab.datatransfer.core.IndexSortOrder
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 
@@ -122,6 +128,72 @@ class MongoDocumentCollectionIT {
         val cut = MongoDocumentCollection("no_validator", mongoInitiator.getConnection())
 
         assertTrue(cut.fetchMetadata().fields.isEmpty())
+    }
+
+    @Test
+    fun `fetchMetadata() includes supported secondary indices without id primary key`() = runBlocking {
+        mongoInitiator.getConnection().createCollection("indexed_users")
+        val collection = mongoInitiator.getConnection().getCollection<Document>("indexed_users")
+        collection.createIndex(
+            Document(mapOf("email" to 1)),
+            IndexOptions().name("indexed_users_email_unique_idx").unique(true)
+        )
+        collection.createIndex(
+            Document(mapOf("tenant_id" to 1, "name" to -1)),
+            IndexOptions().name("indexed_users_tenant_name_idx")
+        )
+
+        val metadata = MongoDocumentCollection("indexed_users", mongoInitiator.getConnection()).fetchMetadata()
+
+        assertNull(metadata.primaryKey)
+        assertContentEquals(
+            listOf(
+                IndexDefinition(
+                    name = "indexed_users_email_unique_idx",
+                    fields = listOf(IndexFieldDefinition("email")),
+                    unique = true
+                ),
+                IndexDefinition(
+                    name = "indexed_users_tenant_name_idx",
+                    fields = listOf(
+                        IndexFieldDefinition("tenant_id"),
+                        IndexFieldDefinition("name", IndexSortOrder.DESC)
+                    )
+                )
+            ),
+            metadata.indices
+        )
+    }
+
+    @Test
+    fun `fetchMetadata() skips unsupported index shapes and options`() = runBlocking {
+        mongoInitiator.getConnection().createCollection("unsupported_indices")
+        val collection = mongoInitiator.getConnection().getCollection<Document>("unsupported_indices")
+        collection.createIndex(
+            Document(mapOf("email" to 1)),
+            IndexOptions().name("unsupported_indices_email_idx")
+        )
+        collection.createIndex(
+            Document(mapOf("name" to "text")),
+            IndexOptions().name("unsupported_indices_name_text_idx")
+        )
+        collection.createIndex(
+            Document(mapOf("active" to 1)),
+            IndexOptions().name("unsupported_indices_active_sparse_idx").sparse(true)
+        )
+        collection.createIndex(
+            Document(mapOf("status" to 1)),
+            IndexOptions()
+                .name("unsupported_indices_status_partial_idx")
+                .partialFilterExpression(Document(mapOf("status" to "active")))
+        )
+
+        val metadata = MongoDocumentCollection("unsupported_indices", mongoInitiator.getConnection()).fetchMetadata()
+
+        assertContentEquals(
+            listOf(IndexDefinition("unsupported_indices_email_idx", listOf(IndexFieldDefinition("email")))),
+            metadata.indices
+        )
     }
 
     @Test

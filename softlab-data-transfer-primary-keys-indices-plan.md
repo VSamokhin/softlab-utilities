@@ -197,7 +197,7 @@ Commit outcome:
 
 * SQLite destinations can preserve primary keys according to the chosen SQLite-specific timing and can recreate supported secondary indices after data transfer.
 
-## Task 7: Read Mongo Indices
+## Task 7: Read Mongo Indices (Done)
 
 Scope:
 
