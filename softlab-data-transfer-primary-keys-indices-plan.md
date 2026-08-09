@@ -220,7 +220,7 @@ Commit outcome:
 
 * Mongo sources expose portable secondary-index metadata without pretending Mongo `_id` is transferred when it is currently excluded.
 
-## Task 8: Recreate Mongo Indices
+## Task 8: Recreate Mongo Indices (Done)
 
 Scope:
 
