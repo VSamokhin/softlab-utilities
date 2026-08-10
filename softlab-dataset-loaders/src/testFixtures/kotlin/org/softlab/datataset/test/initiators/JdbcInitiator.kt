@@ -26,26 +26,29 @@ import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import java.sql.Connection
 import java.sql.DriverManager
+import java.time.Duration
 
 
 const val POSTGRES_CONTAINER = "postgres:18.3-alpine"
 
 fun createPostgresContainer(container: String = POSTGRES_CONTAINER): PostgreSQLContainer =
     PostgreSQLContainer(DockerImageName.parse(container))
-        // Workaround for Rancher Desktop on Mac, somehow postgres container is not ready while the tests start
-        .waitingFor(Wait.forListeningPorts(5432))
+        .waitingFor(
+            Wait
+                .forLogMessage(".*database system is ready to accept connections.*\\s", 2)
+                .withStartupTimeout(Duration.ofSeconds(60))
+        )
 
 class JdbcInitiator(
     override val dbUrl: String,
     private val dbUnitProperties: Map<String, Any>? = null,
     private val connectionProvider: (String) -> Connection
 ) : DatabaseInitiator<Connection> {
-
     constructor(
         dbUrl: String,
         username: String,
         password: String
-    ) : this(dbUrl, null, { DriverManager.getConnection(it, username, password) })
+    ) : this(dbUrl, null, connectionProvider = { DriverManager.getConnection(it, username, password) })
 
     private val lazyConnection = lazy { getConnection() }
     private val conn: Connection by lazyConnection
