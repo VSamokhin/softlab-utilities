@@ -24,6 +24,7 @@ import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.IndexDefinition
 import org.softlab.datatransfer.core.PrimaryKeyDefinition
 import org.softlab.datatransfer.core.SqlTableName
+import org.softlab.datatransfer.core.sqlName
 import org.softlab.datatransfer.core.toSql
 import org.softlab.datatransfer.core.toSqlIdentifier
 
@@ -79,21 +80,17 @@ class PostgresDestination(
     private fun String.isBoolean(): Boolean = this in setOf("boolean", "bool")
 
     private fun createPrimaryKeySql(tableName: SqlTableName, primaryKey: PrimaryKeyDefinition): String {
-        val name = primaryKey.name ?: "${tableName.table}_pkey"
         val fields = primaryKey.fields.joinToString(", ") { it.toSqlIdentifier() }
         return "ALTER TABLE ${tableName.toSql()} " +
-            "ADD CONSTRAINT ${name.toSqlIdentifier()} PRIMARY KEY ($fields);"
+            "ADD CONSTRAINT ${primaryKey.sqlName(tableName).toSqlIdentifier()} PRIMARY KEY ($fields);"
     }
 
     private fun createIndexSql(tableName: SqlTableName, index: IndexDefinition): String {
-        val name = index.name ?: fallbackIndexName(tableName, index)
         val unique = if (index.unique) "UNIQUE " else ""
         val fields = index.fields.joinToString(", ") { field ->
             "${field.name.toSqlIdentifier()} ${field.order.toSql()}"
         }
-        return "CREATE ${unique}INDEX ${name.toSqlIdentifier()} ON ${tableName.toSql()} ($fields);"
+        return "CREATE ${unique}INDEX ${index.sqlName(tableName).toSqlIdentifier()} " +
+            "ON ${tableName.toSql()} ($fields);"
     }
-
-    private fun fallbackIndexName(tableName: SqlTableName, index: IndexDefinition): String =
-        "${tableName.table}_${index.fields.joinToString("_") { it.name }}_idx"
 }

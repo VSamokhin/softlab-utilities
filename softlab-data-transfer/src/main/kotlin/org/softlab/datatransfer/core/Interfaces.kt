@@ -42,7 +42,37 @@ data class CollectionMetadata(
      * Secondary index definitions, if known.
      */
     val indices: Collection<IndexDefinition> = emptyList()
-)
+) {
+    init {
+        require(name.isNotBlank()) { "Collection name must not be blank" }
+        require(fields.keys.none { it.isBlank() }) { "Collection field names must not be blank" }
+        require(fields.values.map { it.name.lowercase() }.toSet().size == fields.size) {
+            "Collection field names must not contain duplicates"
+        }
+        val namedIndices = indices.mapNotNull { it.name }
+        require(namedIndices.toSet().size == namedIndices.size) {
+            "Index names must not contain duplicates"
+        }
+        validateKnownFields(primaryKey?.fields.orEmpty(), "Primary key")
+        indices.forEach { index ->
+            validateKnownFields(index.fields.map { it.name }, index.displayName())
+        }
+    }
+
+    private fun validateKnownFields(fieldNames: Collection<String>, owner: String) {
+        if (fields.isEmpty()) {
+            return
+        }
+        val knownFieldNames = fields.keys.map { it.lowercase() }.toSet()
+        val unknownFieldNames = fieldNames.filterNot { it.lowercase() in knownFieldNames }
+        require(unknownFieldNames.isEmpty()) {
+            "$owner contains unknown field names: ${unknownFieldNames.joinToString(", ")}"
+        }
+    }
+}
+
+private fun IndexDefinition.displayName(): String =
+    name?.let { "Index '$it'" } ?: "Unnamed index"
 
 /**
  * Represents a primary key definition.
@@ -50,7 +80,12 @@ data class CollectionMetadata(
 data class PrimaryKeyDefinition(
     val name: String?,
     val fields: List<String>
-)
+) {
+    init {
+        require(name == null || name.isNotBlank()) { "Primary key name must not be blank" }
+        validateFieldNames(fields, "Primary key")
+    }
+}
 
 /**
  * Represents a secondary index definition.
@@ -59,7 +94,12 @@ data class IndexDefinition(
     val name: String?,
     val fields: List<IndexFieldDefinition>,
     val unique: Boolean = false
-)
+) {
+    init {
+        require(name == null || name.isNotBlank()) { "Index name must not be blank" }
+        validateFieldNames(fields.map { it.name }, "Index")
+    }
+}
 
 /**
  * Represents a field within a secondary index definition.
@@ -67,7 +107,19 @@ data class IndexDefinition(
 data class IndexFieldDefinition(
     val name: String,
     val order: IndexSortOrder = IndexSortOrder.ASC
-)
+) {
+    init {
+        require(name.isNotBlank()) { "Index field name must not be blank" }
+    }
+}
+
+private fun validateFieldNames(fields: Collection<String>, owner: String) {
+    require(fields.isNotEmpty()) { "$owner fields must not be empty" }
+    require(fields.none { it.isBlank() }) { "$owner field names must not be blank" }
+    require(fields.map { it.lowercase() }.toSet().size == fields.size) {
+        "$owner field names must not contain duplicates"
+    }
+}
 
 /**
  * Represents portable index field sort order.

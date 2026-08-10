@@ -24,4 +24,9 @@ data class FieldDefinition(
     val name: String,
     val type: String,
     val nullable: Boolean = false
-)
+) {
+    init {
+        require(name.isNotBlank()) { "Field name must not be blank" }
+        require(type.isNotBlank()) { "Field type must not be blank" }
+    }
+}

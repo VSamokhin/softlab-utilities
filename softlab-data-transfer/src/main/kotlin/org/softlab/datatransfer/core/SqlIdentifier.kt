@@ -21,3 +21,9 @@ fun String.toSqlIdentifier(): String =
     "\"${replace("\"", "\"\"")}\""
 
 fun IndexSortOrder.toSql(): String = name
+
+fun PrimaryKeyDefinition.sqlName(tableName: SqlTableName): String =
+    name ?: "${tableName.table}_pkey"
+
+fun IndexDefinition.sqlName(tableName: SqlTableName): String =
+    name ?: "${tableName.table}_${fields.joinToString("_") { it.name }}_idx"
