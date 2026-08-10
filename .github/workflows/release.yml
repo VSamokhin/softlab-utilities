@@ -33,7 +33,7 @@ jobs:
     steps:
       - name: Checkout (workflow_run)
         if: github.event_name == 'workflow_run'
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -54,7 +54,7 @@ jobs:
 
       - name: Create draft release (workflow_run)
         if: github.event_name == 'workflow_run' && steps.latest_tag.outputs.found == 'true'
-        uses: release-drafter/release-drafter@v6
+        uses: release-drafter/release-drafter@v7
         with:
           name: ${{ steps.latest_tag.outputs.tag }}
           tag: ${{ steps.latest_tag.outputs.tag }}
@@ -64,6 +64,6 @@ jobs:
 
       - name: Update release (pull_request)
         if: github.event_name == 'pull_request'
-        uses: release-drafter/release-drafter@v6
+        uses: release-drafter/release-drafter@v7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

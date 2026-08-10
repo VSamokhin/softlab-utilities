@@ -55,3 +55,9 @@
     * Use the `INSTRUCTION` counter to calculate the current test coverage value, round it always down to two decimal places, it should then be set as an expected minimum.
     * Use the `CLASS` counter to set the maximal allowed number of missed classes.
   * Update corresponding parameters of `jacocoVerification` in `build.gradle` of every subproject.
+
+* To update build and component dependencies:
+  * Check whether a newer version of Gradle exists, if so, update project's Gradle wrapper
+  * Execute `./gradlew refreshVersions`, then inspect `refreshVersions` file for available updated versions of the dependencies. Keep only latest stable releases, non-stable releases can be permitted in exceptional cases, e.g. to prevent compatibility issues across the build or dependency chains.
+  * Build the whole project to prove the version update has succeeded, rollback failing component updates, if any, iterate until a success.
+  * In a case when github workflows are used, check for updated github actions and apply them.

@@ -10,6 +10,6 @@ repositories {
 // I have to reference them as dependencies here
 dependencies {
     implementation 'org.jetbrains.kotlin:kotlin-gradle-plugin:_'
-    implementation 'io.gitlab.arturbosch.detekt:detekt-gradle-plugin:_'
+    implementation 'dev.detekt:dev.detekt.gradle.plugin:_'
     implementation 'com.gradleup.shadow:com.gradleup.shadow.gradle.plugin:_'
 }
