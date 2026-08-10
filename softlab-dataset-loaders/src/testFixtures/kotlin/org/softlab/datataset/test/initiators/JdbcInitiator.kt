@@ -37,11 +37,12 @@ class JdbcInitiator(
     private val dbUnitProperties: Map<String, Any>? = null,
     private val connectionProvider: (String) -> Connection
 ) : DatabaseInitiator<Connection> {
+
     constructor(
         dbUrl: String,
         username: String,
         password: String
-    ) : this(dbUrl, null, connectionProvider = { DriverManager.getConnection(it, username, password) })
+    ) : this(dbUrl, null, { DriverManager.getConnection(it, username, password) })
 
     private val lazyConnection = lazy { getConnection() }
     private val conn: Connection by lazyConnection
