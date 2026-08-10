@@ -75,8 +75,8 @@ class MigratorMetadataIT : BackendTestSupport() {
 
     @Test
     fun `sqlite to sqlite preserves primary key and supported indices`() = runBlocking {
-        val sourceDb = sqliteDb()
-        val targetDb = sqliteDb()
+        val sourceDb = newSqliteDb()
+        val targetDb = newSqliteDb()
         createSqliteSource(sourceDb)
 
         migrate(
@@ -96,7 +96,7 @@ class MigratorMetadataIT : BackendTestSupport() {
 
     @Test
     fun `postgres to sqlite preserves compatible primary key and supported indices`() = runBlocking {
-        val targetDb = sqliteDb()
+        val targetDb = newSqliteDb()
         createPostgresSource()
 
         migrate(
@@ -116,7 +116,7 @@ class MigratorMetadataIT : BackendTestSupport() {
 
     @Test
     fun `sqlite to postgres preserves compatible primary key and supported indices`() = runBlocking {
-        val sourceDb = sqliteDb()
+        val sourceDb = newSqliteDb()
         createSqliteSource(sourceDb)
 
         migrate(
@@ -187,7 +187,7 @@ class MigratorMetadataIT : BackendTestSupport() {
 
     @Test
     fun `sqlite to mongo maps supported secondary indices`() = runBlocking {
-        val sourceDb = sqliteDb()
+        val sourceDb = newSqliteDb()
         createSqliteSource(sourceDb)
 
         migrate(
@@ -207,7 +207,7 @@ class MigratorMetadataIT : BackendTestSupport() {
 
     @Test
     fun `mongo to sqlite maps supported indices without primary key`() = runBlocking {
-        val targetDb = sqliteDb()
+        val targetDb = newSqliteDb()
         createMongoSource()
 
         migrate(
@@ -380,9 +380,5 @@ class MigratorMetadataIT : BackendTestSupport() {
             )
         )
 
-    private fun sqliteDb(): String =
-        sqliteDb("data-transfer-metadata")
-
-    private fun sqliteUrl(dbFile: String): String =
-        sqliteUrl(dbFile)
+    private fun newSqliteDb(): String = sqliteDb("data-transfer-metadata")
 }

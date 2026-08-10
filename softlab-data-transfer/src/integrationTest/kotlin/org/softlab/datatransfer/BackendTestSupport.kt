@@ -66,6 +66,8 @@ abstract class BackendTestSupport {
             Files.createTempFile(prefix, ".db")
                 .apply { toFile().deleteOnExit() }
 
+        fun sqliteUrl(dbFile: String): String = "jdbc:sqlite:$dbFile"
+
         fun sqliteUrl(dbFile: Path): String = "jdbc:sqlite:$dbFile"
 
         fun withPostgresInitiator(dbUrl: String, block: JdbcInitiator.() -> Unit) {

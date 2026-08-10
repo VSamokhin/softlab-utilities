@@ -297,7 +297,7 @@ Commit outcome:
 
 * Users understand what metadata is preserved and what is intentionally out of scope.
 
-## Task 11: Recalculate Coverage Thresholds
+## Task 11: Recalculate Coverage Thresholds (Done)
 
 Scope:
 
