@@ -2,7 +2,6 @@ package org.softlab.datatransfer
 
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import org.dbunit.database.DatabaseConfig
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.containsString
 import org.hamcrest.Matchers.hasItem
@@ -11,22 +10,9 @@ import org.junit.jupiter.api.assertDoesNotThrow
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import org.softlab.dataset.jdbc.sqlite.SqliteDataTypeFactory
-import org.softlab.dataset.jdbc.sqlite.SqliteMetadataHandler
-import org.softlab.dataset.jdbc.sqlite.sqliteAttach
-import org.softlab.datataset.test.initiators.JdbcInitiator
 import org.softlab.datataset.test.initiators.MongoInitiator
 import org.softlab.datataset.test.initiators.RedisInitiator
-import org.softlab.datataset.test.initiators.createMongoContainer
-import org.softlab.datataset.test.initiators.createPostgresContainer
-import org.softlab.datataset.test.initiators.createRedisContainer
 import org.softlab.datatransfer.adapters.AdapterProvider
-import org.testcontainers.junit.jupiter.Container
-import org.testcontainers.junit.jupiter.Testcontainers
-import java.net.URI
-import java.nio.file.Files
-import java.nio.file.Path
-import java.sql.DriverManager
 import kotlin.test.assertEquals
 
 
@@ -34,8 +20,7 @@ import kotlin.test.assertEquals
  * Here I'm not into checking each and every aspect of the data transfer process,
  * just a quick proof whether all transfer combinations are functional
  */
-@Testcontainers
-class MainIT {
+class MainIT : BackendTestSupport() {
     data class AdapterEndpoints(
         val name: String,
         val source: SourceEndpoint,
@@ -68,31 +53,10 @@ class MainIT {
         private const val REDIS_MAPPING = "mappings/MainIT-various_datatypes.yml"
         private val JOBS_OPTION = mapOf(AdapterProvider.JOBS_HINT to "1")
 
-        @Container
-        @JvmStatic
-        private val postgres = createPostgresContainer()
-
-        @Container
-        @JvmStatic
-        private val mongo = createMongoContainer()
-
-        @Container
-        @JvmStatic
-        private val redis = createRedisContainer()
-
         @JvmStatic
         @BeforeAll
         fun setup() {
-            DriverManager.getConnection(
-                postgresDbUrl("postgres"),
-                postgres.username,
-                postgres.password
-            ).use { connection ->
-                connection.createStatement().use { stmt ->
-                    stmt.execute("CREATE DATABASE $POSTGRES_SOURCE_DB;")
-                    stmt.execute("CREATE DATABASE $POSTGRES_TARGET_DB;")
-                }
-            }
+            createPostgresDatabases(POSTGRES_SOURCE_DB, POSTGRES_TARGET_DB)
         }
 
         @JvmStatic
@@ -126,7 +90,7 @@ class MainIT {
                 source = SourceEndpoint(
                     options = JOBS_OPTION,
                     prepare = {
-                        withJdbcInitiator(sourceDbUrl) {
+                        withPostgresInitiator(sourceDbUrl) {
                             cleanup { connection ->
                                 connection.createStatement().use { stmt ->
                                     stmt.execute("DROP SCHEMA IF EXISTS data CASCADE;")
@@ -141,7 +105,7 @@ class MainIT {
                 destination = DestinationEndpoint(
                     options = JOBS_OPTION,
                     prepare = {
-                        withJdbcInitiator(destinationDbUrl) {
+                        withPostgresInitiator(destinationDbUrl) {
                             cleanup { connection ->
                                 connection.createStatement().use { stmt ->
                                     stmt.execute("DROP SCHEMA IF EXISTS data CASCADE;")
@@ -159,7 +123,7 @@ class MainIT {
                 name = "mongo",
                 source = SourceEndpoint(
                     prepare = {
-                        val sourceUri = "${mongo.connectionString}/main_source_db"
+                        val sourceUri = mongoUri("main_source_db")
                         MongoInitiator(sourceUri).use {
                             it.cleanup()
                             it.initSchema(MONGO_CHANGELOG)
@@ -170,7 +134,7 @@ class MainIT {
                 ),
                 destination = DestinationEndpoint(
                     prepare = {
-                        val destinationUri = "${mongo.connectionString}/main_target_db"
+                        val destinationUri = mongoUri("main_target_db")
                         MongoInitiator(destinationUri).use { it.cleanup() }
                         destinationUri
                     }
@@ -208,19 +172,14 @@ class MainIT {
 
         private fun sqliteEndpoints(): AdapterEndpoints {
 
-            val destination = Files.createTempFile("data-transfer-main-target", ".db")
-            destination.toFile().deleteOnExit()
-
             return AdapterEndpoints(
                 name = "sqlite",
                 source = SourceEndpoint(
                     options = JOBS_OPTION,
                     collectionName = SQLITE_COLLECTION_NAME,
                     prepare = {
-                        val source = Files
-                            .createTempFile("data-transfer-main-source", ".db")
-                            .apply { toFile().deleteOnExit() }
-                        val sourceUri = "jdbc:sqlite:$source"
+                        val source = sqliteDbPath("data-transfer-main-source")
+                        val sourceUri = sqliteUrl(source)
                         withSqliteInitiator(source) {
                             cleanup()
                             initSchema(SQLITE_CHANGELOG)
@@ -232,10 +191,8 @@ class MainIT {
                 destination = DestinationEndpoint(
                     options = JOBS_OPTION,
                     prepare = {
-                        val destination = Files
-                            .createTempFile("data-transfer-main-target", ".db")
-                            .apply { toFile().deleteOnExit() }
-                        val destinationUri = "jdbc:sqlite:$destination"
+                        val destination = sqliteDbPath("data-transfer-main-target")
+                        val destinationUri = sqliteUrl(destination)
                         withSqliteInitiator(destination) {
                             cleanup()
                         }
@@ -243,32 +200,6 @@ class MainIT {
                     }
                 )
             )
-        }
-
-        private fun postgresDbUrl(dbName: String): String =
-            "jdbc:postgresql://${postgres.host}:${postgres.firstMappedPort}/$dbName?loggerLevel=OFF"
-
-        private fun postgresAdapterUri(dbUrl: String): String =
-            "$dbUrl&user=${postgres.username}&password=${postgres.password}"
-
-        private inline fun withJdbcInitiator(dbUrl: String, block: JdbcInitiator.() -> Unit) {
-            JdbcInitiator(dbUrl, postgres.username, postgres.password).use(block)
-        }
-
-        private inline fun withSqliteInitiator(dbFile: Path, block: JdbcInitiator.() -> Unit) {
-            JdbcInitiator(dbUrl = "jdbc:sqlite:$dbFile", dbUnitProperties = mapOf(
-                DatabaseConfig.PROPERTY_DATATYPE_FACTORY to SqliteDataTypeFactory(),
-                DatabaseConfig.PROPERTY_METADATA_HANDLER to SqliteMetadataHandler("data"),
-            )) { url ->
-                DriverManager
-                    .getConnection(url)
-                    .sqliteAttach(dbFile.toString(), "data")
-            }.use(block)
-        }
-
-        private fun redisDbUri(dbIndex: Int): String {
-            val uri = URI(redis.redisURI.toString())
-            return URI(uri.scheme, uri.rawAuthority, "/$dbIndex", uri.rawQuery, uri.rawFragment).toString()
         }
 
         private fun Map<String, String>.toCliOptions(): String =

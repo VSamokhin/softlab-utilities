@@ -240,7 +240,7 @@ Commit outcome:
 
 * Mongo destinations can recreate supported secondary indices after documents are inserted.
 
-## Task 9: Add End-to-End Transfer Coverage
+## Task 9: Add End-to-End Transfer Coverage (Done)
 
 Scope:
 
