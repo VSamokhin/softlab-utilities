@@ -21,7 +21,6 @@ import liquibase.database.DatabaseFactory
 import liquibase.database.jvm.JdbcConnection
 import liquibase.resource.ClassLoaderResourceAccessor
 import org.softlab.dataset.jdbc.JdbcDatasetLoader
-import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.postgresql.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import java.sql.Connection
@@ -32,20 +31,17 @@ const val POSTGRES_CONTAINER = "postgres:18.3-alpine"
 
 fun createPostgresContainer(container: String = POSTGRES_CONTAINER): PostgreSQLContainer =
     PostgreSQLContainer(DockerImageName.parse(container))
-        // Workaround for Rancher Desktop on Mac, somehow postgres container is not ready while the tests start
-        .waitingFor(Wait.forListeningPorts(5432))
 
 class JdbcInitiator(
     override val dbUrl: String,
     private val dbUnitProperties: Map<String, Any>? = null,
     private val connectionProvider: (String) -> Connection
 ) : DatabaseInitiator<Connection> {
-
     constructor(
         dbUrl: String,
         username: String,
         password: String
-    ) : this(dbUrl, null, { DriverManager.getConnection(it, username, password) })
+    ) : this(dbUrl, null, connectionProvider = { DriverManager.getConnection(it, username, password) })
 
     private val lazyConnection = lazy { getConnection() }
     private val conn: Connection by lazyConnection

@@ -48,6 +48,10 @@
   * For assertion of iterables, use `kotlin.test.assertContentEquals`
   * Don't provide an error message to assertion functions as most of the time it's excessive.
 
+* The following is important when finishing working on a task:
+  * Always conduct a code review after code is ready and tests passed
+  * Always wait for a commit approval if not stated otherwise
+
 * To update the JaCoCo coverage thresholds:
   * Build the whole project with `./gradlew clean build`.
   * After that in every subproject there should appear a file `build/reports/jacoco/test/jacocoTestReport.xml`.
