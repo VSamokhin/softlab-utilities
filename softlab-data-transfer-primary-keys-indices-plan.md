@@ -265,7 +265,7 @@ Commit outcome:
 
 * The feature is proven through realistic transfers, not only individual adapter tests.
 
-## Task 10: Update User Documentation
+## Task 10: Update User Documentation (Done)
 
 Scope:
 
