@@ -99,11 +99,22 @@ Supported databases, you can use any combination of them as source and destinati
 
 Current limitations:
 * Redis migrations require an explicit mapping YAML because Redis does not expose a usable document schema on its own.
-* The utility migrates data and basic field schema, but not DB objects like indexes, constraints beyond inferred nullability, sequences, triggers, views, or stored procedures.
 * Mongo schema inference is best-effort when a predefined validator is missing (falls back to sampling a document), so field typing can be incomplete/inaccurate.
 * Sqlite does not support schema inference, so multi-schema data transfers you may have to do on schema-per-file basis.
 * Different databases have different data type capabilities, so some type conversions may be lossy or not possible at all 
 (e.g. Redis only supports string values, SQLite's single integer data type covers the whole range from 16 to 64-bit long integers).
+
+Transferred metadata:
+* Primary keys are preserved for PostgreSQL and SQLite transfers when the destination backend supports the source definition.
+* SQLite primary keys are created together with the destination table because SQLite cannot add a primary key after rows are loaded.
+* Secondary indices are recreated after row/document transfer for PostgreSQL, SQLite, and MongoDB.
+* MongoDB `_id` is not treated as a transferred primary key because `_id` values are currently excluded from transferred documents.
+* Redis does not recreate primary keys or indices; the mapping format currently describes data layout only.
+
+Unsupported metadata:
+* Foreign keys, check constraints, sequences, triggers, views, and stored procedures are not migrated.
+* Expression, partial, sparse, TTL, text, geo, and hash indexes are not migrated.
+* SQLite expression and partial indexes are not migrated.
 
 Configuration spots:
 * Type mapping config (embedded): `softlab-data-transfer/src/main/resources/data-transfer-config.yml` which can be overridden by a custom one

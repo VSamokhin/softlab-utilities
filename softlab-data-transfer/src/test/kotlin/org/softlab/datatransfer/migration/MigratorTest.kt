@@ -2,6 +2,7 @@ package org.softlab.datatransfer.migration
 
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -45,6 +46,7 @@ class MigratorTest {
         val mockDest = mockk<DatabaseDestination> {
             coEvery { createCollection(eq(testMetadata)) } returns Unit
             coEvery { insertDocuments(eq("users"), eq(testDocuments)) } returns Unit
+            coEvery { createIndexesAndConstraints(eq(testMetadata)) } returns Unit
         }
 
         runBlocking { Migrator().migrate(mockSource, mockDest) }
@@ -52,8 +54,11 @@ class MigratorTest {
         verify(exactly = 1) { mockSource.listCollections() }
         coVerify(exactly = 1) { mockCollection.fetchMetadata() }
         verify(exactly = 1) { mockCollection.readDocuments() }
-        coVerify(exactly = 1) { mockDest.createCollection(testMetadata) }
-        coVerify(exactly = 1) { mockDest.insertDocuments(testMetadata.name, any()) }
+        coVerifyOrder {
+            mockDest.createCollection(testMetadata)
+            mockDest.insertDocuments(testMetadata.name, testDocuments)
+            mockDest.createIndexesAndConstraints(testMetadata)
+        }
     }
 
     @Test
@@ -68,6 +73,7 @@ class MigratorTest {
         verify(exactly = 1) { mockSource.listCollections() }
         coVerify(exactly = 0) { mockDest.createCollection(any()) }
         coVerify(exactly = 0) { mockDest.insertDocuments(any(), any()) }
+        coVerify(exactly = 0) { mockDest.createIndexesAndConstraints(any()) }
     }
 
     @Test
@@ -96,6 +102,7 @@ class MigratorTest {
         val mockDest = mockk<DatabaseDestination> {
             coEvery { createCollection(eq(includedMetadata)) } returns Unit
             coEvery { insertDocuments(eq(includedMetadata.name), any()) } returns Unit
+            coEvery { createIndexesAndConstraints(eq(includedMetadata)) } returns Unit
         }
 
         runBlocking {
@@ -107,10 +114,14 @@ class MigratorTest {
         verify(exactly = 1) { includedCollection.readDocuments() }
         coVerify(exactly = 1) { skippedCollection.fetchMetadata() }
         verify(exactly = 0) { skippedCollection.readDocuments() }
-        coVerify(exactly = 1) { mockDest.createCollection(includedMetadata) }
+        coVerifyOrder {
+            mockDest.createCollection(includedMetadata)
+            mockDest.insertDocuments(includedMetadata.name, includedDocuments)
+            mockDest.createIndexesAndConstraints(includedMetadata)
+        }
         coVerify(exactly = 0) { mockDest.createCollection(skippedMetadata) }
-        coVerify(exactly = 1) { mockDest.insertDocuments(includedMetadata.name, any()) }
         coVerify(exactly = 0) { mockDest.insertDocuments(skippedMetadata.name, any()) }
+        coVerify(exactly = 0) { mockDest.createIndexesAndConstraints(skippedMetadata) }
     }
 
     @Test
@@ -142,6 +153,7 @@ class MigratorTest {
             coEvery { insertDocuments(testMetadata.name, testDocuments) } coAnswers {
                 testDocuments.collect { }
             }
+            coEvery { createIndexesAndConstraints(testMetadata) } returns Unit
         }
 
         runBlocking { Migrator().migrate(mockSource, mockDestination) }
@@ -149,6 +161,7 @@ class MigratorTest {
         assertEquals(NUM_RECORDS, recordsCount)
         coVerify(exactly = 1) { mockDestination.createCollection(testMetadata) }
         coVerify(exactly = 1) { mockDestination.insertDocuments(testMetadata.name, testDocuments) }
+        coVerify(exactly = 1) { mockDestination.createIndexesAndConstraints(testMetadata) }
     }
 
     companion object {

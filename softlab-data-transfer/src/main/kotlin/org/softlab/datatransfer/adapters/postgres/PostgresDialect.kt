@@ -17,7 +17,8 @@
 package org.softlab.datatransfer.adapters.postgres
 
 import org.softlab.datatransfer.adapters.jdbc.JdbcDialect
-import org.softlab.datatransfer.adapters.jdbc.JdbcTableName
+import org.softlab.datatransfer.core.SqlTableName
+import org.softlab.datatransfer.core.toSqlIdentifier
 import java.sql.Connection
 
 
@@ -25,14 +26,15 @@ class PostgresDialect : JdbcDialect(
     backendName = "postgres",
     supportsConcurrentInserts = true
 ) {
-    override fun parseTableName(tableName: String): JdbcTableName = JdbcTableName(
+    override fun parseTableName(tableName: String): SqlTableName = SqlTableName(
         schema = tableName.substringBefore(".", "public"),
         table = tableName.substringAfter(".")
     )
 
-    override fun beforeCreateTable(tableName: JdbcTableName, connection: Connection) {
+    override fun beforeCreateTable(tableName: SqlTableName, connection: Connection) {
+        val schema = tableName.schema ?: return
         connection.createStatement().use { stmt ->
-            stmt.execute("CREATE SCHEMA IF NOT EXISTS ${tableName.schema};")
+            stmt.execute("CREATE SCHEMA IF NOT EXISTS ${schema.toSqlIdentifier()};")
         }
     }
 }

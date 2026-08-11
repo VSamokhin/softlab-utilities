@@ -20,6 +20,7 @@ import org.softlab.datataset.test.initiators.TestJdbcPool
 import org.softlab.datataset.test.initiators.withTestPool
 import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.core.CollectionMetadata
+import org.softlab.datatransfer.core.SqlTableName
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.SQLException
@@ -50,20 +51,21 @@ class JdbcDestinationTest {
                         "users",
                         mapOf(
                             "id" to FieldDefinition("id", "int", false),
-                            "name" to FieldDefinition("name", "string", true)
+                            "full name" to FieldDefinition("full name", "string", true)
                         )
                     )
                 )
             }
 
             pool.withConnection { connection ->
-                assertTrue(dialect.tableExists(JdbcTableName(null, "users"), connection))
-                val columns = dialect.listColumns(JdbcTableName(null, "users"), connection)
+                assertTrue(dialect.tableExists(SqlTableName(null, "users"), connection))
+                val columns = dialect.listColumns(SqlTableName(null, "users"), connection)
                 assertContentEquals(listOf("INT", "TEXT"), columns.map { it.value.type })
                 assertContentEquals(listOf(false, true), columns.map { it.value.nullable })
+                assertContentEquals(listOf("id", "full name"), columns.map { it.value.name })
             }
             assertContentEquals(
-                listOf(JdbcTableName(null, "users")), dialect.beforeCreateTableCalls
+                listOf(SqlTableName(null, "users")), dialect.beforeCreateTableCalls
             )
         }
     }
@@ -102,7 +104,7 @@ class JdbcDestinationTest {
             pool.withConnection { connection ->
                 assertFalse(
                     TestJdbcDialect().tableExists(
-                        JdbcTableName(null, "users"), connection
+                        SqlTableName(null, "users"), connection
                     )
                 )
             }
@@ -125,7 +127,7 @@ class JdbcDestinationTest {
                         "users",
                         mapOf(
                             "id" to FieldDefinition("id", "int"),
-                            "name" to FieldDefinition("name", "string", true)
+                            "full name" to FieldDefinition("full name", "string", true)
                         )
                     )
                 )
@@ -133,20 +135,20 @@ class JdbcDestinationTest {
                 destination.insertDocuments(
                     "users",
                     flowOf(
-                        mapOf("name" to "Alice", "id" to 1),
-                        mapOf("ID" to 2, "NAME" to "Bob")
+                        mapOf("full name" to "Alice", "id" to 1),
+                        mapOf("ID" to 2, "FULL NAME" to "Bob")
                     )
                 )
             }
 
             pool.withStatement { statement ->
-                statement.executeQuery("SELECT id, name FROM users ORDER BY id;").use { rs ->
+                statement.executeQuery("SELECT id, \"full name\" FROM users ORDER BY id;").use { rs ->
                     assertTrue(rs.next())
                     assertEquals(1, rs.getInt("id"))
-                    assertEquals("Alice", rs.getString("name"))
+                    assertEquals("Alice", rs.getString("full name"))
                     assertTrue(rs.next())
                     assertEquals(2, rs.getInt("id"))
-                    assertEquals("Bob", rs.getString("name"))
+                    assertEquals("Bob", rs.getString("full name"))
                     assertFalse(rs.next())
                 }
             }
@@ -196,9 +198,9 @@ class JdbcDestinationTest {
             override fun close() = Unit
         }
         val dialect = object : JdbcDialect("jdbc-test", supportsConcurrentInserts = false) {
-            override fun parseTableName(tableName: String): JdbcTableName = JdbcTableName(null, tableName)
+            override fun parseTableName(tableName: String): SqlTableName = SqlTableName(null, tableName)
 
-            override fun listColumns(tableName: JdbcTableName, connection: Connection): Map<String, FieldDefinition> =
+            override fun listColumns(tableName: SqlTableName, connection: Connection): Map<String, FieldDefinition> =
                 mapOf(
                     "id" to FieldDefinition("id", "integer"),
                     "active" to FieldDefinition("active", "boolean")

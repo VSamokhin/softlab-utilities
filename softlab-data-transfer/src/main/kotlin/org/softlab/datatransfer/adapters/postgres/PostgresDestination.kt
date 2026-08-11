@@ -16,9 +16,17 @@
 
 package org.softlab.datatransfer.adapters.postgres
 
+import org.softlab.dataset.jdbc.withStatement
 import org.softlab.datatransfer.adapters.jdbc.JdbcDestination
 import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.config.DataTypeMappingsConfig
+import org.softlab.datatransfer.core.CollectionMetadata
+import org.softlab.datatransfer.core.IndexDefinition
+import org.softlab.datatransfer.core.PrimaryKeyDefinition
+import org.softlab.datatransfer.core.SqlTableName
+import org.softlab.datatransfer.core.sqlName
+import org.softlab.datatransfer.core.toSql
+import org.softlab.datatransfer.core.toSqlIdentifier
 
 
 class PostgresDestination(
@@ -58,5 +66,31 @@ class PostgresDestination(
             value
         }
 
+    override suspend fun createIndexesAndConstraints(metadata: CollectionMetadata) {
+        val tableName = dialect.parseTableName(metadata.name)
+        val statements =
+            listOfNotNull(metadata.primaryKey?.let { createPrimaryKeySql(tableName, it) }) +
+                metadata.indices.map { createIndexSql(tableName, it) }
+
+        pool.withStatement { stmt ->
+            statements.forEach(stmt::execute)
+        }
+    }
+
     private fun String.isBoolean(): Boolean = this in setOf("boolean", "bool")
+
+    private fun createPrimaryKeySql(tableName: SqlTableName, primaryKey: PrimaryKeyDefinition): String {
+        val fields = primaryKey.fields.joinToString(", ") { it.toSqlIdentifier() }
+        return "ALTER TABLE ${tableName.toSql()} " +
+            "ADD CONSTRAINT ${primaryKey.sqlName(tableName).toSqlIdentifier()} PRIMARY KEY ($fields);"
+    }
+
+    private fun createIndexSql(tableName: SqlTableName, index: IndexDefinition): String {
+        val unique = if (index.unique) "UNIQUE " else ""
+        val fields = index.fields.joinToString(", ") { field ->
+            "${field.name.toSqlIdentifier()} ${field.order.toSql()}"
+        }
+        return "CREATE ${unique}INDEX ${index.sqlName(tableName).toSqlIdentifier()} " +
+            "ON ${tableName.toSql()} ($fields);"
+    }
 }

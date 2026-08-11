@@ -1,0 +1,14 @@
+tables:
+  - table: public.users
+    fields:
+      - {name: id, type: integer}
+      - {name: tenant_id, type: integer}
+      - {name: name, type: text}
+      - {name: email, type: text}
+    sets:
+      - key: public.users
+        member: ${id}
+    hashes:
+      - key: public.users:${id}
+        field:
+        value:

@@ -1,5 +1,6 @@
 package org.softlab.datatransfer.adapters.jdbc
 
+import org.softlab.datatransfer.core.SqlTableName
 import java.sql.Connection
 
 
@@ -10,11 +11,11 @@ internal class TestJdbcDialect(
     backendName = backendName,
     supportsConcurrentInserts = supportsConcurrentInserts
 ) {
-    var beforeCreateTableCalls: List<JdbcTableName> = emptyList()
+    var beforeCreateTableCalls: List<SqlTableName> = emptyList()
 
-    override fun parseTableName(tableName: String): JdbcTableName = JdbcTableName(null, tableName)
+    override fun parseTableName(tableName: String): SqlTableName = SqlTableName(null, tableName)
 
-    override fun beforeCreateTable(tableName: JdbcTableName, connection: Connection) {
+    override fun beforeCreateTable(tableName: SqlTableName, connection: Connection) {
         beforeCreateTableCalls += tableName
     }
 }

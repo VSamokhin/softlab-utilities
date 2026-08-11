@@ -34,6 +34,7 @@ import org.softlab.datatransfer.core.DatabaseDestination
 import org.softlab.datatransfer.core.MAX_PENDING_ROWS
 import org.softlab.datatransfer.core.REPORT_ON_INSERTS
 import org.softlab.datatransfer.core.TransferDocument
+import org.softlab.datatransfer.core.toSqlIdentifier
 import org.softlab.datatransfer.util.reduce
 import java.sql.PreparedStatement
 import java.util.LinkedList
@@ -43,9 +44,9 @@ import kotlin.concurrent.atomics.plusAssign
 
 
 open class JdbcDestination(
-    private val pool: JdbcConnectionPool,
-    private val dialect: JdbcDialect,
-    private val dataTypeMappings: DataTypeMappings,
+    protected val pool: JdbcConnectionPool,
+    protected val dialect: JdbcDialect,
+    protected val dataTypeMappings: DataTypeMappings,
     private val closePool: Boolean
 ) : DatabaseDestination {
     private val logger = KotlinLogging.logger {}
@@ -55,24 +56,31 @@ open class JdbcDestination(
     override suspend fun createCollection(metadata: CollectionMetadata) {
         val tableName = dialect.parseTableName(metadata.name)
         logger.info { "Creating table '$tableName'" }
-        val columnsDef = metadata.fields.values.joinToString(", ") {
-            "${it.name} ${dataTypeMappings.map(it.type)}${if (!it.nullable) " NOT NULL" else ""}"
-        }
+        val tableDefinitions = createTableDefinitions(metadata)
         pool.withConnection { connection ->
             dialect.beforeCreateTable(tableName, connection)
             connection.createStatement().use { stmt ->
-                val createTableSql = "CREATE TABLE $tableName ($columnsDef);"
+                val createTableSql = "CREATE TABLE ${tableName.toSql()} ($tableDefinitions);"
                 logger.trace { "Executing SQL: $createTableSql" }
                 stmt.execute(createTableSql)
             }
         }
     }
 
+    protected open fun createTableDefinitions(metadata: CollectionMetadata): String =
+        createColumnDefinitions(metadata)
+
+    protected open fun createColumnDefinitions(metadata: CollectionMetadata): String =
+        metadata.fields.values.joinToString(", ") { createColumnDefinition(it, it.nullable) }
+
+    protected fun createColumnDefinition(field: FieldDefinition, nullable: Boolean): String =
+        "${field.name.toSqlIdentifier()} ${dataTypeMappings.map(field.type)}${if (!nullable) " NOT NULL" else ""}"
+
     override suspend fun dropCollection(collectionName: String) {
         val tableName = dialect.parseTableName(collectionName)
         logger.info { "Dropping table '$tableName'" }
 
-        val sql = "DROP TABLE IF EXISTS $tableName;"
+        val sql = "DROP TABLE IF EXISTS ${tableName.toSql()};"
         pool.withStatement { stmt ->
             logger.trace { "Executing SQL: $sql" }
             stmt.execute(sql)
@@ -85,16 +93,16 @@ open class JdbcDestination(
         logger.info { "Inserting documents into '$tableName'" }
 
         val fields = pool.withConnection { dialect.listColumns(tableName, it) }
-        val columns = fields.values.map { it.name }.joinToString(separator = ", ") { it }
+        val columns = fields.values.map { it.name.toSqlIdentifier() }.joinToString(separator = ", ")
         val placeholders = fields.values.joinToString(separator = ", ") { "?" }
 
         val total = AtomicInt(0)
         val jobs = LinkedList<Job>()
-        val sql = "INSERT INTO $tableName ($columns) VALUES ($placeholders);"
+        val sql = "INSERT INTO ${tableName.toSql()} ($columns) VALUES ($placeholders);"
         logger.trace { "Insert SQL: $sql" }
         coroutineScope {
             documents.chunked(BATCH_SIZE).collect { docs ->
-                val batch = launch {
+                val batch = this@coroutineScope.launch {
                     saveBatchAndReport(total, sql, docs, tableName.toString(), fields)
                 }
                 if (!dialect.supportsConcurrentInserts) {

@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
-package org.softlab.datatransfer.adapters.jdbc
+package org.softlab.datatransfer.core
 
 
-data class JdbcTableName(
-    val schema: String?,
-    val table: String
-) {
-    override fun toString(): String =
-        if (schema == null) table else "$schema.$table"
-}
+fun String.toSqlIdentifier(): String =
+    "\"${replace("\"", "\"\"")}\""
+
+fun IndexSortOrder.toSql(): String = name
+
+fun PrimaryKeyDefinition.sqlName(tableName: SqlTableName): String =
+    name ?: "${tableName.table}_pkey"
+
+fun IndexDefinition.sqlName(tableName: SqlTableName): String =
+    name ?: "${tableName.table}_${fields.joinToString("_") { it.name }}_idx"

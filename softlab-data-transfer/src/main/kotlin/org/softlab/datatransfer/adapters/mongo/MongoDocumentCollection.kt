@@ -32,6 +32,9 @@ import org.softlab.dataset.mongo.MongoTypesMapper
 import org.softlab.dataset.mongo.MongoTypesMapper.asNormalizedMap
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DocumentCollection
+import org.softlab.datatransfer.core.IndexDefinition
+import org.softlab.datatransfer.core.IndexFieldDefinition
+import org.softlab.datatransfer.core.IndexSortOrder
 
 
 class MongoDocumentCollection(
@@ -70,7 +73,11 @@ class MongoDocumentCollection(
                 }
             }
 
-        CollectionMetadata(collectionName, types)
+        CollectionMetadata(
+            name = collectionName,
+            fields = types,
+            indices = readIndices()
+        )
     }
 
     override suspend fun fetchMetadata(): CollectionMetadata = metadata
@@ -82,5 +89,90 @@ class MongoDocumentCollection(
             .find().projection(Projections.excludeId()).collect { doc ->
                 emit(doc.asNormalizedMap())
             }
+    }
+
+    private fun readIndices(): List<IndexDefinition> =
+        runBlocking {
+            val indices = mutableListOf<IndexDefinition>()
+            mongoDb.getCollection<Document>(collectionName).listIndexes().collect { index ->
+                readIndex(index)?.let(indices::add)
+            }
+            indices.sortedBy { it.name }
+        }
+
+    private fun readIndex(index: Document): IndexDefinition? {
+        val name = index.getString(INDEX_NAME_FIELD)
+        val keys = index[INDEX_KEY_FIELD] as? Document
+        return when {
+            name == ID_INDEX_NAME -> null
+            name.isNullOrBlank() || keys == null -> {
+                logger.warn { "Skipping Mongo index without a portable name or key document: $index" }
+                null
+            }
+            !isSupportedIndexOptions(index) -> {
+                logger.warn {
+                    "Skipping Mongo index '$name' on collection '$collectionName' because it has unsupported options"
+                }
+                null
+            }
+            else -> readIndexFields(name, keys)?.let { fields ->
+                IndexDefinition(
+                    name = name,
+                    fields = fields,
+                    unique = index.getBoolean(INDEX_UNIQUE_FIELD, false)
+                )
+            }
+        }
+    }
+
+    private fun readIndexFields(indexName: String, keys: Document): List<IndexFieldDefinition>? {
+        val fields = keys.map { (fieldName, order) ->
+            readIndexField(indexName, fieldName, order) ?: return null
+        }
+        return fields.ifEmpty {
+            logger.warn { "Skipping Mongo index '$indexName' on collection '$collectionName' because it has no fields" }
+            null
+        }
+    }
+
+    private fun readIndexField(indexName: String, fieldName: String, order: Any?): IndexFieldDefinition? =
+        when {
+            fieldName == WILDCARD_INDEX_FIELD -> {
+                logger.warn { "Skipping Mongo wildcard index '$indexName' on collection '$collectionName'" }
+                null
+            }
+            order == ASCENDING_INDEX_VALUE ->
+                IndexFieldDefinition(fieldName.lowercase(), IndexSortOrder.ASC)
+            order == DESCENDING_INDEX_VALUE ->
+                IndexFieldDefinition(fieldName.lowercase(), IndexSortOrder.DESC)
+            else -> {
+                logger.warn {
+                    "Skipping Mongo index '$indexName' on collection '$collectionName' because field " +
+                        "'$fieldName' has unsupported order or type '$order'"
+                }
+                null
+            }
+        }
+
+    private fun isSupportedIndexOptions(index: Document): Boolean =
+        listOf(
+            INDEX_PARTIAL_FILTER_FIELD,
+            INDEX_SPARSE_FIELD,
+            INDEX_EXPIRE_AFTER_SECONDS_FIELD,
+            INDEX_COLLATION_FIELD
+        ).none(index::containsKey)
+
+    companion object {
+        private const val ASCENDING_INDEX_VALUE = 1
+        private const val DESCENDING_INDEX_VALUE = -1
+        private const val ID_INDEX_NAME = "_id_"
+        private const val INDEX_COLLATION_FIELD = "collation"
+        private const val INDEX_EXPIRE_AFTER_SECONDS_FIELD = "expireAfterSeconds"
+        private const val INDEX_KEY_FIELD = "key"
+        private const val INDEX_NAME_FIELD = "name"
+        private const val INDEX_PARTIAL_FILTER_FIELD = "partialFilterExpression"
+        private const val INDEX_SPARSE_FIELD = "sparse"
+        private const val INDEX_UNIQUE_FIELD = "unique"
+        private const val WILDCARD_INDEX_FIELD = "\$**"
     }
 }

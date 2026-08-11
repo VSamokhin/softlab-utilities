@@ -1,3 +1,5 @@
+import org.gradle.api.file.DuplicatesStrategy
+
 plugins {
     id 'java-library'
     id 'com.gradleup.shadow'
@@ -5,4 +7,7 @@ plugins {
 
 shadowJar {
     archiveClassifier = ''
+    filesMatching('META-INF/*.kotlin_module') {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    }
 }

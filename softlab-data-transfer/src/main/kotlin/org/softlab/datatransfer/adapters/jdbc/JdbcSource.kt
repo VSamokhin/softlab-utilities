@@ -23,13 +23,14 @@ import org.softlab.dataset.jdbc.withConnection
 import org.softlab.dataset.jdbc.withStatement
 import org.softlab.datatransfer.core.DatabaseSource
 import org.softlab.datatransfer.core.DocumentCollection
+import org.softlab.datatransfer.core.SqlTableName
 
 
 open class JdbcSource(
     private val pool: JdbcConnectionPool,
     private val dialect: JdbcDialect,
     private val closePool: Boolean,
-    private val collectionFactory: (JdbcTableName, JdbcConnectionPool, JdbcDialect) -> DocumentCollection =
+    private val collectionFactory: (SqlTableName, JdbcConnectionPool, JdbcDialect) -> DocumentCollection =
         { tableName, pool, dialect -> JdbcDocumentCollection(tableName, pool, dialect) }
 ) : DatabaseSource {
     override fun getBackendName(): String = dialect.backendName
@@ -44,7 +45,7 @@ open class JdbcSource(
     override suspend fun countDocuments(collectionName: String): Long {
         val tableName = dialect.parseTableName(collectionName)
         pool.withStatement { stmt ->
-            stmt.executeQuery("SELECT COUNT(*) FROM $tableName;").use { rs ->
+            stmt.executeQuery("SELECT COUNT(*) FROM ${tableName.toSql()};").use { rs ->
                 return if (rs.next()) rs.getLong(1) else error("Could not count rows in $tableName")
             }
         }

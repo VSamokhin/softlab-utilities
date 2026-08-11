@@ -1,0 +1,107 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: Viktor Samokhin
+      changes:
+        - createTable:
+            tableName: users
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(255)
+              - column:
+                  name: email
+                  type: varchar(255)
+        - createTable:
+            tableName: products
+            columns:
+              - column:
+                  name: id
+                  type: int
+        - createTable:
+            tableName: single_pk
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: single_pk_pkey
+              - column:
+                  name: name
+                  type: varchar(255)
+        - createTable:
+            tableName: composite_pk
+            columns:
+              - column:
+                  name: tenant_id
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: composite_pk_pkey
+              - column:
+                  name: user_id
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: composite_pk_pkey
+              - column:
+                  name: email
+                  type: varchar(255)
+        - createTable:
+            tableName: no_key
+            columns:
+              - column:
+                  name: id
+                  type: int
+              - column:
+                  name: name
+                  type: varchar(255)
+        - createTable:
+            tableName: indexed_users
+            columns:
+              - column:
+                  name: id
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: indexed_users_pkey
+              - column:
+                  name: tenant_id
+                  type: int
+              - column:
+                  name: name
+                  type: varchar(255)
+              - column:
+                  name: email
+                  type: varchar(255)
+        - createIndex:
+            tableName: indexed_users
+            indexName: indexed_users_email_unique_idx
+            unique: true
+            columns:
+              - column:
+                  name: email
+        - createIndex:
+            tableName: indexed_users
+            indexName: indexed_users_name_desc_idx
+            columns:
+              - column:
+                  name: name
+                  descending: true
+        - createIndex:
+            tableName: indexed_users
+            indexName: indexed_users_tenant_name_idx
+            columns:
+              - column:
+                  name: tenant_id
+              - column:
+                  name: name
+        - createView:
+            viewName: active_users
+            selectQuery: SELECT id, name FROM users

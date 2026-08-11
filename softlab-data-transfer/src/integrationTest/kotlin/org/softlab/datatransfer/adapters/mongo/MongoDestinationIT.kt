@@ -23,10 +23,16 @@ import org.softlab.datataset.test.initiators.MongoInitiator
 import org.softlab.datataset.test.initiators.createMongoContainer
 import org.softlab.datatransfer.config.ConfigProvider
 import org.softlab.datatransfer.core.CollectionMetadata
+import org.softlab.datatransfer.core.IndexDefinition
+import org.softlab.datatransfer.core.IndexFieldDefinition
+import org.softlab.datatransfer.core.IndexSortOrder
+import org.softlab.datatransfer.core.PrimaryKeyDefinition
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 
@@ -211,6 +217,80 @@ class MongoDestinationIT {
     }
 
     @Test
+    fun `createIndexesAndConstraints() creates supported secondary indices after documents are inserted`() = runBlocking {
+        val metadata = usersMetadataWithPrimaryKeyAndIndices()
+
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            destination.createCollection(metadata)
+            destination.insertDocuments(
+                metadata.name,
+                flowOf(
+                    mapOf("id" to 1, "tenant_id" to 1, "name" to "Alice", "email" to "alice@example.com"),
+                    mapOf("id" to 2, "tenant_id" to 1, "name" to "Bob", "email" to "bob@example.com")
+                )
+            )
+            destination.createIndexesAndConstraints(metadata)
+        }
+
+        val actualMetadata = MongoDocumentCollection(metadata.name, mongoInitiator.getConnection()).fetchMetadata()
+
+        assertNull(actualMetadata.primaryKey)
+        assertContentEquals(metadata.indices, actualMetadata.indices)
+    }
+
+    @Test
+    fun `createIndexesAndConstraints() does nothing when metadata has no secondary indices`() = runBlocking {
+        val metadata = CollectionMetadata(
+            name = "users",
+            fields = mapOf("id" to FieldDefinition("id", "int")),
+            primaryKey = PrimaryKeyDefinition("users_pkey", listOf("id"))
+        )
+
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            destination.createCollection(metadata)
+            destination.createIndexesAndConstraints(metadata)
+        }
+
+        val actualMetadata = MongoDocumentCollection(metadata.name, mongoInitiator.getConnection()).fetchMetadata()
+
+        assertNull(actualMetadata.primaryKey)
+        assertContentEquals(emptyList(), actualMetadata.indices)
+    }
+
+    @Test
+    fun `createIndexesAndConstraints() fails when unique index data has duplicates`() = runBlocking {
+        val metadata = CollectionMetadata(
+            name = "users",
+            fields = mapOf(
+                "id" to FieldDefinition("id", "int"),
+                "email" to FieldDefinition("email", "string")
+            ),
+            indices = listOf(
+                IndexDefinition(
+                    name = "users_email_unique_idx",
+                    fields = listOf(IndexFieldDefinition("email")),
+                    unique = true
+                )
+            )
+        )
+
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            destination.createCollection(metadata)
+            destination.insertDocuments(
+                metadata.name,
+                flowOf(
+                    mapOf("id" to 1, "email" to "duplicate@example.com"),
+                    mapOf("id" to 2, "email" to "duplicate@example.com")
+                )
+            )
+
+            assertThrows<MongoCommandException> {
+                destination.createIndexesAndConstraints(metadata)
+            }
+        }
+    }
+
+    @Test
     fun `getBackendName() returns mongo`() {
         MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
             assertEquals("mongo", destination.getBackendName())
@@ -281,4 +361,30 @@ class MongoDestinationIT {
             .get("validator", Document::class.java)
             .get("\$jsonSchema", Document::class.java)
     }
+
+    private fun usersMetadataWithPrimaryKeyAndIndices(): CollectionMetadata =
+        CollectionMetadata(
+            name = "users",
+            fields = mapOf(
+                "id" to FieldDefinition("id", "int"),
+                "tenant_id" to FieldDefinition("tenant_id", "int"),
+                "name" to FieldDefinition("name", "string"),
+                "email" to FieldDefinition("email", "string")
+            ),
+            primaryKey = PrimaryKeyDefinition("users_pkey", listOf("id")),
+            indices = listOf(
+                IndexDefinition(
+                    name = "users_email_unique_idx",
+                    fields = listOf(IndexFieldDefinition("email")),
+                    unique = true
+                ),
+                IndexDefinition(
+                    name = "users_tenant_name_idx",
+                    fields = listOf(
+                        IndexFieldDefinition("tenant_id"),
+                        IndexFieldDefinition("name", IndexSortOrder.DESC)
+                    )
+                )
+            )
+        )
 }

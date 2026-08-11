@@ -17,6 +17,8 @@
 package org.softlab.datatransfer.adapters.mongo
 
 import com.mongodb.client.model.CreateCollectionOptions
+import com.mongodb.client.model.IndexOptions
+import com.mongodb.client.model.Indexes
 import com.mongodb.client.model.ValidationOptions
 import com.mongodb.kotlin.client.coroutine.MongoClient
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -29,12 +31,16 @@ import kotlinx.coroutines.flow.chunked
 import kotlinx.coroutines.launch
 import org.bson.BsonDocument
 import org.bson.Document
+import org.bson.conversions.Bson
 import org.softlab.dataset.mongo.MongoTypesMapper.asBsonDocument
 import org.softlab.datatransfer.config.DataTypeMappings
 import org.softlab.datatransfer.config.DataTypeMappingsConfig
 import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DatabaseDestination
+import org.softlab.datatransfer.core.IndexDefinition
+import org.softlab.datatransfer.core.IndexFieldDefinition
+import org.softlab.datatransfer.core.IndexSortOrder
 import org.softlab.datatransfer.core.MAX_PENDING_ROWS
 import org.softlab.datatransfer.core.REPORT_ON_INSERTS
 import org.softlab.datatransfer.core.TransferDocument
@@ -95,6 +101,20 @@ class MongoDestination(
         db.getCollection<Document>(collectionName).drop()
     }
 
+    override suspend fun createIndexesAndConstraints(metadata: CollectionMetadata) {
+        if (metadata.primaryKey != null) {
+            logger.warn {
+                "Skipping primary key '${metadata.primaryKey.name}' for Mongo collection '${metadata.name}'"
+            }
+        }
+
+        val collection = db.getCollection<Document>(metadata.name)
+        metadata.indices.forEach { index ->
+            logger.info { "Creating index '${index.name}' on Mongo collection '${metadata.name}'" }
+            collection.createIndex(index.toBson(), index.toOptions())
+        }
+    }
+
     private fun buildValidator(metadata: CollectionMetadata): Document {
         val properties = metadata.fields.values.associate { field ->
             field.name to Document(mapOf(
@@ -148,4 +168,27 @@ class MongoDestination(
     override fun close() {
         if (closeClient) client.close()
     }
+
+    private fun IndexDefinition.toBson(): Bson {
+        val keys = fields.map { it.toBson() }
+        return if (keys.size == 1) {
+            keys.single()
+        } else {
+            Indexes.compoundIndex(keys)
+        }
+    }
+
+    private fun IndexDefinition.toOptions(): IndexOptions {
+        val options = IndexOptions().unique(unique)
+        if (name != null) {
+            options.name(name)
+        }
+        return options
+    }
+
+    private fun IndexFieldDefinition.toBson(): Bson =
+        when (order) {
+            IndexSortOrder.ASC -> Indexes.ascending(name)
+            IndexSortOrder.DESC -> Indexes.descending(name)
+        }
 }

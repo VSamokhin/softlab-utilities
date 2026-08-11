@@ -24,12 +24,13 @@ import org.softlab.dataset.jdbc.withConnection
 import org.softlab.datatransfer.core.BATCH_SIZE
 import org.softlab.datatransfer.core.CollectionMetadata
 import org.softlab.datatransfer.core.DocumentCollection
+import org.softlab.datatransfer.core.SqlTableName
 import org.softlab.datatransfer.core.TransferDocument
 import java.sql.ResultSet
 
 
 open class JdbcDocumentCollection(
-    private val tableName: JdbcTableName,
+    private val tableName: SqlTableName,
     private val pool: JdbcConnectionPool,
     private val dialect: JdbcDialect
 ) : DocumentCollection {
@@ -39,7 +40,12 @@ open class JdbcDocumentCollection(
         pool.withConnection { connection ->
             if (dialect.tableExists(tableName, connection)) {
                 val columns = dialect.listColumns(tableName, connection)
-                CollectionMetadata(tableName.toString(), columns)
+                CollectionMetadata(
+                    name = tableName.toString(),
+                    fields = columns,
+                    primaryKey = dialect.readPrimaryKey(tableName, connection),
+                    indices = dialect.readIndices(tableName, connection)
+                )
             } else error("Table '$tableName' does not exist")
         }
     }
@@ -48,7 +54,7 @@ open class JdbcDocumentCollection(
 
     override fun readDocuments(): Flow<TransferDocument> = flow {
         pool.withConnection { connection ->
-            val sql = "SELECT * FROM $tableName;"
+            val sql = "SELECT * FROM ${tableName.toSql()};"
             logger.trace { "Executing SQL: $sql" }
             val commit = connection.autoCommit
             connection.autoCommit = false
