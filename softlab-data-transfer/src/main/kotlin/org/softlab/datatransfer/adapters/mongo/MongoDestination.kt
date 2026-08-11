@@ -82,7 +82,7 @@ class MongoDestination(
             "Collection '${metadata.name}' already exists, please drop it before proceeding"
         }
 
-        logger.info { "Creating collection '$metadata.name'" }
+        logger.info { "Creating collection '${metadata.name}'" }
         if (metadata.fields.isNotEmpty()) {
             val validator = buildValidator(metadata)
             val options = CreateCollectionOptions()
