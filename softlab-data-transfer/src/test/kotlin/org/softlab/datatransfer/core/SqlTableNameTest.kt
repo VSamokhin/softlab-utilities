@@ -5,6 +5,21 @@ import kotlin.test.assertEquals
 
 class SqlTableNameTest {
     @Test
+    fun `of() returns table without schema when value has no dot`() {
+        assertEquals(SqlTableName(null, "users"), SqlTableName.of("users"))
+    }
+
+    @Test
+    fun `of() splits schema from table name at first dot`() {
+        assertEquals(SqlTableName("schema1", "users"), SqlTableName.of("schema1.users"))
+    }
+
+    @Test
+    fun `of() keeps dots after schema in table name`() {
+        assertEquals(SqlTableName("schema2", "table.table"), SqlTableName.of("schema2.table.table"))
+    }
+
+    @Test
     fun `toString() includes unquoted schema when present`() {
         assertEquals("schema1.users", SqlTableName("schema1", "users").toString())
     }

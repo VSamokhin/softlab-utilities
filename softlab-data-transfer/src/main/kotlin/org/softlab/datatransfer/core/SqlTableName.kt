@@ -21,6 +21,19 @@ data class SqlTableName(
     val schema: String?,
     val table: String
 ) {
+    companion object {
+        fun of(tableName: String, defaultSchema: String? = null): SqlTableName {
+            val parts = tableName.split('.', limit = 2)
+            return if (parts.size == 1) SqlTableName(
+                schema = defaultSchema,
+                table = parts[0]
+            ) else SqlTableName(
+                schema = parts[0],
+                table = parts[1]
+            )
+        }
+    }
+
     override fun toString(): String =
         if (schema == null) table else "$schema.$table"
 

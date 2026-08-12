@@ -13,7 +13,8 @@ internal class TestJdbcDialect(
 ) {
     var beforeCreateTableCalls: List<SqlTableName> = emptyList()
 
-    override fun parseTableName(tableName: String): SqlTableName = SqlTableName(null, tableName)
+    override fun parseTableName(tableName: String): SqlTableName =
+        SqlTableName.of(tableName).copy(schema = null)
 
     override fun beforeCreateTable(tableName: SqlTableName, connection: Connection) {
         beforeCreateTableCalls += tableName
