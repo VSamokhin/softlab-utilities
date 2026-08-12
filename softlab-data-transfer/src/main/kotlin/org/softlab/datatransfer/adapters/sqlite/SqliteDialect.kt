@@ -35,7 +35,7 @@ class SqliteDialect : JdbcDialect(
     private val logger = KotlinLogging.logger {}
 
     override fun parseTableName(tableName: String): SqlTableName =
-        SqlTableName(null, tableName.substringAfter("."))
+        SqlTableName.of(tableName).copy(schema = null)
 
     override fun listColumns(tableName: SqlTableName, connection: Connection): Map<String, FieldDefinition> {
         return super.listColumns(tableName, connection).mapValues { field ->

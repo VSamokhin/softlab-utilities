@@ -151,7 +151,7 @@ class MigratorMetadataIT : BackendTestSupport() {
     }
 
     @Test
-    fun `postgres to mongo maps supported secondary indices`() = runBlocking {
+    fun `postgres to mongo maps primary key to unique index and supported secondary indices`() = runBlocking {
         createPostgresSource()
 
         migrate(
@@ -166,7 +166,7 @@ class MigratorMetadataIT : BackendTestSupport() {
             it.fetchMetadata("public.users")
         }
         assertNull(metadata.primaryKey)
-        assertContentEquals(expectedIndices(), metadata.indices)
+        assertContentEquals(expectedIndicesWithPrimaryKey("users_pkey"), metadata.indices)
     }
 
     @Test
@@ -186,7 +186,7 @@ class MigratorMetadataIT : BackendTestSupport() {
     }
 
     @Test
-    fun `sqlite to mongo maps supported secondary indices`() = runBlocking {
+    fun `sqlite to mongo maps primary key to unique index and supported secondary indices`() = runBlocking {
         val sourceDb = newSqliteDb()
         createSqliteSource(sourceDb)
 
@@ -202,7 +202,7 @@ class MigratorMetadataIT : BackendTestSupport() {
             it.fetchMetadata("users")
         }
         assertNull(metadata.primaryKey)
-        assertContentEquals(expectedIndices(), metadata.indices)
+        assertContentEquals(expectedIndicesWithPrimaryKey("users_pkey"), metadata.indices)
     }
 
     @Test
@@ -379,6 +379,15 @@ class MigratorMetadataIT : BackendTestSupport() {
                 )
             )
         )
+
+    private fun expectedIndicesWithPrimaryKey(primaryKeyIndexName: String): List<IndexDefinition> =
+        (
+            expectedIndices() + IndexDefinition(
+                name = primaryKeyIndexName,
+                fields = listOf(IndexFieldDefinition("id")),
+                unique = true
+            )
+        ).sortedBy { it.name }
 
     private fun newSqliteDb(): String = sqliteDb("data-transfer-metadata")
 }

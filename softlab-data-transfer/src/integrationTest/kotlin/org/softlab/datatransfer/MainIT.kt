@@ -13,6 +13,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import org.softlab.datataset.test.initiators.MongoInitiator
 import org.softlab.datataset.test.initiators.RedisInitiator
 import org.softlab.datatransfer.adapters.AdapterProvider
+import org.softlab.datatransfer.core.SqlTableName
 import kotlin.test.assertEquals
 
 
@@ -232,7 +233,7 @@ class MainIT : BackendTestSupport() {
                 destinationSource.listCollections().toList()
                     .map { it.fetchMetadata().name }
             }
-            val expectedCollection = source.collectionName.substringAfter(".")
+            val expectedCollection = SqlTableName.of(source.collectionName).table
             assertThat(targetCollections, hasItem(containsString(expectedCollection)))
 
             val targetCount = runBlocking { destinationSource.countDocuments(source.collectionName) }

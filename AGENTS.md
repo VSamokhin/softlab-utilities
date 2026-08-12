@@ -37,6 +37,7 @@
 ```
 
 * Please follow these guidelines in regard to tests: 
+  * Emitting code for tests always keep it simple and the logic easy to follow. Avoid adding additional classes or functions until it can significantly simplify or reduce further maintenance. In tests prefer simplicity and clarity over efficiency.
   * When writing new code or changing existing code, always add unit tests for it, and if possible, add integration tests as well.
   * Keep corresponding tests and test classes up to date when changing the code or renaming source code modules.
   * For test modules a file header is not needed.
@@ -46,11 +47,14 @@
   * When testing `toString()` correctness, use `com.jparams:to-string-verifier` library.
   * Do not wrap entire test body with `runBlocking`, but instead use `runBlocking` only on particular suspend call sites.
   * For assertion of iterables, use `kotlin.test.assertContentEquals`
-  * Don't provide an error message to assertion functions as most of the time it's excessive.
+  * Don't provide an error message in assertions as most of the time it's excessive.
 
 * The following is important when finishing working on a task:
-  * Always conduct a code review after code is ready and tests passed
-  * Always wait for a commit approval if not stated otherwise
+  * Always conduct a code review after code is ready and tests passed.
+  * Always wait for a clear commit approval if not stated otherwise.
+  * If build is set up with GitHub Actions, after a push to the remote or when a PR has been raised, wait for the build to finish and act in accordance with the results.
+  * Always create a PR when merging any branch to the main.
+  * After a successful merge to the main, assure the merge has been done correctly and then ask whether the source branch should be deleted.
 
 * To update the JaCoCo coverage thresholds:
   * Build the whole project with `./gradlew clean build`.
@@ -64,4 +68,4 @@
   * Check whether a newer version of Gradle exists, if so, update project's Gradle wrapper
   * Execute `./gradlew refreshVersions`, then inspect `refreshVersions` file for available updated versions of the dependencies. Keep only latest stable releases, non-stable releases can be permitted in exceptional cases, e.g. to prevent compatibility issues across the build or dependency chains.
   * Build the whole project to prove the version update has succeeded, rollback failing component updates, if any, iterate until a success.
-  * In a case when github workflows are used, check for updated github actions and apply them.
+  * In a case when github workflows are used, check for updated GitHub Actions and apply them.

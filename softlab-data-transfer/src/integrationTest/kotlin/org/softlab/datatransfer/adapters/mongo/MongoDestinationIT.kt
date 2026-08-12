@@ -27,6 +27,8 @@ import org.softlab.datatransfer.core.IndexDefinition
 import org.softlab.datatransfer.core.IndexFieldDefinition
 import org.softlab.datatransfer.core.IndexSortOrder
 import org.softlab.datatransfer.core.PrimaryKeyDefinition
+import org.softlab.datatransfer.core.SqlTableName
+import org.softlab.datatransfer.core.sqlName
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
 import kotlin.test.assertContentEquals
@@ -217,7 +219,7 @@ class MongoDestinationIT {
     }
 
     @Test
-    fun `createIndexesAndConstraints() creates supported secondary indices after documents are inserted`() = runBlocking {
+    fun `createIndexesAndConstraints() creates primary key and supported secondary indices after documents are inserted`() = runBlocking {
         val metadata = usersMetadataWithPrimaryKeyAndIndices()
 
         MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
@@ -235,11 +237,11 @@ class MongoDestinationIT {
         val actualMetadata = MongoDocumentCollection(metadata.name, mongoInitiator.getConnection()).fetchMetadata()
 
         assertNull(actualMetadata.primaryKey)
-        assertContentEquals(metadata.indices, actualMetadata.indices)
+        assertContentEquals(metadata.expectedMongoIndices(), actualMetadata.indices)
     }
 
     @Test
-    fun `createIndexesAndConstraints() does nothing when metadata has no secondary indices`() = runBlocking {
+    fun `createIndexesAndConstraints() creates primary key when metadata has no secondary indices`() = runBlocking {
         val metadata = CollectionMetadata(
             name = "users",
             fields = mapOf("id" to FieldDefinition("id", "int")),
@@ -254,7 +256,34 @@ class MongoDestinationIT {
         val actualMetadata = MongoDocumentCollection(metadata.name, mongoInitiator.getConnection()).fetchMetadata()
 
         assertNull(actualMetadata.primaryKey)
-        assertContentEquals(emptyList(), actualMetadata.indices)
+        assertContentEquals(
+            listOf(IndexDefinition("users_pkey", listOf(IndexFieldDefinition("id")), unique = true)),
+            actualMetadata.indices
+        )
+    }
+
+    @Test
+    fun `createIndexesAndConstraints() fails when primary key data has duplicates`() = runBlocking {
+        val metadata = CollectionMetadata(
+            name = "users",
+            fields = mapOf("id" to FieldDefinition("id", "int")),
+            primaryKey = PrimaryKeyDefinition("users_pkey", listOf("id"))
+        )
+
+        MongoDestination(mongoInitiator.dbUrl, dataTypeMappings).use { destination ->
+            destination.createCollection(metadata)
+            destination.insertDocuments(
+                metadata.name,
+                flowOf(
+                    mapOf("id" to 1),
+                    mapOf("id" to 1)
+                )
+            )
+
+            assertThrows<MongoCommandException> {
+                destination.createIndexesAndConstraints(metadata)
+            }
+        }
     }
 
     @Test
@@ -387,4 +416,17 @@ class MongoDestinationIT {
                 )
             )
         )
+
+    private fun CollectionMetadata.expectedMongoIndices(): List<IndexDefinition> =
+        (
+            listOfNotNull(
+                primaryKey?.let {
+                    IndexDefinition(
+                        name = it.sqlName(SqlTableName.of(name)),
+                        fields = it.fields.map { field -> IndexFieldDefinition(field) },
+                        unique = true
+                    )
+                }
+            ) + indices
+        ).sortedBy { it.name }
 }

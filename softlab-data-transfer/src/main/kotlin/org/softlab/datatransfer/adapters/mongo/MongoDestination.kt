@@ -42,8 +42,11 @@ import org.softlab.datatransfer.core.IndexDefinition
 import org.softlab.datatransfer.core.IndexFieldDefinition
 import org.softlab.datatransfer.core.IndexSortOrder
 import org.softlab.datatransfer.core.MAX_PENDING_ROWS
+import org.softlab.datatransfer.core.PrimaryKeyDefinition
 import org.softlab.datatransfer.core.REPORT_ON_INSERTS
+import org.softlab.datatransfer.core.SqlTableName
 import org.softlab.datatransfer.core.TransferDocument
+import org.softlab.datatransfer.core.sqlName
 import org.softlab.datatransfer.util.Mongo
 import org.softlab.datatransfer.util.reduce
 import java.util.LinkedList
@@ -82,7 +85,7 @@ class MongoDestination(
             "Collection '${metadata.name}' already exists, please drop it before proceeding"
         }
 
-        logger.info { "Creating collection '$metadata.name'" }
+        logger.info { "Creating collection '${metadata.name}'" }
         if (metadata.fields.isNotEmpty()) {
             val validator = buildValidator(metadata)
             val options = CreateCollectionOptions()
@@ -102,14 +105,9 @@ class MongoDestination(
     }
 
     override suspend fun createIndexesAndConstraints(metadata: CollectionMetadata) {
-        if (metadata.primaryKey != null) {
-            logger.warn {
-                "Skipping primary key '${metadata.primaryKey.name}' for Mongo collection '${metadata.name}'"
-            }
-        }
-
         val collection = db.getCollection<Document>(metadata.name)
-        metadata.indices.forEach { index ->
+        val indices = listOfNotNull(metadata.primaryKey?.toUniqueIndex(metadata.name)) + metadata.indices
+        indices.forEach { index ->
             logger.info { "Creating index '${index.name}' on Mongo collection '${metadata.name}'" }
             collection.createIndex(index.toBson(), index.toOptions())
         }
@@ -191,4 +189,11 @@ class MongoDestination(
             IndexSortOrder.ASC -> Indexes.ascending(name)
             IndexSortOrder.DESC -> Indexes.descending(name)
         }
+
+    private fun PrimaryKeyDefinition.toUniqueIndex(collectionName: String): IndexDefinition =
+        IndexDefinition(
+            name = sqlName(SqlTableName.of(collectionName)),
+            fields = fields.map { IndexFieldDefinition(it) },
+            unique = true
+        )
 }

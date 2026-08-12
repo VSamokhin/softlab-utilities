@@ -26,15 +26,17 @@ class PostgresDialect : JdbcDialect(
     backendName = "postgres",
     supportsConcurrentInserts = true
 ) {
-    override fun parseTableName(tableName: String): SqlTableName = SqlTableName(
-        schema = tableName.substringBefore(".", "public"),
-        table = tableName.substringAfter(".")
-    )
+    override fun parseTableName(tableName: String): SqlTableName =
+        SqlTableName.of(tableName, defaultSchema = DEFAULT_SCHEMA)
 
     override fun beforeCreateTable(tableName: SqlTableName, connection: Connection) {
         val schema = tableName.schema ?: return
         connection.createStatement().use { stmt ->
             stmt.execute("CREATE SCHEMA IF NOT EXISTS ${schema.toSqlIdentifier()};")
         }
+    }
+
+    companion object {
+        private const val DEFAULT_SCHEMA = "public"
     }
 }
