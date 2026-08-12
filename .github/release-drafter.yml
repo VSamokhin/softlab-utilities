@@ -3,13 +3,14 @@ tag-template: '$RESOLVED_VERSION'
 tag-prefix: v
 categories:
   - title: 'Features'
-    labels:
-      - 'feature'
+    when:
+      label: 'feature'
   - title: 'Bug Fixes'
-    labels:
-      - 'fix'
+    when:
+      label: 'fix'
   - title: 'Maintenance'
-    label: 'chore'
+    when:
+      label: 'chore'
 autolabeler:
   - label: 'feature'
     branch:

@@ -21,8 +21,7 @@ jobs:
   update_release_draft:
     if: |
       github.event_name == 'pull_request' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      github.event_name == 'push'
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     permissions:
       # write permission is required to create a github release
       contents: write
